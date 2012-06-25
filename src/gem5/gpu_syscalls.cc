@@ -514,6 +514,10 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
+    Addr sim_devPtr = *((Addr*)helper.getParam(0));
+    size_t sim_size = *((size_t*)helper.getParam(1));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMalloc(devPtr = %x, size = %d)\n", sim_devPtr, sim_size);
+
     CUctx_st* context = GPGPUSim_Context(tc);
 
     if (context->get_device()->get_gpgpu()->useGem5Mem) {
@@ -524,16 +528,12 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
         return;
     }
 
-    Addr sim_devPtr = *((Addr*)helper.getParam(0));
-    size_t sim_size = *((size_t*)helper.getParam(1));
-
     uint64_t i = 0;
     uint64_t *ip = &i;
     void **devPtr = (void**)&ip;
 
     *devPtr = context->get_device()->get_gpgpu()->gpu_malloc(sim_size);
     helper.writeBlob(sim_devPtr, (uint8_t*)(devPtr), sizeof(void *));
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMalloc(devPtr = %x, size = %d)\n", sim_devPtr, sim_size);
 
     printf("GPGPU-Sim PTX: cudaMallocing %zu bytes starting at 0x%llx..\n", sim_size, (unsigned long long) *devPtr);
     if (*devPtr) {
@@ -547,6 +547,10 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
 void
 cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_ptr = *((Addr*)helper.getParam(0));
+    size_t sim_size = *((size_t*)helper.getParam(1));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMallocHost(ptr = %x, size = %d)\n", sim_ptr, sim_size);
 
     CUctx_st* context = GPGPUSim_Context(tc);
 
@@ -1432,11 +1436,11 @@ cudaConfigureCall(ThreadContext *tc, gpusyscall_t *call_params)
     dim3 sim_gridDim = *((dim3*)helper.getParam(0));
     dim3 sim_blockDim = *((dim3*)helper.getParam(1));
     size_t sim_sharedMem = *((size_t*)helper.getParam(2));
-    cudaStream_t sim_stream = *((cudaStream_t*)helper.getParam(3));
+//    cudaStream_t sim_stream = *((cudaStream_t*)helper.getParam(3));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaConfigureCall(gridDim, blockDim, sharedMem = %x, stream)\n", sim_sharedMem);
 
     struct CUstream_st *stream = NULL;
-    assert(!sim_stream);
+    assert(!(*((cudaStream_t*)helper.getParam(3))));
 
     g_cuda_launch_stack.push_back( kernel_config(sim_gridDim, sim_blockDim, sim_sharedMem, stream) );
     g_last_cudaError = cudaSuccess;
@@ -1878,7 +1882,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     if (found) {
         printf("GPGPU-Sim PTX: Loading PTX for %s, capability = %s\n",
                 fat_cubin->ident, fat_cubin->ptx[selected_capability].gpuProfileName );
-        symbol_table *symtab;
+        symbol_table *symtab = NULL;
         const char *ptx = fat_cubin->ptx[selected_capability].ptx;
         if (context->get_device()->get_gpgpu()->get_config().convert_to_ptxplus()) {
             panic("GPGPU-Sim PTXPLUS: gem5 + GPGPU-Sim does not support PTXPLUS!");
@@ -1945,7 +1949,7 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    void** sim_fatCubinHandle = *((void***)helper.getParam(0));
+//    void** sim_fatCubinHandle = *((void***)helper.getParam(0));
     char* sim_hostVar = *((char**)helper.getParam(1));
     Addr sim_deviceAddress = *((Addr*)helper.getParam(2));
     Addr sim_deviceName = *((Addr*)helper.getParam(3));
@@ -1954,7 +1958,7 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
     int sim_constant = *((int*)helper.getParam(6));
     int sim_global = *((int*)helper.getParam(7));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = %x, deviceAddress* = %x, deviceName* = %x, ext = %d, size = %d, constant = %d, global = %d)\n",
-            sim_fatCubinHandle, (void*)sim_hostVar, sim_deviceAddress,
+            /*sim_fatCubinHandle*/ 0, (void*)sim_hostVar, sim_deviceAddress,
             sim_deviceName, sim_ext, sim_size, sim_constant, sim_global);
 
     const char* deviceAddress = new char[MAX_STRING_LEN];
@@ -2017,15 +2021,15 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    void** sim_fatCubinHandle = *((void***)helper.getParam(0));
+//    void** sim_fatCubinHandle = *((void***)helper.getParam(0));
     const struct textureReference* sim_hostVar = *((const struct textureReference**)helper.getParam(1));
-    Addr sim_deviceAddress = *((Addr*)helper.getParam(2));
+//    Addr sim_deviceAddress = *((Addr*)helper.getParam(2));
     Addr sim_deviceName = *((Addr*)helper.getParam(3));
     int sim_dim = *((int*)helper.getParam(4));
     int sim_norm = *((int*)helper.getParam(5));
     int sim_ext = *((int*)helper.getParam(6));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = %x, deviceAddress* = %x, deviceName* = %x, dim = %d, norm = %d, ext = %d)\n",
-            sim_fatCubinHandle, (void*)sim_hostVar, sim_deviceAddress,
+            /*sim_fatCubinHandle*/ 0, (void*)sim_hostVar, /*sim_deviceAddress*/ 0,
             sim_deviceName, sim_dim, sim_norm, sim_ext);
 
     uint8_t *buf = new uint8_t[MAX_STRING_LEN];
