@@ -578,23 +578,10 @@ void
 ShaderCore::addWriteHint(Addr addr, size_t size, const void* data)
 {
     DPRINTF(ShaderCoreAccess, "[SC:%d] Received write hint, addr: 0x%x, size: %d\n", id, addr, size);
-    std::list<MemRequestHint*>::iterator it = memWriteHints[addr].begin();
-    if (it == memWriteHints[addr].end()) {
-        MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Write);
-        hint->addData(size, data);
-        hint->tick = curTick();
-        memWriteHints[addr].push_back(hint);
-    } else {
-        assert(memWriteHints[addr].size() == 1);
-        MemRequestHint* hint = *it;
-        if (size != hint->getSize()) {
-            panic("Need to implement partial write overlap handling");
-        }
-        if (curTick() >= hint->tick) {
-            hint->addData(size, data);
-            hint->tick = curTick();
-        }
-    }
+    MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Write);
+    hint->addData(size, data);
+    hint->tick = curTick();
+    memWriteHints[addr].push_back(hint);
 }
 
 void

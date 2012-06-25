@@ -261,10 +261,10 @@ void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* dat
 
 Addr StreamProcessorArray::allocMemory(size_t length)
 {
-    if (FullSystem) {
+//    if (FullSystem) {
         warn("SPArray: Attempt FS memory allocation of %d bytes... Returning munged ptr 0\n", length);
         return 0xDEADBEEF;
-    }
+//    }
 
     // get a new address (NOTE: there's no way it's already allocated)
     // Also NOTE: gpu has its own brk pointer. I guess it's possible that
