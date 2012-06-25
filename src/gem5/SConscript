@@ -1,0 +1,10 @@
+
+
+
+Import('*')
+
+
+if env['TARGET_ISA'] != 'no':
+    Source('g3_syscalls.cc', Werror=False)
+
+DebugFlag('GPGPUSyscalls')
