@@ -1,0 +1,6 @@
+syntax: glob
+cscope.files
+cscope.out
+*.pyc
+*~
+.*.swp
