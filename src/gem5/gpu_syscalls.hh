@@ -288,6 +288,7 @@ void cudaThreadExit(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaThreadSynchronize(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaSynchronizeThreads(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params);
+void __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaUnregisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params);
@@ -408,7 +409,8 @@ cudaFunc_t gpgpu_funcs[] = {
         cudaWGLGetDevice,        /* 77 */
         __cudaMutexOperation,        /* 78 */
         __cudaTextureFetch,        /* 79 */
-        __cudaSynchronizeThreads        /* 80 */
+        __cudaSynchronizeThreads,        /* 80 */
+        __cudaRegisterFatBinaryFinalize    /* 81 */
 };
 
 #endif
