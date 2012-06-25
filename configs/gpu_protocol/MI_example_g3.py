@@ -38,19 +38,17 @@ class Cache(RubyCache):
 def create_system(options, system, piobus, dma_devices, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
-        panic("This script requires the GPGPU-sim to be built.")
+        m5.util.panic("This script requires GPGPU-Sim integration to be built.")
 
-    # run the original protocol script
-    buildEnv['PROTOCOL'] = buildEnv['PROTOCOL'][:-3]
+    # Run the original protocol script
+    buildEnv['PROTOCOL'] = buildEnv['PROTOCOL'][:-7]
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
         (cpu_sequencers, dir_cntrls, all_cntrls) = \
-             eval("%s.create_system(options, system, piobus, \
-                                    dma_devices, ruby_system)" \
-                  % protocol)
+            eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
     except:
-        print "Error: could not create sytem for ruby protocol inside g3 system %s" % protocol
+        print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
 
     #
@@ -60,69 +58,64 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     #
     l1_cntrl_nodes = []
 
-
-    #cache for stream processor
+    #
+    # Caches for the stream processors
     #
     for i in xrange(options.num_sc):
-       # First create the Ruby objects associated with this cpu
-       # Only one cache exists for this protocol, so by default use the L1D
-       # config parameters.
-       #
-       cache = Cache(size = options.sc_l1_size,
-           assoc = options.sc_l1_assoc, replacement_policy = "LRU")
+        # First create the Ruby objects associated with this cpu
+        # Only one cache exists for this protocol, so by default use the L1D
+        # config parameters.
+        #
+        cache = Cache(size = options.sc_l1_size,
+                      assoc = options.sc_l1_assoc,
+                      replacement_policy = "LRU")
 
-       #
-       # Only one unified L1 cache exists.  Can cache instructions and data.
-       #
-       cpu_seq = RubySequencer(version = options.num_cpus+i,
-                               icache = cache,
-                               dcache = cache,
-                               physMemPort = system.physmem.port,
-                               physmem = system.physmem,
-                               access_phys_mem = False,
-                               ruby_system = ruby_system)
 
-       l1_cntrl = L1Cache_Controller(version = options.num_cpus+i,
-                                       cntrl_id = len(all_cntrls)+i,
-                                       sequencer = cpu_seq,
-                                       cacheMemory = cache,
-                                       send_evictions = (
-                                           options.cpu_type == "detailed"),
-                                       ruby_system = ruby_system)
+        l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
+                                cntrl_id = len(all_cntrls) + i,
+                                cacheMemory = cache,
+                                send_evictions = (options.cpu_type == "detailed"),
+                                ruby_system = ruby_system)
 
-       #exec("system.l1_cntrl_sp = l1_cntrl")
-       if (i<10):
-           exec("system.l1_cntrl_sp0%d = l1_cntrl" % i)
-       else:
-           exec("system.l1_cntrl_sp%d = l1_cntrl" % i)
-       #
-       # Add controllers and sequencers to the appropriate lists
-       #
-       cpu_sequencers.append(cpu_seq)
-       l1_cntrl_nodes.append(l1_cntrl)
+        #
+        # Only one unified L1 cache exists.  Can cache instructions and data.
+        #
+        cpu_seq = RubySequencer(version = options.num_cpus + i,
+                                icache = cache,
+                                dcache = cache,
+                                access_phys_mem = True,
+                                ruby_system = ruby_system)
 
-        ######################################################################################
+        l1_cntrl.sequencer = cpu_seq
+
+        exec("system.l1_cntrl_sp%02d = l1_cntrl" % i)
+        #
+        # Add controllers and sequencers to the appropriate lists
+        #
+        cpu_sequencers.append(cpu_seq)
+        l1_cntrl_nodes.append(l1_cntrl)
+
+
     #copy engine cache (make as small as possible, ideally 0)
     cache = Cache(size = "4kB", assoc = 2)
+
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
+                                  cntrl_id = len(all_cntrls) + options.num_sc,
+                                  send_evictions = (
+                                      options.cpu_type == "detailed"),
+                                  cacheMemory = cache,
+                                  ruby_system = ruby_system)
 
     #
     # Only one unified L1 cache exists.  Can cache instructions and data.
     #
-    cpu_seq = RubySequencer(version = options.num_cpus+options.num_sc,
-                               icache = cache,
-                               dcache = cache,
-                               physMemPort = system.physmem.port,
-                               physmem = system.physmem,
-                               access_phys_mem = True,
-                               ruby_system = ruby_system)
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+                            icache = cache,
+                            dcache = cache,
+                            access_phys_mem = True,
+                            ruby_system = ruby_system)
 
-    l1_cntrl = L1Cache_Controller(version = options.num_cpus+options.num_sc,
-                                    cntrl_id = len(all_cntrls)+options.num_sc,
-                                    sequencer = cpu_seq,
-                                    send_evictions = (
-                                        options.cpu_type == "detailed"),
-                                    cacheMemory = cache,
-                                    ruby_system = ruby_system)
+    l1_cntrl.sequencer = cpu_seq
 
     system.l1_cntrl_ce = l1_cntrl
 

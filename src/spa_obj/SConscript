@@ -46,6 +46,7 @@ DebugFlag('StreamProcessorArray')
 
 DebugFlag('ShaderCore')
 DebugFlag('ShaderCoreAccess')
+DebugFlag('ShaderCoreFetch')
 DebugFlag('ShaderCoreTick')
 
 DebugFlag('SPACopyEngine')

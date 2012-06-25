@@ -45,7 +45,7 @@ class SPACopyEngine : public MemObject
 private:
     typedef SPACopyEngineParams Params;
 
-    class CEPort : public SimpleTimingPort
+    class CEPort : public MasterPort
     {
         friend class SPACopyEngine;
 
@@ -57,7 +57,7 @@ private:
 
     public:
         CEPort(const std::string &_name, SPACopyEngine *_proc, int _idx)
-        : SimpleTimingPort(_name, _proc), engine(_proc), idx(_idx)
+        : MasterPort(_name, _proc), engine(_proc), idx(_idx)
         {
             outstandingPkt = NULL;
         }
@@ -68,6 +68,7 @@ private:
         virtual bool recvTiming(PacketPtr pkt);
         virtual void recvRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
+        virtual void recvFunctional(PacketPtr pkt);
     };
 
     CEPort port;
@@ -138,10 +139,10 @@ private:
 public:
 
     SPACopyEngine(const Params *p);
-    virtual Port *getPort(const std::string &if_name, int idx = -1);
+    virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
     void finishTranslation(WholeTranslationState *state);
 
-    int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *stream);
+    int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream);
 
     void cePrintStats(std::ostream& out);
 };

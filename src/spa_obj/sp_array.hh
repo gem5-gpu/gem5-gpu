@@ -180,7 +180,7 @@ public:
     StreamProcessorArray(const Params *p);
 
     /// Called during GPGPU-Sim initialization to initialize the SPA
-    void start(LiveProcess *p, ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
+    void start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
 
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
     int getUseGem5Mem(){ return useGem5Mem; }
@@ -225,6 +225,9 @@ public:
 
     /// Begins a timing memory copy from src to dst
     void memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream);
+
+    /// Begins a timing memory copy from src to/from the symbol+offset
+    void memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream);
 };
 
 /**

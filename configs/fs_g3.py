@@ -44,6 +44,8 @@ addToPath('../../configs/common')
 addToPath('../../configs/ruby')
 addToPath('gpu_protocol')
 
+import GPUOptions
+import Options
 import Ruby
 
 from FSConfig import *
@@ -57,29 +59,22 @@ config_path = os.path.dirname(os.path.abspath(__file__))
 config_root = os.path.join(config_path,"../../configs")
 
 parser = optparse.OptionParser()
-# System options
-parser.add_option("--kernel", action="store", type="string")
-parser.add_option("--script", action="store", type="string")
+Options.addCommonOptions(parser)
+Options.addFSOptions(parser)
+Options.addMemCtrlOptions(parser)
+GPUOptions.addGPUOptions(parser)
+
 # Benchmark options
-parser.add_option("-b", "--benchmark", action="store", type="string",
-                  dest="benchmark",
-                  help="Specify the benchmark to run. Available benchmarks: %s"\
-                  % DefinedBenchmarks)
 parser.add_option("-o", "--options", default="",
     help='The options to pass to the binary, use " " around the entire string')
 parser.add_option("-i", "--input", default="", help="Read stdin from a file.")
 parser.add_option("--output", default="", help="Redirect stdout to a file.")
 parser.add_option("--errout", default="", help="Redirect stderr to a file.")
 
-# GPGPU-Sim options
-execfile(os.path.join(config_path, "gpgpu-sim-options.py"))
-
 #
 # Add the ruby specific and protocol specific options
 #
 Ruby.define_options(parser)
-
-execfile(os.path.join(config_root, "common", "Options.py"))
 
 (options, args) = parser.parse_args()
 options.ruby = True
@@ -113,7 +108,7 @@ if buildEnv['TARGET_ISA'] == "alpha":
     system = makeLinuxAlphaRubySystem(test_mem_mode, bm[0])
 elif buildEnv['TARGET_ISA'] == "x86":
     system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
-    setWorkCountOptions(system, options)
+    Simulation.setWorkCountOptions(system, options)
 else:
     fatal("incapable of building non-alpha or non-x86 full system!")
 
@@ -124,7 +119,11 @@ if options.script is not None:
     system.readfile = options.script
 
 # parse gpgpu config file
-f = open("gpgpusim.config")
+gpgpusimconfig = os.path.join(os.getcwd(), 'gpgpusim.config')
+if not os.path.isfile(gpgpusimconfig):
+    print >>sys.stderr, "Unable to find gpgpusim config (%s)" % gpgpusimconfig
+    sys.exit(1)
+f = open(gpgpusimconfig, 'r')
 config = f.read()
 
 if options.num_sc == -1:
@@ -172,15 +171,20 @@ system.stream_proc_array.ce = SPACopyEngine(driverDelay=5000000)
 system.stream_proc_array.useGem5Mem = options.gpu_ruby
 system.stream_proc_array.sharedMemDelay = options.shMemDelay
 system.stream_proc_array.nonBlocking = options.gpu_nonblocking
-buildEnv['PROTOCOL'] +=  '_g3'
-Ruby.create_system(options, system, system.piobus, system._dma_devices)
+buildEnv['PROTOCOL'] +=  '_fusion'
+Ruby.create_system(options, system, system.piobus, system._dma_ports)
 system.stream_proc_array.ruby = system.ruby
+system.ruby.block_size_bytes = 128
 
 if options.fermi:
     system.ruby.clock = "2.6GHz" # NOTE: This is the memory clock
 
 for i in xrange(options.num_sc):
-   system.stream_proc_array.shader_cores[i].scPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    system.stream_proc_array.shader_cores[i].dataPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    system.stream_proc_array.shader_cores[i].instPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    if buildEnv['TARGET_ISA'] == "x86":
+        system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
     #
@@ -202,13 +206,15 @@ if options.baseline:
                 exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 5" % i)
 
 if options.fermi:
-   system.ruby.block_size_bytes = 128
    for i in xrange(options.num_dirs):
       exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 1" % i)
       exec("system.dir_cntrl%d.memBuffer.mem_ctl_latency = 1" % i)
 
 #Tie the copy engine port to its cache
 system.stream_proc_array.ce.cePort = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+if buildEnv['TARGET_ISA'] == "x86":
+    system.stream_proc_array.ce.itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    system.stream_proc_array.ce.dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
 root = Root(full_system = True, system = system)
 Simulation.run(options, root, system, FutureClass)

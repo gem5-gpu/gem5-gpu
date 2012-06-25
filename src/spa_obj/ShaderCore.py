@@ -32,7 +32,8 @@ from m5.proxy import *
 
 class ShaderCore(MemObject):
         type = 'ShaderCore'
-        scPort = MasterPort("the cpu Ports")
+        dataPort = MasterPort("The data cache port for this SC")
+        instPort = MasterPort("The instruction cache port for this SC")
         sys = Param.System(Parent.any, "system sc will run on")
 
         if buildEnv['TARGET_ISA'] == 'x86':

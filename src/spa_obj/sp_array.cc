@@ -45,6 +45,7 @@
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
 #include "sp_array.hh"
+#include "../gpgpu-sim/cuda-sim/cuda-sim.h"
 
 using namespace TheISA;
 using namespace std;
@@ -53,9 +54,10 @@ StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
         SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-        copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem), sharedMemDelay(p->sharedMemDelay),
-        launchDelay(p->launchDelay), returnDelay(p->returnDelay), ruby(p->ruby),
-        gpuTickConversion(p->gpuTickConv)
+        copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem),
+        sharedMemDelay(p->sharedMemDelay), launchDelay(p->launchDelay),
+        returnDelay(p->returnDelay), ruby(p->ruby),
+        gpuTickConversion(p->gpuTickConv), clearTick(0)
 {
     streamDelay = 1;
     assert(singletonPointer == NULL);
@@ -192,10 +194,10 @@ void StreamProcessorArray::streamRequestTick(int ticks) {
 }
 
 
-void StreamProcessorArray::start(LiveProcess *p, ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager)
+void StreamProcessorArray::start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager)
 {
-    process = p;
     tc = _tc;
+    process = (LiveProcess*)tc->getProcessPtr();
     theGPU = the_gpu;
     streamManager = _stream_manager;
 
@@ -259,6 +261,11 @@ void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* dat
 
 Addr StreamProcessorArray::allocMemory(size_t length)
 {
+    if (FullSystem) {
+        warn("SPArray: Attempt FS memory allocation of %d bytes... Returning munged ptr 0\n", length);
+        return 0xDEADBEEF;
+    }
+
     // get a new address (NOTE: there's no way it's already allocated)
     // Also NOTE: gpu has its own brk pointer. I guess it's possible that
     // this could collide with the brk_point of the OS. We should look into
@@ -335,13 +342,6 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     }
     out << "]\n";
 
-    out << "Max outstanding: [";
-    for (iter=shaderCores.begin(); iter!=shaderCores.end(); iter++) {
-        out << (*iter)->maxOutstanding << " ";
-    }
-    out << "]\n";
-    out << "\n";
-
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";
     }
@@ -349,6 +349,26 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
 
 void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream) {
     copyEngine->memcpy((Addr)src, (Addr)dst, count, stream);
+}
+
+void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream) {
+    // Lookup destination address for transfer:
+    std::string sym_name = gpgpu_ptx_sim_hostvar_to_sym_name(hostVar);
+    std::map<std::string,symbol_table*>::iterator st = g_sym_name_to_symbol_table.find(sym_name.c_str());
+    assert( st != g_sym_name_to_symbol_table.end() );
+    symbol_table *symtab = st->second;
+
+    symbol *sym = symtab->lookup(sym_name.c_str());
+    assert(sym);
+    unsigned dst = sym->get_address() + offset;
+    printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes %s symbol %s+%zu @0x%x ...\n",
+           count, (to ? "to" : "from"), sym_name.c_str(), offset, dst);
+
+    if (to) {
+        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream);
+    } else {
+        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream);
+    }
 }
 
 

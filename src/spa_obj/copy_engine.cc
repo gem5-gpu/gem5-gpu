@@ -43,7 +43,7 @@ using namespace TheISA;
 using namespace std;
 
 SPACopyEngine::SPACopyEngine(const Params *p) :
-        MemObject(p),  port("cePort", this, 0), tickEvent(this),
+        MemObject(p),  port(name() + ".cePort", this, 0), tickEvent(this),
         masterId(p->sys->getMasterId(name())), _params(p),
         driverDelay(p->driverDelay), dtb(p->dtb), itb(p->itb)
 {
@@ -65,6 +65,10 @@ Tick SPACopyEngine::CEPort::recvAtomic(PacketPtr pkt)
     return 0;
 }
 
+void SPACopyEngine::CEPort::recvFunctional(PacketPtr pkt)
+{
+    panic("SPACopyEngine::CEPort::recvFunctional() not implemented!\n");
+}
 
 bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
 {
@@ -75,8 +79,8 @@ bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
         pkt->writeData(engine->curData + (pkt->req->getVaddr() - engine->beginAddr));
 
         // set the addresses we just got as done
-        for (int i=pkt->req->getVaddr() - engine->beginAddr;
-                i<pkt->req->getVaddr() - engine->beginAddr + pkt->getSize(); i++) {
+        for (int i = pkt->req->getVaddr() - engine->beginAddr;
+                i < pkt->req->getVaddr() - engine->beginAddr + pkt->getSize(); i++) {
             engine->readsDone[i] = true;
         }
 
@@ -91,7 +95,7 @@ bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
         }
 
         // mark readDone as only the contiguous region
-        while (engine->readsDone[engine->readDone]) {
+        while (engine->readDone < engine->totalLength && engine->readsDone[engine->readDone]) {
             engine->readDone++;
         }
 
@@ -106,7 +110,8 @@ bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
             // we are done!
             DPRINTF(SPACopyEngine, "done writing, completely done!!!!\n");
             engine->needToWrite = false;
-            delete engine->curData;
+            delete[] engine->curData;
+            delete[] engine->readsDone;
             // unblock the cpu
             engine->running = false;
             engine->stream->record_next_done();
@@ -121,7 +126,8 @@ bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
             }
         }
     }
-
+    if (pkt->req) delete pkt->req;
+    delete pkt;
     return true;
 }
 
@@ -162,7 +168,7 @@ void SPACopyEngine::tryRead()
     } else {
         size = READ_AMOUNT;
     }
-    size = readLeft > size-1 ? size : readLeft;
+    size = readLeft > (size - 1) ? size : readLeft;
     req->setVirt(asid, currentReadAddr, size, flags, masterId, pc);
 
     DPRINTF(SPACopyEngine, "trying read addr: 0x%x, %d bytes\n", currentReadAddr, size);
@@ -170,7 +176,7 @@ void SPACopyEngine::tryRead()
     BaseTLB::Mode mode = BaseTLB::Read;
 
     WholeTranslationState *state =
-            new WholeTranslationState(req, new uint8_t[req->getSize()], NULL, mode);
+            new WholeTranslationState(req, NULL, NULL, mode);
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
@@ -191,12 +197,6 @@ void SPACopyEngine::tryRead()
 
 void SPACopyEngine::tryWrite()
 {
-    RequestPtr req = new Request();
-    Request::Flags flags;
-    Addr pc = 0;
-    const int asid = 0;
-    //unsigned block_size = port.peerBlockSize();
-
     if (writeLeft <= 0) {
         DPRINTF(SPACopyEngine, "WHY ARE WE HERE (write)?\n");
         return;
@@ -217,6 +217,10 @@ void SPACopyEngine::tryWrite()
         return;
     }
 
+    RequestPtr req = new Request();
+    Request::Flags flags;
+    Addr pc = 0;
+    const int asid = 0;
     req->setVirt(asid, currentWriteAddr, size, flags, masterId, pc);
 
     assert(	(totalLength-writeLeft +size) <= readDone);
@@ -229,7 +233,7 @@ void SPACopyEngine::tryWrite()
     BaseTLB::Mode mode = BaseTLB::Write;
 
     WholeTranslationState *state =
-            new WholeTranslationState(req, new uint8_t[req->getSize()], NULL, mode);
+            new WholeTranslationState(req, NULL, NULL, mode);
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
@@ -292,6 +296,10 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
 
         curData = new uint8_t[length];
         readsDone = new bool[length];
+        for (int i = 0; i < length; i++) {
+            curData[i] = 0;
+            readsDone[i] = false;
+        }
 
         schedule(tickEvent, curTick()+driverDelay);
     }
@@ -302,21 +310,25 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
 
 void SPACopyEngine::finishTranslation(WholeTranslationState *state)
 {
-    DPRINTF(SPACopyEngine, "Finished translation of addr 0x%x...\n", state->mainReq->getVaddr());
+    if (state->getFault() != NoFault) {
+        panic("Translation encountered fault (%s) for address 0x%x", state->getFault()->name(), state->mainReq->getVaddr());
+    }
+    DPRINTF(SPACopyEngine, "Finished translation of Vaddr 0x%x -> Paddr 0x%x\n", state->mainReq->getVaddr(), state->mainReq->getPaddr());
+    PacketPtr pkt;
     if (state->mode == BaseTLB::Read) {
-        PacketPtr pkt = new Packet(state->mainReq, MemCmd::ReadReq, Packet::Broadcast);
+        pkt = new Packet(state->mainReq, MemCmd::ReadReq, Packet::Broadcast);
         pkt->allocate();
-        if (!sendPkt(pkt)) {
-            stallOnRetry = true;
-        }
-    } else {
-        PacketPtr pkt = new Packet(state->mainReq, MemCmd::WriteReq, Packet::Broadcast);
+    } else if (state->mode == BaseTLB::Write) {
+        pkt = new Packet(state->mainReq, MemCmd::WriteReq, Packet::Broadcast);
         uint8_t *pkt_data = (uint8_t *)state->mainReq->getExtraData();
         pkt->dataDynamicArray(pkt_data);
-        if (!sendPkt(pkt)) {
-            stallOnRetry = true;
-        }
+    } else {
+        panic("Finished translation of unknown mode: %d\n", state->mode);
     }
+    if (!sendPkt(pkt)) {
+        stallOnRetry = true;
+    }
+    delete state;
 }
 
 bool SPACopyEngine::sendPkt(PacketPtr pkt) {
@@ -328,10 +340,10 @@ bool SPACopyEngine::sendPkt(PacketPtr pkt) {
     return true;
 }
 
-
-Port *SPACopyEngine::getPort(const std::string &if_name, int idx)
+MasterPort&
+SPACopyEngine::getMasterPort(const std::string &if_name, int idx)
 {
-    return &port;
+    return port;
 }
 
 
@@ -344,7 +356,7 @@ void SPACopyEngine::cePrintStats(std::ostream& out) {
     int i = 0;
     unsigned long long totalMemCpyTime=0;
     vector<unsigned long long>::iterator it;
-    for ( it=memCpyTimes.begin() ; it < memCpyTimes.end(); it++ ) {
+    for (it = memCpyTimes.begin(); it < memCpyTimes.end(); it++) {
         cout << "memcpy[" << i << "] time = " << *it << "\n";
         out << "memcpy[" << i << "] time = " << *it << "\n";
         i++;
