@@ -424,6 +424,33 @@ GPUSyscallHelper::readBlob(Addr addr, uint8_t* p, int size)
 }
 
 void
+GPUSyscallHelper::readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu)
+{
+    // Ensure that the memory buffer is cleared
+    memset(p, 0, size);
+
+    // For each line in the read, grab the system's memory and check for
+    // null-terminating character
+    bool null_not_found = true;
+    Addr curr_addr;
+    int read_size;
+    unsigned block_size = the_gpu->gem5_spa->getRubySystem()->getBlockSizeBytes();
+    int bytes_read = 0;
+    for (; bytes_read < size && null_not_found; bytes_read += read_size) {
+        curr_addr = addr + bytes_read;
+        read_size = block_size;
+        if (bytes_read == 0) read_size -= curr_addr % block_size;
+        if (bytes_read + read_size >= size) read_size = size - bytes_read;
+        readBlob(curr_addr, &p[bytes_read], read_size);
+        for (int index = 0; index < read_size; ++index) {
+            if (p[index] == 0) null_not_found = false;
+        }
+    }
+
+    if (null_not_found) panic("Didn't find end of string at address %x (%s)!", addr, (char*)p);
+}
+
+void
 GPUSyscallHelper::writeBlob(Addr addr, uint8_t* p, int size)
 {
     if (FullSystem) {
@@ -1404,7 +1431,7 @@ cudaConfigureCall(ThreadContext *tc, gpusyscall_t *call_params)
     dim3 sim_blockDim = *((dim3*)helper.getParam(1));
     size_t sim_sharedMem = *((size_t*)helper.getParam(2));
 //    cudaStream_t sim_stream = *((cudaStream_t*)helper.getParam(3));
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaConfigureCall(gridDim, blockDim, sharedMem = %x, stream)\n", sim_sharedMem);
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaConfigureCall(gridDim = (%u,%u,%u), blockDim = (%u,%u,%u), sharedMem = %x, stream)\n", sim_gridDim.x, sim_gridDim.y, sim_gridDim.z, sim_blockDim.x, sim_blockDim.y, sim_blockDim.z, sim_sharedMem);
 
     struct CUstream_st *stream = NULL;
     assert(!(*((cudaStream_t*)helper.getParam(3))));
@@ -1443,7 +1470,7 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    const char* hostFun = *((char**)helper.getParam(0));
+    const char* sim_hostFun = *((char**)helper.getParam(0));
 
     CUctx_st* context = GPGPUSim_Context(tc);
     char *mode = getenv("PTX_SIM_MODE_FUNC");
@@ -1452,8 +1479,8 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     assert(!g_cuda_launch_stack.empty());
     kernel_config config = g_cuda_launch_stack.back();
     struct CUstream_st *stream = config.get_stream();
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun = %p)\n", hostFun);
-    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(hostFun, config.get_args(), config.grid_dim(), config.block_dim(), context);
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun* = %x)\n", (void*)sim_hostFun);
+    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(sim_hostFun, config.get_args(), config.grid_dim(), config.block_dim(), context);
     grid->set_inst_base_vaddr(context->get_inst_base_vaddr());
     std::string kname = grid->name();
     dim3 gridDim = config.grid_dim();
@@ -1788,7 +1815,6 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     exit(1);
 #endif
 
-    int i;
     GPUSyscallHelper helper(tc, call_params);
 
     // Get CUDA call simulated parameters
@@ -1796,6 +1822,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     int sim_binSize = *((int*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterFatBinary(fatCubin* = %x, binSize = %d)\n", sim_fatCubin, sim_binSize);
     CUctx_st *context = GPGPUSim_Context(tc);
+    gpgpu_t *gpu = context->get_device()->get_gpgpu();
 
     // Get primary arguments
     __cudaFatCudaBinary* fat_cubin = new __cudaFatCudaBinary;
@@ -1823,23 +1850,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             helper.readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];
-            helper.readBlob((Addr)ptx_entry_ptr->gpuProfileName, gpu_profile, MAX_STRING_LEN);
-            for (i = 0; i < MAX_STRING_LEN; i++) {
-                if(gpu_profile[i] == '\0')
-                    break;
-            }
-
-            if (i == MAX_STRING_LEN) {
-                panic("GPU profile name exceeds maximum string length!");
-                delete[] gpu_profile;
-                delete[] ptx_code;
-                delete[] temp_ptx_entry_buf;
-                if (ptx_entries) delete[] ptx_entries;
-                deleteFatCudaBinary(fat_cubin);
-                g_last_cudaError = cudaErrorUnknown;
-                helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
-                return;
-            }
+            helper.readString((Addr)ptx_entry_ptr->gpuProfileName, gpu_profile, MAX_STRING_LEN, gpu);
 
             ptx_entry_ptr->ptx = (char*)ptx_code;
             ptx_entry_ptr->gpuProfileName = (char*)gpu_profile;
@@ -1853,18 +1864,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     // Read ident member
     Addr ident_addr = (Addr)fat_cubin->ident;
     fat_cubin->ident = new char[MAX_STRING_LEN];
-    helper.readBlob(ident_addr, (uint8_t*)fat_cubin->ident, MAX_STRING_LEN);
-    for (i = 0; i < MAX_STRING_LEN; i++) {
-        if (fat_cubin->ident[i] == '\0')
-            break;
-    }
-    if (i == MAX_STRING_LEN) {
-        panic("Fat CUDA binary ident exceeds maximum string length");
-        deleteFatCudaBinary(fat_cubin);
-        g_last_cudaError = cudaErrorUnknown;
-        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
-        return;
-    }
+    helper.readString(ident_addr, (uint8_t*)fat_cubin->ident, MAX_STRING_LEN, gpu);
 
     static unsigned next_fat_bin_handle = 1;
     static unsigned source_num = 1;
@@ -1875,7 +1875,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     unsigned max_capability = 0;
     unsigned selected_capability = 0;
     bool found = false;
-    unsigned forced_max_capability = context->get_device()->get_gpgpu()->get_config().get_forced_max_capability();
+    unsigned forced_max_capability = gpu->get_config().get_forced_max_capability();
     while (fat_cubin->ptx[num_ptx_versions].gpuProfileName != NULL) {
         unsigned capability = 0;
         sscanf(fat_cubin->ptx[num_ptx_versions].gpuProfileName, "compute_%u", &capability);
@@ -1899,7 +1899,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
         DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Loading PTX for %s, capability = %s\n",
                 fat_cubin->ident, fat_cubin->ptx[selected_capability].gpuProfileName );
         const char *ptx = fat_cubin->ptx[selected_capability].ptx;
-        if (context->get_device()->get_gpgpu()->get_config().convert_to_ptxplus()) {
+        if (gpu->get_config().convert_to_ptxplus()) {
             panic("GPGPU-Sim PTXPLUS: gem5 + GPGPU-Sim does not support PTXPLUS!");
         } else {
             assert(registering_symtab == NULL);
@@ -1964,24 +1964,10 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
 
     // Read device function name from simulated system memory
     char* device_fun = new char[MAX_STRING_LEN];
-    helper.readBlob(sim_deviceFun, (uint8_t*)device_fun, MAX_STRING_LEN);
-
-    // Check that string is a valid length
-    int i;
-    for (i = 0; i < MAX_STRING_LEN; i++) {
-        if (device_fun[i] == '\0')
-            break;
-    }
-    if (i == MAX_STRING_LEN) {
-        panic("Device function name exceeds maximum string length!");
-        delete[] device_fun;
-        g_last_cudaError = cudaErrorUnknown;
-        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
-        return;
-    }
+    CUctx_st *context = GPGPUSim_Context(tc);
+    helper.readString(sim_deviceFun, (uint8_t*)device_fun, MAX_STRING_LEN, context->get_device()->get_gpgpu());
 
     // Register function
-    CUctx_st *context = GPGPUSim_Context(tc);
     unsigned fat_cubin_handle = (unsigned)(unsigned long long)sim_fatCubinHandle;
     context->register_function(fat_cubin_handle, sim_hostFun, device_fun);
     delete[] device_fun;
@@ -2000,17 +1986,9 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
     int sim_constant = *((int*)helper.getParam(6));
     int sim_global = *((int*)helper.getParam(7));
 
-    int i;
     const char* deviceName = new char[MAX_STRING_LEN];
-    helper.readBlob(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
-    for (i = 0; i < MAX_STRING_LEN; i++) {
-        if (deviceName[i] == '\0')
-            break;
-    }
-    if (i == MAX_STRING_LEN) {
-        panic("Device variable name exceeds maximum string length!");
-        return;
-    }
+    CUctx_st *context = GPGPUSim_Context(tc);
+    helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN, context->get_device()->get_gpgpu());
 
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = 0x%x, deviceAddress* = 0x%x, deviceName* = %s, ext = %d, size = %d, constant = %d, global = %d)\n",
             /*sim_fatCubinHandle*/ 0, sim_hostVar, sim_deviceAddress,
@@ -2060,22 +2038,10 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
             sim_deviceName, sim_dim, sim_norm, sim_ext);
 
     const char* deviceName = new char[MAX_STRING_LEN];
-    helper.readBlob(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
-
-    //check that string is a valid length
-    int i;
-    for (i = 0; i < MAX_STRING_LEN; i++) {
-        if (deviceName[i] == '\0')
-        break;
-    }
-    if (i == MAX_STRING_LEN) {
-        panic("Device texture name exceeds maximum string length!");
-        delete deviceName;
-        return;
-    }
-
     CUctx_st *context = GPGPUSim_Context(tc);
     gpgpu_t *gpu = context->get_device()->get_gpgpu();
+    helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN, gpu);
+
     gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, sim_hostVar);
     warn("__cudaRegisterTexture implementation is not complete!");
 }

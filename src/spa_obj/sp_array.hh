@@ -185,6 +185,7 @@ public:
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
     int getUseGem5Mem(){ return useGem5Mem; }
     int getSharedMemDelay(){ return sharedMemDelay; }
+    RubySystem* getRubySystem(){ return ruby; }
 
     /// called if the gpu is going to block the processor and should unblock it
     /// when it's done. Returns true if you should suspend the thread
