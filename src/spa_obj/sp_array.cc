@@ -323,24 +323,23 @@ StreamProcessorArray *StreamProcessorArrayParams::create() {
 
 void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     int i = 0;
-    unsigned long long totalKernelTime=0;
+    unsigned long long total_kernel_ticks = 0;
+    unsigned long long max_kernel_ticks = 0;
+    unsigned long long min_kernel_ticks = ULONG_LONG_MAX;
     vector<unsigned long long>::iterator it;
-    for ( it=kernelTimes.begin() ; it < kernelTimes.end(); it++ ) {
-        cout << "kernel[" << i << "] time = " << *it << "\n";
-        out << "kernel[" << i << "] time = " << *it << "\n";
+    out << "kernel times in ticks:\n";
+    for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {
+        out << *it << ", ";
         i++;
-        totalKernelTime += *it;
+        total_kernel_ticks += *it;
+        if (*it < min_kernel_ticks) min_kernel_ticks = *it;
+        if (*it > max_kernel_ticks) max_kernel_ticks = *it;
     }
-    cout << "total kernel time = " << totalKernelTime << "\n";
-    out << "total kernel time = " << totalKernelTime << "\n";
-
-    out << "\nMemory System:\n";
-    out << "Retires: [";
-    vector<ShaderCore*>::iterator iter;
-    for (iter=shaderCores.begin(); iter!=shaderCores.end(); iter++) {
-        out << (*iter)->numRetry << " ";
-    }
-    out << "]\n";
+    out << "\ntotal kernel time = " << total_kernel_ticks << "\n";
+    unsigned long long int average_kernel_ticks = total_kernel_ticks / i;
+    out << "average ticks per kernel = " << average_kernel_ticks << "\n";
+    out << "minimum ticks per kernel = " << min_kernel_ticks << "\n";
+    out << "maximum ticks per kernel = " << max_kernel_ticks << "\n";
 
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";

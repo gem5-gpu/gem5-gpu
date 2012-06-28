@@ -167,8 +167,6 @@ private:
     /// something else
 //    bool stallOnAtomicQueue;
 
-    unsigned int numRetry;
-
     /// Holds requests that came in after a failed packet, but
     /// before a call to resourceAvailable
     class PendingReq {
@@ -288,6 +286,31 @@ public:
 
     // Wrapper functions for GPGPU-Sim instruction cache accesses
     void icacheFetch(Addr a, mem_fetch *mf);
+
+    // For counting statistics
+    Stats::Scalar numLocalLoads;
+    Stats::Scalar numLocalStores;
+    Stats::Scalar numSharedLoads;
+    Stats::Scalar numSharedStores;
+    Stats::Scalar numParamKernelLoads;
+    Stats::Scalar numParamLocalLoads;
+    Stats::Scalar numParamLocalStores;
+    Stats::Scalar numConstLoads;
+    Stats::Scalar numTexLoads;
+    Stats::Scalar numGlobalLoads;
+    Stats::Scalar numGlobalStores;
+    Stats::Scalar numSurfLoads;
+    Stats::Scalar numGenericLoads;
+    Stats::Scalar numGenericStores;
+    Stats::Scalar numDataCacheRetry;
+    Stats::Scalar numInstCacheRetry;
+    Stats::Scalar numDataCacheRequests;
+    Stats::Scalar numInstCacheRequests;
+    void record_ld(memory_space_t space);
+    void record_st(memory_space_t space);
+    Stats::Vector instCounts;
+    void record_inst(int inst_type);
+    void regStats();
 };
 
 

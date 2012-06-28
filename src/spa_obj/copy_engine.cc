@@ -354,16 +354,24 @@ SPACopyEngine *SPACopyEngineParams::create() {
 
 void SPACopyEngine::cePrintStats(std::ostream& out) {
     int i = 0;
-    unsigned long long totalMemCpyTime=0;
+    unsigned long long total_memcpy_ticks = 0;
+    unsigned long long max_memcpy_ticks = 0;
+    unsigned long long min_memcpy_ticks = ULONG_LONG_MAX;
     vector<unsigned long long>::iterator it;
+    out << "memcpy times in ticks:\n";
     for (it = memCpyTimes.begin(); it < memCpyTimes.end(); it++) {
-        cout << "memcpy[" << i << "] time = " << *it << "\n";
-        out << "memcpy[" << i << "] time = " << *it << "\n";
+        out << *it << ", ";
         i++;
-        totalMemCpyTime += *it;
+        total_memcpy_ticks += *it;
+        if (*it < min_memcpy_ticks) min_memcpy_ticks = *it;
+        if (*it > max_memcpy_ticks) max_memcpy_ticks = *it;
     }
-    cout << "total memcpy time = " << totalMemCpyTime << "\n";
-    out << "total memcpy time = " << totalMemCpyTime << "\n";
+    out << "\n";
+    out << "total memcpy ticks = " << total_memcpy_ticks << "\n";
+    unsigned long long int average_memcpy_ticks = total_memcpy_ticks / i;
+    out << "average ticks per memcpy = " << average_memcpy_ticks << "\n";
+    out << "minimum ticks per memcpy = " << min_memcpy_ticks << "\n";
+    out << "maximum ticks per memcpy = " << max_memcpy_ticks << "\n";
 }
 
 void CEExitCallback::process()

@@ -67,8 +67,6 @@ ShaderCore::ShaderCore(const Params *p) :
     currInstBusy = 0;
     writesInProcess = 0;
 
-    numRetry = 0;
-
     DPRINTF(ShaderCore, "[SC:%d] Created shader core\n", id);
 }
 
@@ -218,7 +216,7 @@ bool ShaderCore::SCDataPort::recvTiming(PacketPtr pkt)
 void ShaderCore::SCDataPort::recvRetry() {
     assert(outDataPkts.size());
 
-    proc->numRetry++;
+    proc->numDataCacheRetry++;
 
     PacketPtr pktToRetry = outDataPkts.front();
     DPRINTF(ShaderCoreAccess, "recvRetry got called, pkt: %p, vaddr: 0x%x\n", pktToRetry, pktToRetry->req->getVaddr());
@@ -563,6 +561,7 @@ bool ShaderCore::SCDataPort::sendPkt(PacketPtr pkt)
         DPRINTF(ShaderCoreAccess, "Busy waiting requests: %d\n", outDataPkts.size());
         return false;
     }
+    proc->numDataCacheRequests++;
     proc->currDataBusy++;
     return true;
 }
@@ -630,6 +629,7 @@ ShaderCore::SCInstPort::sendPkt(PacketPtr pkt)
         DPRINTF(ShaderCoreFetch, "Busy waiting requests: %d\n", outInstPkts.size());
         return false;
     }
+    proc->numInstCacheRequests++;
     proc->currInstBusy++;
     return true;
 }
@@ -661,7 +661,7 @@ ShaderCore::SCInstPort::recvRetry()
 {
     assert(outInstPkts.size());
 
-    proc->numRetry++;
+    proc->numInstCacheRetry++;
 
     PacketPtr pktToRetry = outInstPkts.front();
     DPRINTF(ShaderCoreFetch, "recvRetry got called, pkt: %p, vaddr: 0x%x\n", pktToRetry, pktToRetry->req->getVaddr());
@@ -703,4 +703,139 @@ ShaderCore::SCInstPort::recvFunctional(PacketPtr pkt)
 
 ShaderCore *ShaderCoreParams::create() {
     return new ShaderCore(this);
+}
+
+void
+ShaderCore::record_ld(memory_space_t space)
+{
+    switch(space.get_type()) {
+    case local_space: numLocalLoads++; break;
+    case shared_space: numSharedLoads++; break;
+    case param_space_kernel: numParamKernelLoads++; break;
+    case param_space_local: numParamLocalLoads++; break;
+    case const_space: numConstLoads++; break;
+    case tex_space: numTexLoads++; break;
+    case surf_space: numSurfLoads++; break;
+    case global_space: numGlobalLoads++; break;
+    case generic_space: numGenericLoads++; break;
+    case param_space_unclassified:
+    case undefined_space:
+    case reg_space:
+    case instruction_space:
+    default:
+        panic("Load from invalid space: %d!", space.get_type());
+        break;
+    }
+}
+
+void
+ShaderCore::record_st(memory_space_t space)
+{
+    switch(space.get_type()) {
+    case local_space: numLocalStores++; break;
+    case shared_space: numSharedStores++; break;
+    case param_space_local: numParamLocalStores++; break;
+    case global_space: numGlobalStores++; break;
+    case generic_space: numGenericStores++; break;
+
+    case param_space_kernel:
+    case const_space:
+    case tex_space:
+    case surf_space:
+    case param_space_unclassified:
+    case undefined_space:
+    case reg_space:
+    case instruction_space:
+    default:
+        panic("Store to invalid space: %d!", space.get_type());
+        break;
+    }
+}
+
+void
+ShaderCore::record_inst(int inst_type)
+{
+    instCounts[inst_type]++;
+}
+
+void
+ShaderCore::regStats()
+{
+    numLocalLoads
+        .name(name() + ".local_loads")
+        .desc("Number of loads from local space")
+        ;
+    numLocalStores
+        .name(name() + ".local_stores")
+        .desc("Number of stores to local space")
+        ;
+    numSharedLoads
+        .name(name() + ".shared_loads")
+        .desc("Number of loads from shared space")
+        ;
+    numSharedStores
+        .name(name() + ".shared_stores")
+        .desc("Number of stores to shared space")
+        ;
+    numParamKernelLoads
+        .name(name() + ".param_kernel_loads")
+        .desc("Number of loads from kernel parameter space")
+        ;
+    numParamLocalLoads
+        .name(name() + ".param_local_loads")
+        .desc("Number of loads from local parameter space")
+        ;
+    numParamLocalStores
+        .name(name() + ".param_local_stores")
+        .desc("Number of stores to local parameter space")
+        ;
+    numConstLoads
+        .name(name() + ".const_loads")
+        .desc("Number of loads from constant space")
+        ;
+    numTexLoads
+        .name(name() + ".tex_loads")
+        .desc("Number of loads from texture space")
+        ;
+    numGlobalLoads
+        .name(name() + ".global_loads")
+        .desc("Number of loads from global space")
+        ;
+    numGlobalStores
+        .name(name() + ".global_stores")
+        .desc("Number of stores to global space")
+        ;
+    numSurfLoads
+        .name(name() + ".surf_loads")
+        .desc("Number of loads from surface space")
+        ;
+    numGenericLoads
+        .name(name() + ".generic_loads")
+        .desc("Number of loads from generic spaces (global, shared, local)")
+        ;
+    numGenericStores
+        .name(name() + ".generic_stores")
+        .desc("Number of stores to generic spaces (global, shared, local)")
+        ;
+    numDataCacheRequests
+        .name(name() + ".coalesced_data_cache_requests")
+        .desc("Number of coalesced data cache requests sent")
+        ;
+    numDataCacheRetry
+        .name(name() + ".coalesced_data_cache_retries")
+        .desc("Number of coalesced data cache retries")
+        ;
+    numInstCacheRequests
+        .name(name() + ".inst_cache_requests")
+        .desc("Number of instruction cache requests sent")
+        ;
+    numInstCacheRetry
+        .name(name() + ".inst_cache_retries")
+        .desc("Number of instruction cache retries")
+        ;
+    instCounts
+        .init(7)
+        .name(name() + ".inst_counts")
+        .desc("Instruction counts")
+        ;
 }
