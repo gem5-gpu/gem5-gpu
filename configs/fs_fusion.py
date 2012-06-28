@@ -40,8 +40,8 @@ from m5.defines import buildEnv
 from m5.objects import *
 from m5.util import addToPath, fatal
 
-addToPath('../../configs/common')
-addToPath('../../configs/ruby')
+addToPath('../../gem5/configs/common')
+addToPath('../../gem5/configs/ruby')
 addToPath('gpu_protocol')
 
 import GPUOptions

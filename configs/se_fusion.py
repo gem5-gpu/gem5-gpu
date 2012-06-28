@@ -46,8 +46,8 @@ import string
 if buildEnv['FULL_SYSTEM']:
     panic("This script requires syscall emulation mode (*_SE).")
 
-addToPath('../../configs/common')
-addToPath('../../configs/ruby')
+addToPath('../../gem5/configs/common')
+addToPath('../../gem5/configs/ruby')
 addToPath('gpu_protocol')
 
 import GPUOptions
