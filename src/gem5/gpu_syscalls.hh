@@ -54,6 +54,7 @@ public:
     char* getParam(int index);
     void setReturn(unsigned char* retValue, size_t size);
     void readBlob(Addr addr, uint8_t* p, int size);
+    void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu);
     void writeBlob(Addr addr, uint8_t* p, int size);
 };
 
