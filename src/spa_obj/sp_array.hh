@@ -32,6 +32,7 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "../gpgpu-sim/gpgpu-sim/gpu-sim.h"
@@ -127,6 +128,7 @@ private:
     /// If true do global mem requests through gem5 otherwise do them through GPGPU-Sim
     int useGem5Mem;
     int sharedMemDelay;
+    std::string gpgpusimConfigPath;
     double launchDelay;
     double returnDelay;
 
@@ -185,6 +187,7 @@ public:
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
     int getUseGem5Mem(){ return useGem5Mem; }
     int getSharedMemDelay(){ return sharedMemDelay; }
+    const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
     RubySystem* getRubySystem(){ return ruby; }
 
     /// called if the gpu is going to block the processor and should unblock it

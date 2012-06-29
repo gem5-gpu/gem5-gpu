@@ -327,7 +327,7 @@ class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc)
     if( !the_device ) {
         stream_manager *p_stream_manager;
         StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
-        gpgpu_sim *the_gpu = gem5_ptx_sim_init_perf(&p_stream_manager, spa->getUseGem5Mem(), spa->getSharedMemDelay());
+        gpgpu_sim *the_gpu = gem5_ptx_sim_init_perf(&p_stream_manager, spa->getUseGem5Mem(), spa->getSharedMemDelay(), spa->getConfigPath());
 
         cudaDeviceProp *prop = (cudaDeviceProp *) calloc(sizeof(cudaDeviceProp),1);
         snprintf(prop->name,256,"GPGPU-Sim_v%s", g_gpgpusim_version_string );

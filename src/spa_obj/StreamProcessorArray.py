@@ -55,3 +55,5 @@ class StreamProcessorArray(SimObject):
       sys.exit(1)
    stats_filename = Param.String("gpu.stats",
          "file to which gpgpu-sim dumps its stats")
+   config_path = Param.String('gpgpusim.config', "file to which gpgpu-sim dumps its stats")
+   

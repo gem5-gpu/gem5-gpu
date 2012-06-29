@@ -138,30 +138,13 @@ if options.detailed:
             process += [smt_process, ]
             smt_idx += 1
 
-
-# parse gpgpu config file
-gpgpusimconfig = os.path.join(os.getcwd(), 'gpgpusim.config')
-if not os.path.isfile(gpgpusimconfig):
-    print >>sys.stderr, "Unable to find gpgpusim config (%s)" % gpgpusimconfig
-    sys.exit(1)
-f = open(gpgpusimconfig, 'r')
-config = f.read()
-
-if options.num_sc == -1:
-        start = config.find("-gpgpu_n_clusters ")+len("-gpgpu_n_clusters ")
-        end = config.find('-', start)
-        gpgpu_n_clusters = int(config[start:end])
-        start = config.find("-gpgpu_n_cores_per_cluster ")+len("-gpgpu_n_cores_per_cluster ")
-        end = config.find('-', start)
-        gpgpu_n_cores_per_cluster = int(config[start:end])
-        num_sc = gpgpu_n_clusters*gpgpu_n_cores_per_cluster
-        options.num_sc = num_sc
+gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
 
 if options.baseline:
-        print "Using options based on baseline!"
-        print "Remember any command line options may be ignored"
-        options.clock = "3GHz"
-        options.sc_l1_size = "64kB"
+    print "Using options based on baseline!"
+    print "Remember any command line options may be ignored"
+    options.clock = "3GHz"
+    options.sc_l1_size = "64kB"
 
 if options.fermi:
     print "Using options based on fermi!"
@@ -213,6 +196,7 @@ system.stream_proc_array.ce = SPACopyEngine(driverDelay=5000000)
 system.stream_proc_array.useGem5Mem = options.gpu_ruby
 system.stream_proc_array.sharedMemDelay = options.shMemDelay
 system.stream_proc_array.nonBlocking = options.gpu_nonblocking
+system.stream_proc_array.config_path = gpgpusimconfig
 buildEnv['PROTOCOL'] +=  '_fusion'
 Ruby.create_system(options, system)
 system.stream_proc_array.ruby = system.ruby
