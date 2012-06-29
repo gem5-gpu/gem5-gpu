@@ -211,10 +211,6 @@ public:
     void writeFunctional(Addr addr, size_t length, const uint8_t* data);
     void readFunctional(Addr addr, size_t length, uint8_t* data);
 
-    /// used for gpgpu cuda api
-    Addr allocMemory(size_t length);
-    void freeMemory(Addr addr);
-
     /// Returns shader core with id coreId
     ShaderCore *getShaderCore(int coreId);
 
