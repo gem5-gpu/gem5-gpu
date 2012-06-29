@@ -302,10 +302,10 @@ public:
     Stats::Scalar numSurfLoads;
     Stats::Scalar numGenericLoads;
     Stats::Scalar numGenericStores;
-    Stats::Scalar numDataCacheRetry;
-    Stats::Scalar numInstCacheRetry;
     Stats::Scalar numDataCacheRequests;
+    Stats::Scalar numDataCacheRetry;
     Stats::Scalar numInstCacheRequests;
+    Stats::Scalar numInstCacheRetry;
     void record_ld(memory_space_t space);
     void record_st(memory_space_t space);
     Stats::Vector instCounts;

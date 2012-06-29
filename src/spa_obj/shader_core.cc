@@ -577,10 +577,23 @@ void
 ShaderCore::addWriteHint(Addr addr, size_t size, const void* data)
 {
     DPRINTF(ShaderCoreAccess, "[SC:%d] Received write hint, addr: 0x%x, size: %d\n", id, addr, size);
-    MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Write);
-    hint->addData(size, data);
-    hint->tick = curTick();
-    memWriteHints[addr].push_back(hint);
+    std::list<MemRequestHint*>::iterator it = memWriteHints[addr].begin();
+    if (it == memWriteHints[addr].end()) {
+        MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Write);
+        hint->addData(size, data);
+        hint->tick = curTick();
+        memWriteHints[addr].push_back(hint);
+    } else {
+        assert(memWriteHints[addr].size() == 1);
+        MemRequestHint* hint = *it;
+        if (size != hint->getSize()) {
+            panic("Need to implement partial write overlap handling");
+        }
+        if (curTick() >= hint->tick) {
+            hint->addData(size, data);
+            hint->tick = curTick();
+        }
+    }
 }
 
 void
@@ -834,8 +847,8 @@ ShaderCore::regStats()
         .desc("Number of instruction cache retries")
         ;
     instCounts
-        .init(7)
+        .init(8)
         .name(name() + ".inst_counts")
-        .desc("Instruction counts")
+        .desc("Inst counts: 1: ALU, 2: MAD, 3: CTRL, 4: SFU, 5: MEM, 6: TEX, 7: NOP")
         ;
 }

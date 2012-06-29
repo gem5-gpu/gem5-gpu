@@ -258,58 +258,6 @@ void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* dat
     tc->getMemProxy().readBlob(addr, data, length);
 }
 
-
-Addr StreamProcessorArray::allocMemory(size_t length)
-{
-//    if (FullSystem) {
-        warn("SPArray: Attempt FS memory allocation of %d bytes... Returning munged ptr 0\n", length);
-        return 0xDEADBEEF;
-//    }
-
-    // get a new address (NOTE: there's no way it's already allocated)
-    // Also NOTE: gpu has its own brk pointer. I guess it's possible that
-    // this could collide with the brk_point of the OS. We should look into
-    // that.
-    Addr addr = nextAddr;
-
-    if (addr + length > brk_point) {
-        for (ChunkGenerator gen(brk_point, length, VMPageSize); !gen.done(); gen.next()) {
-            process->allocateMem(roundDown(gen.addr(), VMPageSize), VMPageSize);
-        }
-        brk_point += roundUp(length, VMPageSize);
-    }
-
-    nextAddr += length;
-
-    // add the new address to the allocated addresses
-    allocatedMemory[addr] = length;
-
-    DPRINTF(StreamProcessorArrayAccess, "Giving the gpu %d bytes at address  0x%x\n", length, addr);
-
-    return addr;
-}
-
-
-void StreamProcessorArray::freeMemory(Addr addr)
-{
-//     // remove the address from the list of allocated address if
-//     // it's there
-//     map<Addr,size_t>::iterator iter = allocatedMemory.find(addr);
-//     if (iter == allocatedMemory.end()) {
-//         return;
-//     }
-//     size_t size = iter->second;
-//     allocatedMemory.erase(iter);
-//
-//     // We should probably do something like keep a free list... or something
-//
-//     // un-allocate the pages
-//     for (ChunkGenerator gen(addr, size, VMPageSize); !gen.done(); gen.next()) {
-//         process->pTable->deallocate(roundDown(gen.addr(), VMPageSize), VMPageSize);
-//     }
-    fatal("freeMemory is not implemented right now\n");
-}
-
 ShaderCore *StreamProcessorArray::getShaderCore(int coreId)
 {
     assert(coreId < numShaderCores);
