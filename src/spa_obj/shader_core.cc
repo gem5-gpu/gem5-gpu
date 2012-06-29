@@ -849,6 +849,6 @@ ShaderCore::regStats()
     instCounts
         .init(7)
         .name(name() + ".inst_counts")
-        .desc("Instruction counts")
+        .desc("Inst counts: 1: ALU, 2: MAD, 3: CTRL, 4: SFU, 5: MEM, 6: TEX, 7: NOP")
         ;
 }
