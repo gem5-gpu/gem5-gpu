@@ -847,7 +847,7 @@ ShaderCore::regStats()
         .desc("Number of instruction cache retries")
         ;
     instCounts
-        .init(7)
+        .init(8)
         .name(name() + ".inst_counts")
         .desc("Inst counts: 1: ALU, 2: MAD, 3: CTRL, 4: SFU, 5: MEM, 6: TEX, 7: NOP")
         ;
