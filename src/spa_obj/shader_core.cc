@@ -719,59 +719,6 @@ ShaderCore *ShaderCoreParams::create() {
 }
 
 void
-ShaderCore::record_ld(memory_space_t space)
-{
-    switch(space.get_type()) {
-    case local_space: numLocalLoads++; break;
-    case shared_space: numSharedLoads++; break;
-    case param_space_kernel: numParamKernelLoads++; break;
-    case param_space_local: numParamLocalLoads++; break;
-    case const_space: numConstLoads++; break;
-    case tex_space: numTexLoads++; break;
-    case surf_space: numSurfLoads++; break;
-    case global_space: numGlobalLoads++; break;
-    case generic_space: numGenericLoads++; break;
-    case param_space_unclassified:
-    case undefined_space:
-    case reg_space:
-    case instruction_space:
-    default:
-        panic("Load from invalid space: %d!", space.get_type());
-        break;
-    }
-}
-
-void
-ShaderCore::record_st(memory_space_t space)
-{
-    switch(space.get_type()) {
-    case local_space: numLocalStores++; break;
-    case shared_space: numSharedStores++; break;
-    case param_space_local: numParamLocalStores++; break;
-    case global_space: numGlobalStores++; break;
-    case generic_space: numGenericStores++; break;
-
-    case param_space_kernel:
-    case const_space:
-    case tex_space:
-    case surf_space:
-    case param_space_unclassified:
-    case undefined_space:
-    case reg_space:
-    case instruction_space:
-    default:
-        panic("Store to invalid space: %d!", space.get_type());
-        break;
-    }
-}
-
-void
-ShaderCore::record_inst(int inst_type)
-{
-    instCounts[inst_type]++;
-}
-
-void
 ShaderCore::regStats()
 {
     numLocalLoads
@@ -851,4 +798,87 @@ ShaderCore::regStats()
         .name(name() + ".inst_counts")
         .desc("Inst counts: 1: ALU, 2: MAD, 3: CTRL, 4: SFU, 5: MEM, 6: TEX, 7: NOP")
         ;
+}
+
+void
+ShaderCore::record_ld(memory_space_t space)
+{
+    switch(space.get_type()) {
+    case local_space: numLocalLoads++; break;
+    case shared_space: numSharedLoads++; break;
+    case param_space_kernel: numParamKernelLoads++; break;
+    case param_space_local: numParamLocalLoads++; break;
+    case const_space: numConstLoads++; break;
+    case tex_space: numTexLoads++; break;
+    case surf_space: numSurfLoads++; break;
+    case global_space: numGlobalLoads++; break;
+    case generic_space: numGenericLoads++; break;
+    case param_space_unclassified:
+    case undefined_space:
+    case reg_space:
+    case instruction_space:
+    default:
+        panic("Load from invalid space: %d!", space.get_type());
+        break;
+    }
+}
+
+void
+ShaderCore::record_st(memory_space_t space)
+{
+    switch(space.get_type()) {
+    case local_space: numLocalStores++; break;
+    case shared_space: numSharedStores++; break;
+    case param_space_local: numParamLocalStores++; break;
+    case global_space: numGlobalStores++; break;
+    case generic_space: numGenericStores++; break;
+
+    case param_space_kernel:
+    case const_space:
+    case tex_space:
+    case surf_space:
+    case param_space_unclassified:
+    case undefined_space:
+    case reg_space:
+    case instruction_space:
+    default:
+        panic("Store to invalid space: %d!", space.get_type());
+        break;
+    }
+}
+
+void
+ShaderCore::record_inst(int inst_type)
+{
+    instCounts[inst_type]++;
+}
+
+void
+ShaderCore::record_block_issue(unsigned hw_cta_id)
+{
+    assert(!shaderCTAActive[hw_cta_id]);
+    shaderCTAActive[hw_cta_id] = true;
+    shaderCTAActiveStats[hw_cta_id].push_back(curTick());
+}
+
+void
+ShaderCore::record_block_commit(unsigned hw_cta_id)
+{
+    assert(shaderCTAActive[hw_cta_id]);
+    shaderCTAActive[hw_cta_id] = false;
+    shaderCTAActiveStats[hw_cta_id].push_back(curTick());
+}
+
+void ShaderCore::printBlockStats(std::ostream& out)
+{
+    std::map<unsigned, std::list<unsigned long long> >::iterator iter;
+    std::list<unsigned long long>::iterator times;
+    for (iter = shaderCTAActiveStats.begin(); iter != shaderCTAActiveStats.end(); iter++) {
+        unsigned cta_id = iter->first;
+        out << id << ", " << cta_id << ", ";
+        for (times = shaderCTAActiveStats[cta_id].begin(); times != shaderCTAActiveStats[cta_id].end(); times++) {
+            out << *times << ", ";
+        }
+        out << "\n";
+    }
 }

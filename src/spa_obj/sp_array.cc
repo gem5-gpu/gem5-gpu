@@ -126,7 +126,7 @@ void StreamProcessorArray::gpuTick()
         streamManager->register_finished_kernel(finished_kernels.front().grid_uid);
         finished_kernels.pop();
 
-        kernelTimes.push_back(getCurTick() - kernelStartTime);
+        kernelTimes.push_back(curTick());
 
         if (unblockNeeded && streamManager->empty() && finished_kernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
@@ -229,8 +229,8 @@ bool StreamProcessorArray::setUnblock()
 
 void StreamProcessorArray::beginRunning(Tick launchTime)
 {
-    DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", getCurTick());
-    kernelStartTime = getCurTick();
+    DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", curTick());
+    kernelTimes.push_back(curTick());
     if (running) {
         panic("Should not already be running if we are starting\n");
     }
@@ -270,24 +270,32 @@ StreamProcessorArray *StreamProcessorArrayParams::create() {
 }
 
 void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
-    int i = 0;
+    // Print kernel statistics
     unsigned long long total_kernel_ticks = 0;
-    unsigned long long max_kernel_ticks = 0;
-    unsigned long long min_kernel_ticks = ULONG_LONG_MAX;
+    unsigned long long last_kernel_time = 0;
+    bool kernel_active = false;
     vector<unsigned long long>::iterator it;
-    out << "kernel times in ticks:\n";
+    out << "kernel times (ticks):\n";
+    out << "start, end, start, end, ...\n";
     for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {
         out << *it << ", ";
-        i++;
-        total_kernel_ticks += *it;
-        if (*it < min_kernel_ticks) min_kernel_ticks = *it;
-        if (*it > max_kernel_ticks) max_kernel_ticks = *it;
+        if (kernel_active) {
+            total_kernel_ticks += (*it - last_kernel_time);
+            kernel_active = false;
+        } else {
+            last_kernel_time = *it;
+            kernel_active = true;
+        }
+    }
+
+    // Print Shader CTA/block statistics
+    out << "\n\nshader CTA times (ticks):\n";
+    out << "shader, CTA ID, start, end, start, end, ...\n";
+    std::vector<ShaderCore*>::iterator shaders;
+    for (shaders = shaderCores.begin(); shaders != shaderCores.end(); shaders++) {
+        (*shaders)->printBlockStats(out);
     }
     out << "\ntotal kernel time = " << total_kernel_ticks << "\n";
-    unsigned long long int average_kernel_ticks = total_kernel_ticks / i;
-    out << "average ticks per kernel = " << average_kernel_ticks << "\n";
-    out << "minimum ticks per kernel = " << min_kernel_ticks << "\n";
-    out << "maximum ticks per kernel = " << max_kernel_ticks << "\n";
 
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";

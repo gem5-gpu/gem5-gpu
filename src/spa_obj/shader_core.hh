@@ -306,11 +306,17 @@ public:
     Stats::Scalar numDataCacheRetry;
     Stats::Scalar numInstCacheRequests;
     Stats::Scalar numInstCacheRetry;
+    Stats::Vector instCounts;
+    void regStats();
+
     void record_ld(memory_space_t space);
     void record_st(memory_space_t space);
-    Stats::Vector instCounts;
     void record_inst(int inst_type);
-    void regStats();
+    std::map<unsigned, bool> shaderCTAActive;
+    std::map<unsigned, std::list<unsigned long long> > shaderCTAActiveStats;
+    void record_block_issue(unsigned hw_cta_id);
+    void record_block_commit(unsigned hw_cta_id);
+    void printBlockStats(std::ostream& out);
 };
 
 

@@ -161,7 +161,6 @@ private:
     float gpuTickConversion;
 
     /// For statistics
-    unsigned long long kernelStartTime;
     std::vector<unsigned long long> kernelTimes;
     Tick clearTick;
     std::queue<kernelTermInfo> finished_kernels;
