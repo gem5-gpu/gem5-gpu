@@ -33,6 +33,9 @@ import os
 Import('*')
 
 all_protocols.extend([
+    'VI_hammer',
     ])
 
 protocol_dirs.append(str(Dir('.').abspath))
+
+slicc_includes.append('mem/ruby/RubySlicc_GPUMappings.hh')

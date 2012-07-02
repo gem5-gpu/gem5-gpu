@@ -1,0 +1,12 @@
+protocol "VI_hammer";
+
+include "RubySlicc_interfaces.slicc";
+
+include "VI_hammer-msg.sm";
+include "VI_hammer-CPUCache.sm";
+
+include "VI_hammer-GPUL1cache.sm";
+include "VI_hammer-GPUL2cache.sm";
+include "VI-ce.sm";
+
+include "VI_hammer-dir.sm";
