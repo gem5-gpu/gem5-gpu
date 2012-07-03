@@ -83,7 +83,7 @@ protected:
         bool sendPkt(PacketPtr pkt);
 
     protected:
-        virtual bool recvTiming(PacketPtr pkt);
+        virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
@@ -113,7 +113,7 @@ protected:
         bool sendPkt(PacketPtr pkt);
 
     protected:
-        virtual bool recvTiming(PacketPtr pkt);
+        virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);

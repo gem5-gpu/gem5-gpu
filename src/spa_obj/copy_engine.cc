@@ -70,7 +70,7 @@ void SPACopyEngine::CEPort::recvFunctional(PacketPtr pkt)
     panic("SPACopyEngine::CEPort::recvFunctional() not implemented!\n");
 }
 
-bool SPACopyEngine::CEPort::recvTiming(PacketPtr pkt)
+bool SPACopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
 {
     // packet done
 
@@ -135,7 +135,7 @@ void SPACopyEngine::CEPort::recvRetry() {
     assert(outstandingPkt != NULL);
 
     DPRINTF(SPACopyEngine, "Got a retry...\n");
-    if(sendTiming(outstandingPkt)) {
+    if(sendTimingReq(outstandingPkt)) {
         DPRINTF(SPACopyEngine, "unblocked moving on.\n");
         outstandingPkt = NULL;
         engine->stallOnRetry = false;
@@ -316,10 +316,10 @@ void SPACopyEngine::finishTranslation(WholeTranslationState *state)
     DPRINTF(SPACopyEngine, "Finished translation of Vaddr 0x%x -> Paddr 0x%x\n", state->mainReq->getVaddr(), state->mainReq->getPaddr());
     PacketPtr pkt;
     if (state->mode == BaseTLB::Read) {
-        pkt = new Packet(state->mainReq, MemCmd::ReadReq, Packet::Broadcast);
+        pkt = new Packet(state->mainReq, MemCmd::ReadReq);
         pkt->allocate();
     } else if (state->mode == BaseTLB::Write) {
-        pkt = new Packet(state->mainReq, MemCmd::WriteReq, Packet::Broadcast);
+        pkt = new Packet(state->mainReq, MemCmd::WriteReq);
         uint8_t *pkt_data = (uint8_t *)state->mainReq->getExtraData();
         pkt->dataDynamicArray(pkt_data);
     } else {
@@ -332,7 +332,7 @@ void SPACopyEngine::finishTranslation(WholeTranslationState *state)
 }
 
 bool SPACopyEngine::sendPkt(PacketPtr pkt) {
-    if (!port.sendTiming(pkt)) {
+    if (!port.sendTimingReq(pkt)) {
         DPRINTF(SPACopyEngine, "sendTiming failed in sendPkt (pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
         port.outstandingPkt = pkt;
         return false;

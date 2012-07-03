@@ -100,7 +100,7 @@ void ShaderCore::initialize(ThreadContext *_tc)
     shaderImpl = spa->theGPU->get_shader(id);
 }
 
-bool ShaderCore::SCDataPort::recvTiming(PacketPtr pkt)
+bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
 {
     map<Addr,mem_fetch *>::iterator iter = proc->busyDataCacheLineAddrs.find(proc->addrToLine(pkt->req->getVaddr()));
 
@@ -308,7 +308,7 @@ void ShaderCore::finishTranslation(WholeTranslationState *state)
     }
     PacketPtr pkt;
     if (state->mode == BaseTLB::Read) {
-        pkt = new Packet(state->mainReq, MemCmd::ReadReq, Packet::Broadcast);
+        pkt = new Packet(state->mainReq, MemCmd::ReadReq);
         pkt->allocate();
         if (pkt->req->isInstFetch()) {
             instPort.sendPkt(pkt);
@@ -328,7 +328,7 @@ void ShaderCore::finishTranslation(WholeTranslationState *state)
             RequestPtr pkt_req = new Request();
             pkt_req->setVirt(state->mainReq->getAsid(), block_vaddr + offset, (*it)->getSize(), state->mainReq->getFlags(), masterId, state->mainReq->getPC());
             pkt_req->setPaddr(state->mainReq->getPaddr() + offset);
-            pkt = new Packet(pkt_req, MemCmd::WriteReq, Packet::Broadcast);
+            pkt = new Packet(pkt_req, MemCmd::WriteReq);
             pkt->allocate();
             pkt->setData((*it)->getData());
             packet_hints.erase(it++);
@@ -552,7 +552,7 @@ bool ShaderCore::SCDataPort::sendPkt(PacketPtr pkt)
 {
     // @TODO: Throttle the number of packets that can be sent per cycle here?
     DPRINTF(ShaderCoreAccess, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->currDataBusy);
-    if (!sendTiming(pkt)) {
+    if (!sendTimingReq(pkt)) {
         DPRINTF(ShaderCoreAccess, "dataPort.sendPkt failed. pkt: %p vaddr: 0x%x\n", pkt, pkt->req->getVaddr());
         proc->stallOnDCacheRetry = true;
         if (pkt != outDataPkts.front()) {
@@ -633,7 +633,7 @@ bool
 ShaderCore::SCInstPort::sendPkt(PacketPtr pkt)
 {
     DPRINTF(ShaderCoreFetch, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->currInstBusy);
-    if (!sendTiming(pkt)) {
+    if (!sendTimingReq(pkt)) {
         DPRINTF(ShaderCoreFetch, "instPort.sendPkt failed. pkt: %p vaddr: 0x%x\n", pkt, pkt->req->getVaddr());
         proc->stallOnICacheRetry = true;
         if (pkt != outInstPkts.front()) {
@@ -648,7 +648,7 @@ ShaderCore::SCInstPort::sendPkt(PacketPtr pkt)
 }
 
 bool
-ShaderCore::SCInstPort::recvTiming(PacketPtr pkt)
+ShaderCore::SCInstPort::recvTimingResp(PacketPtr pkt)
 {
     assert(pkt->req->isInstFetch());
     map<Addr,mem_fetch *>::iterator iter = proc->busyInstCacheLineAddrs.find(proc->addrToLine(pkt->req->getVaddr()));

@@ -186,7 +186,7 @@ CPUClass.clock = options.clock
 np = options.num_cpus
 
 system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
-                physmem = PhysicalMemory(range=AddrRange("1536MB")))
+                physmem = SimpleMemory(range=AddrRange("1536MB")))
 
 system.stream_proc_array = StreamProcessorArray(gpuTickConv=options.m5_cycles_per_gpu_cycles)
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
