@@ -3,8 +3,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 : Sequencer * sequencer,
   CacheMemory * cacheMemory,
   int l2_select_num_bits,
+  int num_l2,
   int issue_latency = 416,
-  int num_l2 = 6
 {
 
   // NETWORK BUFFERS

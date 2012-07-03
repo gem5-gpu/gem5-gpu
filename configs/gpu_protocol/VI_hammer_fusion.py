@@ -84,10 +84,11 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits)
 
-        l1_cntrl = L1CacheVI_Controller(version = options.num_cpus + i,
+        l1_cntrl = L1CacheVI_Controller(version = i,
                                       cntrl_id = len(all_cntrls) + i,
                                       cacheMemory = cache,
                                       l2_select_num_bits = l2_bits,
+                                      num_l2 = options.num_l2caches,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,

@@ -71,6 +71,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
     # listed before the directory nodes and directory nodes before dma nodes, etc.
     #
     l1_cntrl_nodes = []
+    l2_cntrl_nodes = []
     dir_cntrl_nodes = []
     dma_cntrl_nodes = []
 
@@ -78,6 +79,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
     #
+    l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
 
     cntrl_count = 0
@@ -127,6 +129,27 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         #
         cpu_sequencers.append(cpu_seq)
         l1_cntrl_nodes.append(l1_cntrl)
+
+        cntrl_count += 1
+
+    l2_index_start = block_size_bits + l2_bits
+
+    for i in xrange(options.num_l2caches):
+        #
+        # First create the Ruby objects associated with this cpu
+        #
+        l2_cache = L2Cache(size = options.sc_l2_size,
+                           assoc = options.sc_l2_assoc,
+                           start_index_bit = l2_index_start,
+                            replacement_policy = "LRU")
+
+        l2_cntrl = L2Cache_Controller(version = i,
+                                      cntrl_id = cntrl_count,
+                                      L2cacheMemory = l2_cache,
+                                      ruby_system = ruby_system)
+
+        exec("system.l2_cntrl%d = l2_cntrl" % i)
+        l2_cntrl_nodes.append(l2_cntrl)
 
         cntrl_count += 1
 
@@ -216,6 +239,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         cntrl_count += 1
 
-    all_cntrls = l1_cntrl_nodes + dir_cntrl_nodes + dma_cntrl_nodes
+    all_cntrls = l1_cntrl_nodes + l2_cntrl_nodes + dir_cntrl_nodes + dma_cntrl_nodes
 
     return (cpu_sequencers, dir_cntrl_nodes, all_cntrls)

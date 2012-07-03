@@ -185,8 +185,6 @@ CPUClass.clock = options.clock
 
 np = options.num_cpus
 
-options.num_l2caches = 6
-
 system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
                 physmem = PhysicalMemory(range=AddrRange("1536MB")))
 

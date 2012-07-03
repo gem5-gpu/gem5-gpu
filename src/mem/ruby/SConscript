@@ -1,0 +1,3 @@
+Import('*')
+
+Source('RubySlicc_GPUMappings.cc')

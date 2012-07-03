@@ -26,27 +26,4 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MEM_RUBY_SLICC_GPUMAPPINGS_HH__
-#define __MEM_RUBY_SLICC_GPUMAPPINGS_HH__
-
-#include "mem/protocol/MachineType.hh"
-#include "mem/ruby/common/Address.hh"
-#include "mem/ruby/common/Global.hh"
-#include "mem/ruby/common/NetDest.hh"
-#include "mem/ruby/system/DirectoryMemory.hh"
-#include "mem/ruby/system/MachineID.hh"
-
-inline MachineID
-getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
-{
-    int num = 0;
-    if (select_bits) {
-        uint64 bits = addr.bitSelect(select_start_bit, select_start_bit+select_bits);
-        num = bits % num_l2;
-    }
-
-    MachineID mach = {MachineType_L2Cache, num};
-    return mach;
-}
-
-#endif
+#include "RubySlicc_GPUMappings.hh"
