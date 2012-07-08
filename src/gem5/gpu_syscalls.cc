@@ -714,6 +714,12 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpy(dst = %x, src = %x, count = %d, kind = %s)\n",
             sim_dst, sim_src, sim_count, cudaMemcpyKindStrings[sim_kind]);
 
+    if (sim_count == 0) {
+        g_last_cudaError = cudaSuccess;
+        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+        return;
+    }
+
     if( sim_kind == cudaMemcpyHostToDevice )
         g_stream_manager->push( stream_operation(sim_src, (size_t)sim_dst, sim_count, 0) );
     else if( sim_kind == cudaMemcpyDeviceToHost )

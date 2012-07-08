@@ -272,37 +272,37 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
 {
     stream = _stream;
 
+    assert(length > 0);
     assert(!running);
     running = true;
-    if(length > 0) {
-        DPRINTF(SPACopyEngine, "Initiating copy of %d bytes from 0x%x to 0x%x\n", length, src, dst);
-        memCpyStartTime = curTick();
 
-        needToRead = true;
-        needToWrite = false;
+    DPRINTF(SPACopyEngine, "Initiating copy of %d bytes from 0x%x to 0x%x\n", length, src, dst);
+    memCpyStartTime = curTick();
 
-        currentReadAddr = src;
-        currentWriteAddr = dst;
+    needToRead = true;
+    needToWrite = false;
 
-        beginAddr = src;
+    currentReadAddr = src;
+    currentWriteAddr = dst;
 
-        readLeft = length;
-        writeLeft = length;
+    beginAddr = src;
 
-        totalLength = length;
+    readLeft = length;
+    writeLeft = length;
 
-        readDone = 0;
-        writeDone = 0;
+    totalLength = length;
 
-        curData = new uint8_t[length];
-        readsDone = new bool[length];
-        for (int i = 0; i < length; i++) {
-            curData[i] = 0;
-            readsDone[i] = false;
-        }
+    readDone = 0;
+    writeDone = 0;
 
-        schedule(tickEvent, curTick()+driverDelay);
+    curData = new uint8_t[length];
+    readsDone = new bool[length];
+    for (int i = 0; i < length; i++) {
+        curData[i] = 0;
+        readsDone[i] = false;
     }
+
+    schedule(tickEvent, curTick()+driverDelay);
 
     return 0;
 }
