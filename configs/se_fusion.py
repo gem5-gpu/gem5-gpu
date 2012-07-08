@@ -174,9 +174,7 @@ if options.gpu_only:
     class CPUClass(AtomicSimpleCPU): pass
     test_mem_mode = 'timing'
 else:
-    class CPUClass(DerivO3CPU):
-        LQEntries = 128
-        SQEntries = 128
+    class CPUClass(TimingSimpleCPU): pass
     test_mem_mode = 'timing'
 
 FutureClass = None
