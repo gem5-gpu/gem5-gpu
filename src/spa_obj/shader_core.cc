@@ -144,6 +144,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
         DPRINTF(ShaderCoreAccess, "Got read_buffer %x with %d buffered reads\n", read_buffer, read_buffer->numBufferedReads());
         std::list<MemRequestHint*> coalesced_reads = read_buffer->getBufferedReads();
         std::list<MemRequestHint*>::iterator it;
+        int vectorReg = 0;
         for (it = coalesced_reads.begin(); it != coalesced_reads.end();) {
             MemRequestHint* curr_hint = (*it);
             DPRINTF(ShaderCoreAccess, "Completed read of addr %x for thread ID:%d:%d\n", curr_hint->getAddr(), curr_hint->getWID(), curr_hint->getTID());
@@ -156,29 +157,20 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             const operand_info &dst = pI->dst();
             unsigned type = pI->get_type();
             unsigned offset_in_line = curr_hint->getAddr() - pkt->req->getVaddr();
+            DPRINTF(ShaderCoreAccess, "offset is %d\n", offset_in_line);
+            DPRINTF(ShaderCoreAccess, "Data is %d\n", *(int*)(pkt->getPtr<uint8_t>()+offset_in_line));
             // @TODO: Update register data
             // *Note: This replicates code in ld_impl (instructions.cc)
+            ptx_reg_t register_data;
+            memcpy(&register_data, (void*)(pkt->getPtr<uint8_t>() + offset_in_line), curr_hint->getSize());
+            if (type == S16_TYPE || type == S32_TYPE) {
+                sign_extend(register_data, curr_hint->getSize()*8, dst);
+            }
             if (!vector_spec) {
-                ptx_reg_t register_data;
-                memcpy(&register_data, (void*)(pkt->getPtr<uint8_t>() + offset_in_line), curr_hint->getSize());
-                if (type == S16_TYPE || type == S32_TYPE) {
-                    sign_extend(register_data, curr_hint->getSize()*8, dst);
-                }
                 thread->set_operand_value(dst, register_data, type, thread, pI);
             } else {
-                panic("Don't know how to do vectors yet!");
-//                ptx_reg_t data1, data2, data3, data4;
-//                mem->read(addr,size/8,&data1.s64,thread,pI);
-//                mem->read(addr+size/8,size/8,&data2.s64,thread,pI);
-//                if (vector_spec != V2_TYPE) { //either V3 or V4
-//                   mem->read(addr+2*size/8,size/8,&data3.s64,thread,pI);
-//                   if (vector_spec != V3_TYPE) { //v4
-//                      mem->read(addr+3*size/8,size/8,&data4.s64,thread,pI);
-//                      thread->set_vector_operand_values(dst,data1,data2,data3,data4);
-//                   } else //v3
-//                      thread->set_vector_operand_values(dst,data1,data2,data3,data3);
-//                } else //v2
-//                   thread->set_vector_operand_values(dst,data1,data2,data2,data2);
+                thread->set_reg(dst.vec_symbol(vectorReg), register_data);
+                vectorReg++;
             }
             coalesced_reads.erase(it++);
             delete curr_hint;
