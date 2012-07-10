@@ -16,9 +16,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   // STATES
   state_declaration(State, desc="Cache states") {
     I, AccessPermission:Invalid, desc="Not Present/Invalid";
-    V, AccessPermission:Read_Write, desc="Valid";
-    VV, AccessPermission:Read_Write, desc="Valid waiting for mem ack";
-    V_a, AccessPermission:Read_Write, desc="Valid waiting for other atomic";
+    V, AccessPermission:Read_Only, desc="Valid";
+    V_a, AccessPermission:Read_Only, desc="Valid waiting for other atomic (locked & blocking)";
     VI, AccessPermission:Busy, desc="Modified, issued PUT";
     VI_a, AccessPermission:Busy, desc="Modified by atomic, issued PUT";
 
@@ -348,15 +347,11 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     z_stall;
   }
 
-  transition(VV, {Store, Replacement, Atomic}) {
-    z_stall;
-  }
-
   transition(V_a, {Load, Ifetch, Store, Replacement}) {
     z_stall;
   }
 
-  transition(V, Store, VV) {
+  transition(V, Store, VI) {
     s_store_hit;
     m_popMandatoryQueue;
 
@@ -365,12 +360,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     x_copyDataFromCacheToTBE;
   }
 
-  transition(VV, Writeback_Ack, V) {
-    w_deallocateTBE;
-    n_popResponseQueue;
-  }
-
-  transition({V, VV}, {Load, Ifetch}) {
+  transition(V, {Load, Ifetch}) {
     r_load_hit;
     m_popMandatoryQueue;
   }
@@ -435,13 +425,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   transition(VI, Writeback_Ack, I) {
     w_deallocateTBE;
-    n_popResponseQueue; // does this need to be done?
+    n_popResponseQueue;
   }
 
   transition(VI_a, Writeback_Ack, I) {
     h_deallocateL1CacheBlock;
     w_deallocateTBE;
-    n_popResponseQueue; // does this need to be done?
+    n_popResponseQueue;
   }
 
 }
