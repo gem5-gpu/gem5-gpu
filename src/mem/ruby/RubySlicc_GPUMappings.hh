@@ -36,17 +36,17 @@
 #include "mem/ruby/system/DirectoryMemory.hh"
 #include "mem/ruby/system/MachineID.hh"
 
-// inline MachineID
-// getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
-// {
-//     int num = 0;
-//     if (select_bits) {
-//         uint64 bits = addr.bitSelect(select_start_bit, select_start_bit+select_bits);
-//         num = bits % num_l2;
-//     }
+inline MachineID
+getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
+{
+    int num = 0;
+    if (select_bits) {
+        uint64 bits = addr.bitSelect(select_start_bit, select_start_bit+select_bits);
+        num = bits % num_l2;
+    }
 
-//     MachineID mach = {MachineType_L2Cache, num};
-//     return mach;
-// }
+    MachineID mach = {string_to_MachineType("L2Cache"), num};
+    return mach;
+}
 
 #endif
