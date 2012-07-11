@@ -352,7 +352,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(V, Store, VI) {
-    s_store_hit;
     m_popMandatoryQueue;
 
     v_allocateTBE;
@@ -367,7 +366,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   transition(I, Store, VI) {
     v_allocateTBE;
-    sx_store_hit;
     p_profileMiss;
     m_popMandatoryQueue;
 
@@ -411,7 +409,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(V_a, Atomic, VI_a) {
-    s_store_hit;
     m_popMandatoryQueue;
 
     v_allocateTBE;
@@ -424,11 +421,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(VI, Writeback_Ack, I) {
+    sx_store_hit;
     w_deallocateTBE;
     n_popResponseQueue;
   }
 
   transition(VI_a, Writeback_Ack, I) {
+    sx_store_hit;
     h_deallocateL1CacheBlock;
     w_deallocateTBE;
     n_popResponseQueue;
