@@ -42,6 +42,7 @@ from m5.util import addToPath, fatal
 
 addToPath('../../gem5/configs/common')
 addToPath('../../gem5/configs/ruby')
+addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
 import GPUOptions

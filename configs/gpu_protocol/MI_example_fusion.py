@@ -45,7 +45,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
-        (cpu_sequencers, dir_cntrls, all_cntrls) = \
+        (cpu_sequencers, dir_cntrls, topology) = \
             eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
@@ -72,7 +72,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
-                                cntrl_id = len(all_cntrls) + i,
+                                cntrl_id = len(topology),
                                 cacheMemory = cache,
                                 send_evictions = (options.cpu_type == "detailed"),
                                 ruby_system = ruby_system)
@@ -93,14 +93,14 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         # Add controllers and sequencers to the appropriate lists
         #
         cpu_sequencers.append(cpu_seq)
-        l1_cntrl_nodes.append(l1_cntrl)
+        topology.addController(l1_cntrl)
 
 
     #copy engine cache (make as small as possible, ideally 0)
     cache = Cache(size = "4kB", assoc = 2)
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(all_cntrls) + options.num_sc,
+                                  cntrl_id = len(topology) + options.num_sc,
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
                                   cacheMemory = cache,
@@ -120,8 +120,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     system.l1_cntrl_ce = l1_cntrl
 
     cpu_sequencers.append(cpu_seq)
-    l1_cntrl_nodes.append(l1_cntrl)
+    topology.addController(l1_cntrl)
 
-    all_cntrls += l1_cntrl_nodes
-
-    return cpu_sequencers, dir_cntrls, all_cntrls
+    return cpu_sequencers, dir_cntrls, topology

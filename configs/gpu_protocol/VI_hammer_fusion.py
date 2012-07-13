@@ -54,7 +54,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
-        (cpu_sequencers, dir_cntrls, all_cntrls) = \
+        (cpu_sequencers, dir_cntrls, topology) = \
             eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
@@ -85,7 +85,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             start_index_bit = block_size_bits)
 
         l1_cntrl = L1CacheVI_Controller(version = i,
-                                      cntrl_id = len(all_cntrls) + i,
+                                      cntrl_id = len(topology),
                                       cacheMemory = cache,
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
@@ -108,7 +108,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         # Add controllers and sequencers to the appropriate lists
         #
         cpu_sequencers.append(cpu_seq)
-        l1_cntrl_nodes.append(l1_cntrl)
+        topology.addController(l1_cntrl)
 
         cntrl_count += 1
 
@@ -127,15 +127,13 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                ruby_system = ruby_system)
 
     l1_cntrl = L1CacheCE_Controller(version = 0,
-                                    cntrl_id = len(all_cntrls)+options.num_sc,
+                                    cntrl_id = len(topology),
                                     sequencer = cpu_seq,
                                     number_of_TBEs = 12,
                                     ruby_system = ruby_system)
 
 
     cpu_sequencers.append(cpu_seq)
-    l1_cntrl_nodes.append(l1_cntrl)
+    topology.addController(l1_cntrl)
 
-    all_cntrls += l1_cntrl_nodes
-
-    return (cpu_sequencers, dir_cntrls, all_cntrls)
+    return (cpu_sequencers, dir_cntrls, topology)

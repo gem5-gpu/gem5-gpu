@@ -49,16 +49,19 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
 
+    print "Creating system for GPU"
+
     # Run the original protocol script
     buildEnv['PROTOCOL'] = buildEnv['PROTOCOL'][:-7]
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
-        (cpu_sequencers, dir_cntrls, all_cntrls) = \
+        (cpu_sequencers, dir_cntrls, topology) = \
             eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
+    print "we now have", len(topology), "controllers"
 
     #
     # The ruby network creation expects the list of nodes in the system to be
@@ -89,7 +92,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             start_index_bit = block_size_bits)
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
-                                      cntrl_id = len(all_cntrls) + i,
+                                      cntrl_id = len(topology),
                                       L1IcacheMemory = l1i_cache,
                                       L1DcacheMemory = l1d_cache,
                                       l2_select_num_bits = l2_bits,
@@ -114,7 +117,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         # Add controllers and sequencers to the appropriate lists
         #
         cpu_sequencers.append(cpu_seq)
-        l1_cntrl_nodes.append(l1_cntrl)
+        topology.addController(l1_cntrl)
 
         cntrl_count += 1
 
@@ -124,7 +127,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     l1d_cache = L1Cache(size = "2kB", assoc = 2)
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(all_cntrls) + options.num_sc,
+                                  cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
                                   L1IcacheMemory = l1i_cache,
@@ -149,8 +152,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     system.l1_cntrl_ce = l1_cntrl
 
     cpu_sequencers.append(cpu_seq)
-    l1_cntrl_nodes.append(l1_cntrl)
+    topology.addController(l1_cntrl)
 
-    all_cntrls += l1_cntrl_nodes
-
-    return (cpu_sequencers, dir_cntrls, all_cntrls)
+    return (cpu_sequencers, dir_cntrls, topology)

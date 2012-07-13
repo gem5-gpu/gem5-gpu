@@ -48,6 +48,7 @@ if buildEnv['FULL_SYSTEM']:
 
 addToPath('../../gem5/configs/common')
 addToPath('../../gem5/configs/ruby')
+addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
 import GPUOptions
