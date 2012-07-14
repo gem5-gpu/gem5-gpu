@@ -46,5 +46,5 @@ class SPACopyEngine(MemObject):
         sys.exit(1)
 
     id = Param.Int(-1, "ID of the CE")
-    stats_filename = Param.String("gpu.stats",
-        "file to which gpgpu-sim dumps its stats")
+    stats_filename = Param.String("ce_stats.txt",
+        "file to which copy engine dumps its stats")

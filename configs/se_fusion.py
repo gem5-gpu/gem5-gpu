@@ -194,6 +194,7 @@ system.stream_proc_array.useGem5Mem = options.gpu_ruby
 system.stream_proc_array.sharedMemDelay = options.shMemDelay
 system.stream_proc_array.nonBlocking = options.gpu_nonblocking
 system.stream_proc_array.config_path = gpgpusimconfig
+system.stream_proc_array.dump_kernel_stats = options.kernel_stats
 buildEnv['PROTOCOL'] +=  '_fusion'
 Ruby.create_system(options, system)
 system.stream_proc_array.ruby = system.ruby

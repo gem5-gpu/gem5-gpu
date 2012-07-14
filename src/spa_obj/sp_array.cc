@@ -44,6 +44,7 @@
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
+#include "sim/pseudo_inst.hh"
 #include "sp_array.hh"
 #include "../gpgpu-sim/cuda-sim/cuda-sim.h"
 
@@ -57,7 +58,8 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
         copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem), 
         sharedMemDelay(p->sharedMemDelay), gpgpusimConfigPath(p->config_path), 
         launchDelay(p->launchDelay), returnDelay(p->returnDelay), ruby(p->ruby),
-        gpuTickConversion(p->gpuTickConv), clearTick(0)
+        gpuTickConversion(p->gpuTickConv), clearTick(0),
+        dumpKernelStats(p->dump_kernel_stats)
 {
     streamDelay = 1;
     assert(singletonPointer == NULL);
@@ -127,6 +129,9 @@ void StreamProcessorArray::gpuTick()
         finished_kernels.pop();
 
         kernelTimes.push_back(curTick());
+        if (dumpKernelStats) {
+            PseudoInst::dumpresetstats(tc, 0, 0);
+        }
 
         if (unblockNeeded && streamManager->empty() && finished_kernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
@@ -231,6 +236,9 @@ void StreamProcessorArray::beginRunning(Tick launchTime)
 {
     DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", curTick());
     kernelTimes.push_back(curTick());
+    if (dumpKernelStats) {
+        PseudoInst::dumpresetstats(tc, 0, 0);
+    }
     if (running) {
         panic("Should not already be running if we are starting\n");
     }
@@ -276,7 +284,7 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     bool kernel_active = false;
     vector<unsigned long long>::iterator it;
     out << "kernel times (ticks):\n";
-    out << "start, end, start, end, ...\n";
+    out << "start, end, start, end, ..., exit\n";
     for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {
         out << *it << ", ";
         if (kernel_active) {
@@ -287,13 +295,14 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
             kernel_active = true;
         }
     }
+    out << curTick() << "\n";
 
-    // Print Shader CTA/block statistics
-    out << "\n\nshader CTA times (ticks):\n";
-    out << "shader, CTA ID, start, end, start, end, ...\n";
+    // Print Shader CTA statistics
+    out << "\nshader CTA times (ticks):\n";
+    out << "shader, CTA ID, start, end, start, end, ..., exit\n";
     std::vector<ShaderCore*>::iterator shaders;
     for (shaders = shaderCores.begin(); shaders != shaderCores.end(); shaders++) {
-        (*shaders)->printBlockStats(out);
+        (*shaders)->printCTAStats(out);
     }
     out << "\ntotal kernel time = " << total_kernel_ticks << "\n";
 

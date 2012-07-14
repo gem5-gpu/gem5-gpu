@@ -164,6 +164,7 @@ private:
     std::vector<unsigned long long> kernelTimes;
     Tick clearTick;
     std::queue<kernelTermInfo> finished_kernels;
+    bool dumpKernelStats;
 
     /// Pointers to GPGPU-Sim objects
     gpgpu_sim *theGPU;

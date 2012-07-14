@@ -316,7 +316,7 @@ public:
     std::map<unsigned, std::list<unsigned long long> > shaderCTAActiveStats;
     void record_block_issue(unsigned hw_cta_id);
     void record_block_commit(unsigned hw_cta_id);
-    void printBlockStats(std::ostream& out);
+    void printCTAStats(std::ostream& out);
 };
 
 

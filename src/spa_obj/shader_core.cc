@@ -859,7 +859,7 @@ ShaderCore::record_block_commit(unsigned hw_cta_id)
     shaderCTAActiveStats[hw_cta_id].push_back(curTick());
 }
 
-void ShaderCore::printBlockStats(std::ostream& out)
+void ShaderCore::printCTAStats(std::ostream& out)
 {
     std::map<unsigned, std::list<unsigned long long> >::iterator iter;
     std::list<unsigned long long>::iterator times;
@@ -869,6 +869,6 @@ void ShaderCore::printBlockStats(std::ostream& out)
         for (times = shaderCTAActiveStats[cta_id].begin(); times != shaderCTAActiveStats[cta_id].end(); times++) {
             out << *times << ", ";
         }
-        out << "\n";
+        out << curTick() << "\n";
     }
 }

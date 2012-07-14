@@ -53,7 +53,7 @@ class StreamProcessorArray(SimObject):
       print "Don't know how to do gpgpusim with %s" % \
          buildEnv['TARGET_ISA']
       sys.exit(1)
-   stats_filename = Param.String("gpu.stats",
+   stats_filename = Param.String("gpu_stats.txt",
          "file to which gpgpu-sim dumps its stats")
    config_path = Param.String('gpgpusim.config', "file to which gpgpu-sim dumps its stats")
-   
+   dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
