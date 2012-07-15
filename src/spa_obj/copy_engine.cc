@@ -368,7 +368,12 @@ void SPACopyEngine::cePrintStats(std::ostream& out) {
     }
     out << "\n";
     out << "total memcpy ticks = " << total_memcpy_ticks << "\n";
-    unsigned long long int average_memcpy_ticks = total_memcpy_ticks / i;
+    unsigned long long int average_memcpy_ticks;
+    if (i > 0) {
+        average_memcpy_ticks = total_memcpy_ticks / i;
+    } else {
+        average_memcpy_ticks = 0;
+    }
     out << "average ticks per memcpy = " << average_memcpy_ticks << "\n";
     out << "minimum ticks per memcpy = " << min_memcpy_ticks << "\n";
     out << "maximum ticks per memcpy = " << max_memcpy_ticks << "\n";
