@@ -31,6 +31,7 @@ import math
 import m5
 from m5.objects import *
 from m5.defines import buildEnv
+from Ruby import create_topology
 
 #
 # Note: the L1 Cache latency is only used by the sequencer on fast path hits
@@ -240,5 +241,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         cntrl_count += 1
 
     all_cntrls = l1_cntrl_nodes + l2_cntrl_nodes + dir_cntrl_nodes + dma_cntrl_nodes
+    topology = create_topology(all_cntrls, options)
 
-    return (cpu_sequencers, dir_cntrl_nodes, all_cntrls)
+    return (cpu_sequencers, dir_cntrl_nodes, topology)

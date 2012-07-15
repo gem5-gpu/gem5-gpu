@@ -100,7 +100,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     cache = Cache(size = "4kB", assoc = 2)
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(topology) + options.num_sc,
+                                  cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
                                   cacheMemory = cache,
