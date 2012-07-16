@@ -31,7 +31,7 @@ import math
 import m5
 from m5.objects import *
 from m5.defines import buildEnv
-from Ruby import create_topology
+from Cluster import Cluster
 
 #
 # Note: the L1 Cache latency is only used by the sequencer on fast path hits
@@ -66,15 +66,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
     cpu_sequencers = []
 
-    #
-    # The ruby network creation expects the list of nodes in the system to be
-    # consistent with the NetDest list.  Therefore the l1 controller nodes must be
-    # listed before the directory nodes and directory nodes before dma nodes, etc.
-    #
-    l1_cntrl_nodes = []
-    l2_cntrl_nodes = []
-    dir_cntrl_nodes = []
-    dma_cntrl_nodes = []
+    topology = Cluster()
 
     #
     # Must create the individual controllers before the network to ensure the
@@ -129,28 +121,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         # Add controllers and sequencers to the appropriate lists
         #
         cpu_sequencers.append(cpu_seq)
-        l1_cntrl_nodes.append(l1_cntrl)
-
-        cntrl_count += 1
-
-    l2_index_start = block_size_bits + l2_bits
-
-    for i in xrange(options.num_l2caches):
-        #
-        # First create the Ruby objects associated with this cpu
-        #
-        l2_cache = L2Cache(size = options.sc_l2_size,
-                           assoc = options.sc_l2_assoc,
-                           start_index_bit = l2_index_start,
-                            replacement_policy = "LRU")
-
-        l2_cntrl = L2Cache_Controller(version = i,
-                                      cntrl_id = cntrl_count,
-                                      L2cacheMemory = l2_cache,
-                                      ruby_system = ruby_system)
-
-        exec("system.l2_cntrl%d = l2_cntrl" % i)
-        l2_cntrl_nodes.append(l2_cntrl)
+        topology.add(l1_cntrl)
 
         cntrl_count += 1
 
@@ -181,6 +152,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         else:
             pf_start_bit = 6
 
+    dir_cntrl_nodes = []
     for i in xrange(options.num_dirs):
         #
         # Create the Ruby objects associated with the directory controller
@@ -217,6 +189,8 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         exec("system.dir_cntrl%d = dir_cntrl" % i)
         dir_cntrl_nodes.append(dir_cntrl)
 
+        # NOTE: These must be added to the main cluster in another file!!!
+
         cntrl_count += 1
 
     for i, dma_port in enumerate(dma_ports):
@@ -234,13 +208,11 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         exec("system.dma_cntrl%d = dma_cntrl" % i)
         exec("system.dma_cntrl%d.dma_sequencer.slave = dma_port" % i)
         dma_cntrl_nodes.append(dma_cntrl)
+        topology.add(dma_cntrl)
 
         if options.recycle_latency:
             dma_cntrl.recycle_latency = options.recycle_latency
 
         cntrl_count += 1
-
-    all_cntrls = l1_cntrl_nodes + l2_cntrl_nodes + dir_cntrl_nodes + dma_cntrl_nodes
-    topology = create_topology(all_cntrls, options)
 
     return (cpu_sequencers, dir_cntrl_nodes, topology)

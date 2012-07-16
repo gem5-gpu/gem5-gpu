@@ -31,6 +31,7 @@ import math
 import m5
 from m5.objects import *
 from m5.defines import buildEnv
+from Cluster import Cluster
 
 #
 # Note: the L1 Cache latency is only used by the sequencer on fast path hits
@@ -54,26 +55,19 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
-        (cpu_sequencers, dir_cntrls, topology) = \
+        (cpu_sequencers, dir_cntrls, cpuCluster) = \
             eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
 
-    #
-    # The ruby network creation expects the list of nodes in the system to be
-    # consistent with the NetDest list.  Therefore the l1 controller nodes must be
-    # listed before the directory nodes and directory nodes before dma nodes, etc.
-    #
-    l1_cntrl_nodes = []
+    gpuCluster = Cluster()
 
     #
     # Caches for the stream processors
     #
     l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
-
-    cntrl_count = 0
 
     for i in xrange(options.num_sc):
         #
@@ -85,10 +79,11 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             start_index_bit = block_size_bits)
 
         l1_cntrl = L1CacheVI_Controller(version = i,
-                                      cntrl_id = len(topology),
+                                      cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
                                       cacheMemory = cache,
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
+                                      issue_latency = 30,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,
@@ -108,9 +103,26 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         # Add controllers and sequencers to the appropriate lists
         #
         cpu_sequencers.append(cpu_seq)
-        topology.addController(l1_cntrl)
+        gpuCluster.add(l1_cntrl)
 
-        cntrl_count += 1
+    l2_index_start = block_size_bits + l2_bits
+
+    for i in xrange(options.num_l2caches):
+        #
+        # First create the Ruby objects associated with this cpu
+        #
+        l2_cache = L2Cache(size = options.sc_l2_size,
+                           assoc = options.sc_l2_assoc,
+                           start_index_bit = l2_index_start,
+                            replacement_policy = "LRU")
+
+        l2_cntrl = L2Cache_Controller(version = i,
+                                      cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
+                                      L2cacheMemory = l2_cache,
+                                      ruby_system = ruby_system)
+
+        exec("system.l2_cntrl%d = l2_cntrl" % i)
+        gpuCluster.add(l2_cntrl)
 
     ######################################################################################
     #copy engine cache (make as small as possible, ideally 0)
@@ -126,14 +138,21 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                max_outstanding_requests=10, # This directly corresponds to the CE bandwidth
                                ruby_system = ruby_system)
 
-    l1_cntrl = L1CacheCE_Controller(version = 0,
-                                    cntrl_id = len(topology),
+    ce_cntrl = L1CacheCE_Controller(version = 0,
+                                    cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
                                     sequencer = cpu_seq,
                                     number_of_TBEs = 12,
                                     ruby_system = ruby_system)
 
 
     cpu_sequencers.append(cpu_seq)
-    topology.addController(l1_cntrl)
 
-    return (cpu_sequencers, dir_cntrls, topology)
+    mainCluster = Cluster()
+    mainCluster.add(ce_cntrl)
+    mainCluster.add(cpuCluster)
+    mainCluster.add(gpuCluster)
+
+    for cntrl in dir_cntrls:
+        mainCluster.add(cntrl)
+
+    return (cpu_sequencers, dir_cntrls, mainCluster)
