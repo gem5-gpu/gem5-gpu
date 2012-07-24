@@ -5,7 +5,7 @@ import m5
 
 
 def addGPUOptions(parser):
-    parser.add_option("--clusters", default=15, help="Number of shader core clusters in the gpu that GPGPU-sim is simulating", type="int")
+    parser.add_option("--clusters", default=16, help="Number of shader core clusters in the gpu that GPGPU-sim is simulating", type="int")
     parser.add_option("--cores_per_cluster", default=1, help="Number of shader cores per cluster in the gpu that GPGPU-sim is simulating", type="int")
     parser.add_option("--m5_cycles_per_gpu_cycles", default=1000000000000, help="Number of cycles m5 ticks per cycle gpgpu-sim ticks", type="int")
     parser.add_option("--gpu_ruby", default=True, help="hook gpu up to ruby instead of its internal memory")
