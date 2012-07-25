@@ -53,9 +53,12 @@ public:
     ~GPUSyscallHelper();
     char* getParam(int index);
     void setReturn(unsigned char* retValue, size_t size);
-    void readBlob(Addr addr, uint8_t* p, int size);
-    void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu);
-    void writeBlob(Addr addr, uint8_t* p, int size);
+    static void readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
+    static void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu, ThreadContext *tc);
+    static void writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
+    void readBlob(Addr addr, uint8_t* p, int size) {readBlob(addr, p, size, tc);}
+    void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu) {readString(addr, p, size, the_gpu, tc);}
+    void writeBlob(Addr addr, uint8_t* p, int size) {writeBlob(addr, p, size, tc);}
 };
 
 /*******************************

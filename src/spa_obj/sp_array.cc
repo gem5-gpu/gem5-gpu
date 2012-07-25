@@ -28,6 +28,8 @@
 
 #include <cmath>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <map>
 
 #include "arch/tlb.hh"
@@ -45,18 +47,25 @@
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
 #include "sim/pseudo_inst.hh"
+
 #include "sp_array.hh"
+
 #include "../gpgpu-sim/cuda-sim/cuda-sim.h"
 
 using namespace TheISA;
 using namespace std;
 
+// From GPU syscalls
+void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *tc);
+unsigned int registerFatBinaryBottom(addr_t sim_alloc_ptr);
+class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc);
+
 StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
         SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-        copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem), 
-        sharedMemDelay(p->sharedMemDelay), gpgpusimConfigPath(p->config_path), 
+        copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem),
+        sharedMemDelay(p->sharedMemDelay), gpgpusimConfigPath(p->config_path),
         launchDelay(p->launchDelay), returnDelay(p->returnDelay), ruby(p->ruby),
         gpuTickConversion(p->gpuTickConv), clearTick(0),
         dumpKernelStats(p->dump_kernel_stats)
@@ -78,11 +87,116 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     // Start giving constant addresses at offset of 0x100 to match GPGPU-Sim
     nextAddr = 0x8000100;
 
+    restoring = false;
+
     //
     // Print gpu configuration and stats at exit
     //
     GPUExitCallback* gpuExitCB = new GPUExitCallback(this, p->stats_filename);
     registerExitCallback(gpuExitCB);
+}
+
+
+void StreamProcessorArray::serialize(std::ostream &os)
+{
+    DPRINTF(StreamProcessorArray, "Serializing\n");
+    if (running) {
+        panic("Checkpointing during GPU execution not supported\n");
+    }
+
+    SERIALIZE_SCALAR(m_last_fat_cubin_handle);
+    SERIALIZE_SCALAR(m_inst_base_vaddr);
+
+    int tid = tc->threadId();
+    SERIALIZE_SCALAR(tid);
+
+    int numBinaries = fatBinaries.size();
+    SERIALIZE_SCALAR(numBinaries);
+    for (int i=0; i<numBinaries; i++) {
+        stringstream ss;
+        ss << i;
+        string num = ss.str();
+        paramOut(os, num+"fatBinaries.handle", fatBinaries[i].handle);
+        paramOut(os, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
+        paramOut(os, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
+        paramOut(os, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
+        DPRINTF(StreamProcessorArray, "Writing %d %d %d\n", fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
+
+        paramOut(os, num+"fatBinaries.funcMap.size", fatBinaries[i].funcMap.size());
+        std::map<const void*,string>::iterator it;
+        int j = 0;
+        for (it=fatBinaries[i].funcMap.begin(); it!=fatBinaries[i].funcMap.end(); it++) {
+            paramOut(os, csprintf("%dfatBinaries.funcMap[%d].first", i, j), (uint64_t)it->first);
+            paramOut(os, csprintf("%dfatBinaries.funcMap[%d].second", i, j), it->second);
+            j++;
+        }
+    }
+
+    DPRINTF(StreamProcessorArray, "Serializing %d, %d\n", m_last_fat_cubin_handle, m_inst_base_vaddr);
+}
+
+void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &section)
+{
+    DPRINTF(StreamProcessorArray, "UNserializing\n");
+
+    restoring = true;
+
+    UNSERIALIZE_SCALAR(m_last_fat_cubin_handle);
+    UNSERIALIZE_SCALAR(m_inst_base_vaddr);
+
+    int tid;
+    UNSERIALIZE_SCALAR(tid);
+
+    DPRINTF(StreamProcessorArray, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, m_inst_base_vaddr);
+
+    int numBinaries;
+    UNSERIALIZE_SCALAR(numBinaries);
+    DPRINTF(StreamProcessorArray, "UNserializing %d binaries\n", numBinaries);
+    fatBinaries.resize(numBinaries);
+    for (int i=0; i<numBinaries; i++) {
+        stringstream ss;
+        ss << i;
+        string num = ss.str();
+        paramIn(cp, section, num+"fatBinaries.handle", fatBinaries[i].handle);
+        paramIn(cp, section, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
+        paramIn(cp, section, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
+        paramIn(cp, section, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
+        DPRINTF(StreamProcessorArray, "Got %d %d %d %d\n", fatBinaries[i].handle, fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
+
+        int funcMapSize;
+        paramIn(cp, section, num+"fatBinaries.funcMap.size", funcMapSize);
+        for (int j=0; j<funcMapSize; j++) {
+            uint64_t first;
+            string second;
+            paramIn(cp, section, csprintf("%dfatBinaries.funcMap[%d].first", i, j), first);
+            paramIn(cp, section, csprintf("%dfatBinaries.funcMap[%d].second", i, j), second);
+            fatBinaries[i].funcMap[(const void*)first] = second;
+        }
+    }
+
+}
+
+void StreamProcessorArray::startup()
+{
+    if (!restoring) {
+        return;
+    }
+
+    tc = system->getThreadContext(tid);
+    GPGPUSim_Init(tc);
+
+    // Setting everything up again!
+    std::vector<_FatBinary>::iterator it;
+    assert(tc != NULL);
+    for (it=fatBinaries.begin(); it!=fatBinaries.end(); it++) {
+        registerFatBinaryTop((*it).sim_fatCubin, (*it).sim_binSize, tc);
+        registerFatBinaryBottom((*it).sim_alloc_ptr);
+
+        std::map<const void*,string>::iterator jt;
+        for (jt=(*it).funcMap.begin(); jt!=(*it).funcMap.end(); jt++) {
+            register_function((*it).handle, (const char*)jt->first, jt->second.c_str());
+        }
+    }
 }
 
 
@@ -333,6 +447,51 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
     } else {
         copyEngine->memcpy((Addr)dst, (Addr)src, count, stream);
     }
+}
+
+void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )
+{
+    m_code[fat_cubin_handle] = symtab;
+    m_last_fat_cubin_handle = fat_cubin_handle;
+}
+
+void StreamProcessorArray::add_ptxinfo( const char *deviceFun, const struct gpgpu_ptx_sim_kernel_info info )
+{
+    symbol *s = m_code[m_last_fat_cubin_handle]->lookup(deviceFun);
+    assert( s != NULL );
+    function_info *f = s->get_pc();
+    assert( f != NULL );
+    f->set_kernel_info(info);
+}
+
+void StreamProcessorArray::register_function( unsigned fat_cubin_handle, const char *hostFun, const char *deviceFun )
+{
+    if( m_code.find(fat_cubin_handle) != m_code.end() ) {
+        symbol *s = m_code[fat_cubin_handle]->lookup(deviceFun);
+        assert( s != NULL );
+        function_info *f = s->get_pc();
+        assert( f != NULL );
+        m_kernel_lookup[hostFun] = f;
+    } else {
+        m_kernel_lookup[hostFun] = NULL;
+    }
+}
+
+function_info *StreamProcessorArray::get_kernel(const char *hostFun)
+{
+    std::map<const void*,function_info*>::iterator i=m_kernel_lookup.find(hostFun);
+    assert( i != m_kernel_lookup.end() );
+    return i->second;
+}
+
+void StreamProcessorArray::set_inst_base_vaddr(uint64_t addr)
+{
+    m_inst_base_vaddr = addr;
+}
+
+uint64_t StreamProcessorArray::get_inst_base_vaddr()
+{
+    return m_inst_base_vaddr;
 }
 
 

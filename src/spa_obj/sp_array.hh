@@ -125,6 +125,12 @@ private:
     /// Used to register this SPA with the system
     System *system;
 
+    /// Are we restoring from a checkpoint?
+    bool restoring;
+
+    /// Used when restoring from checkpoint
+    int tid;
+
     /// If true do global mem requests through gem5 otherwise do them through GPGPU-Sim
     int useGem5Mem;
     int sharedMemDelay;
@@ -177,9 +183,38 @@ private:
     /// This is a function of the driver overheads
     int streamDelay;
 
+    /// For GPU syscalls
+    /// This is what is required to save and restore on checkpoints
+    std::map<unsigned,symbol_table*> m_code; // fat binary handle => global symbol table
+    unsigned int m_last_fat_cubin_handle;
+    std::map<const void*,function_info*> m_kernel_lookup; // unique id (CUDA app function address) => kernel entry point
+    uint64_t m_inst_base_vaddr;
+
+    /**
+     * Helper class for checkpointing
+     */
+    class _FatBinary
+    {
+    public:
+        unsigned int handle;
+        Addr sim_fatCubin;
+        size_t sim_binSize;
+        addr_t sim_alloc_ptr;
+        std::map<const void*,std::string> funcMap;
+    };
+
+    std::vector<_FatBinary> fatBinaries;
+
 public:
     /// Constructor
     StreamProcessorArray(const Params *p);
+
+    /// For checkpointing
+    virtual void serialize(std::ostream &os);
+    virtual void unserialize(Checkpoint *cp, const std::string &section);
+
+    /// Called after constructor, but before any real simulation
+    virtual void startup();
 
     /// Called during GPGPU-Sim initialization to initialize the SPA
     void start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
@@ -189,6 +224,7 @@ public:
     int getSharedMemDelay(){ return sharedMemDelay; }
     const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
     RubySystem* getRubySystem(){ return ruby; }
+    gpgpu_sim* getTheGPU() { return theGPU; }
 
     /// called if the gpu is going to block the processor and should unblock it
     /// when it's done. Returns true if you should suspend the thread
@@ -228,6 +264,31 @@ public:
 
     /// Begins a timing memory copy from src to/from the symbol+offset
     void memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream);
+
+    void saveFatBinaryInfoTop(unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
+        _FatBinary bin;
+        bin.handle = handle;
+        bin.sim_fatCubin = sim_fatCubin;
+        bin.sim_binSize = sim_binSize;
+        fatBinaries.push_back(bin);
+    }
+    void saveFatBinaryInfoBottom(addr_t sim_alloc_ptr) {
+        _FatBinary& bin = fatBinaries.back();
+        bin.sim_alloc_ptr = sim_alloc_ptr;
+    }
+    void saveFunctionNames(unsigned int handle, const char *host, const char *dev) {
+        _FatBinary& bin = fatBinaries[handle-1];
+        assert(bin.handle == handle);
+        bin.funcMap[host] = std::string(dev);
+    }
+
+    /// From gpu syscalls (used to be CUctx_st)
+    void add_binary( symbol_table *symtab, unsigned fat_cubin_handle );
+    void add_ptxinfo( const char *deviceFun, const struct gpgpu_ptx_sim_kernel_info info );
+    void register_function( unsigned fat_cubin_handle, const char *hostFun, const char *deviceFun );
+    function_info *get_kernel(const char *hostFun);
+    void set_inst_base_vaddr(uint64_t addr);
+    uint64_t get_inst_base_vaddr();
 };
 
 /**
