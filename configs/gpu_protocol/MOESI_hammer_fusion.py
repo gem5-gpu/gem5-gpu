@@ -31,20 +31,21 @@ import math
 import m5
 from m5.objects import *
 from m5.defines import buildEnv
+from Ruby import create_topology
 
 #
 # Note: the L1 Cache latency is only used by the sequencer on fast path hits
 #
 class L1Cache(RubyCache):
-    latency = 3
+    latency = 2
 
 #
 # Note: the L2 Cache latency is not currently used
 #
 class L2Cache(RubyCache):
-    latency = 15
+    latency = 10
 
-def create_system(options, system, piobus, dma_devices, ruby_system):
+def create_system(options, system, piobus, dma_ports, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
@@ -56,23 +57,16 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     protocol = buildEnv['PROTOCOL']
     exec "import %s" % protocol
     try:
-        (cpu_sequencers, dir_cntrls, topology) = \
-            eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
+        (cpu_sequencers, dir_cntrl_nodes, topology) = \
+            eval("%s.create_system(options, system, piobus, dma_ports, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
 
     #
-    # The ruby network creation expects the list of nodes in the system to be
-    # consistent with the NetDest list.  Therefore the l1 controller nodes must be
-    # listed before the directory nodes and directory nodes before dma nodes, etc.
+    # Must create the individual controllers before the network to ensure the
+    # controller constructors are called before the network constructor
     #
-    l1_cntrl_nodes = []
-
-    #
-    # Caches for the stream processors
-    #
-    l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
 
     cntrl_count = 0
@@ -81,20 +75,24 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         #
         # First create the Ruby objects associated with this cpu
         #
-        l1i_cache = L1Cache(size = options.sc_l1_size,
-                            assoc = options.sc_l1_assoc,
-                            replacement_policy = "LRU",
+        l1i_cache = L1Cache(size = options.l1i_size,
+                            assoc = options.l1i_assoc,
+                            start_index_bit = block_size_bits,
+                            is_icache = True)
+        l1d_cache = L1Cache(size = options.l1d_size,
+                            assoc = options.l1d_assoc,
                             start_index_bit = block_size_bits)
-        l1d_cache = L1Cache(size = options.sc_l1_size,
-                            assoc = options.sc_l1_assoc,
-                            replacement_policy = "LRU",
-                            start_index_bit = block_size_bits)
+        l2_cache = L2Cache(size = options.l2_size,
+                           assoc = options.l2_assoc,
+                           start_index_bit = block_size_bits)
 
-        l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
+        l1_cntrl = L1Cache_Controller(version = options.num_cpus+i,
                                       cntrl_id = len(topology),
                                       L1IcacheMemory = l1i_cache,
                                       L1DcacheMemory = l1d_cache,
-                                      l2_select_num_bits = l2_bits,
+                                      L2cacheMemory = l2_cache,
+                                      no_mig_atomic = not \
+                                        options.allow_atomic_migration,
                                       send_evictions = (
                                           options.cpu_type == "detailed"),
                                       ruby_system = ruby_system)
@@ -102,7 +100,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         cpu_seq = RubySequencer(version = options.num_cpus + i,
                                 icache = l1i_cache,
                                 dcache = l1d_cache,
-                                access_phys_mem = True,
                                 ruby_system = ruby_system)
 
         l1_cntrl.sequencer = cpu_seq
@@ -120,19 +117,23 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         cntrl_count += 1
 
-
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
     l1d_cache = L1Cache(size = "2kB", assoc = 2)
+    l2_cache = L2Cache(size = "2kB",
+                        assoc = 2,
+                        start_index_bit = block_size_bits)
 
-    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(topology),
-                                  send_evictions = (
-                                      options.cpu_type == "detailed"),
-                                  L1IcacheMemory = l1i_cache,
-                                  L1DcacheMemory = l1d_cache,
-                                  l2_select_num_bits = l2_bits,
-                                  ruby_system = ruby_system)
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus+options.num_sc,
+                                      cntrl_id = len(topology),
+                                      L1IcacheMemory = l1i_cache,
+                                      L1DcacheMemory = l1d_cache,
+                                      L2cacheMemory = l2_cache,
+                                      no_mig_atomic = not \
+                                        options.allow_atomic_migration,
+                                      send_evictions = (
+                                          options.cpu_type == "detailed"),
+                                      ruby_system = ruby_system)
 
     #
     # Only one unified L1 cache exists.  Can cache instructions and data.
@@ -153,4 +154,4 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)
 
-    return (cpu_sequencers, dir_cntrls, topology)
+    return (cpu_sequencers, dir_cntrl_nodes, topology)
