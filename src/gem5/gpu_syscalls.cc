@@ -1977,9 +1977,9 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
             /*sim_fatCubinHandle*/ 0, sim_hostVar, sim_deviceAddress,
             deviceName, sim_ext, sim_size, sim_constant, sim_global);
     if (sim_constant && !sim_global && !sim_ext) {
-        gpgpu_ptx_sim_register_const_variable((void*)sim_deviceAddress, deviceName, sim_size);
+        gpgpu_ptx_sim_register_const_variable((void*)sim_hostVar, deviceName, sim_size);
     } else if (!sim_constant && !sim_global && !sim_ext) {
-        gpgpu_ptx_sim_register_global_variable((void*)sim_deviceAddress, deviceName, sim_size);
+        gpgpu_ptx_sim_register_global_variable((void*)sim_hostVar, deviceName, sim_size);
     } else {
         panic("__cudaRegisterVar: Don't know how to register variable!");
     }
