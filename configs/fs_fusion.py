@@ -204,4 +204,7 @@ if buildEnv['TARGET_ISA'] == "x86":
     system.stream_proc_array.ce.dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
 root = Root(full_system = True, system = system)
+
+m5.disableAllListeners()
+
 Simulation.run(options, root, system, FutureClass)

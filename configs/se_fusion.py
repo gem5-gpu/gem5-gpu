@@ -248,4 +248,6 @@ system.stream_proc_array.ce.cePort = system.ruby._cpu_ruby_ports[options.num_cpu
 
 root = Root(full_system = False, system = system)
 
+m5.disableAllListeners()
+
 Simulation.run(options, root, system, FutureClass)
