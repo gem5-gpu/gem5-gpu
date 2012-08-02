@@ -203,7 +203,20 @@ private:
         std::map<const void*,std::string> funcMap;
     };
 
+    class _CudaVar
+    {
+    public:
+        Addr sim_deviceAddress;
+        std::string deviceName;
+        int sim_size;
+        int sim_constant;
+        int sim_global;
+        int sim_ext;
+        Addr sim_hostVar;
+    };
+
     std::vector<_FatBinary> fatBinaries;
+    std::vector<_CudaVar> cudaVars;
 
 public:
     /// Constructor
@@ -280,6 +293,17 @@ public:
         _FatBinary& bin = fatBinaries[handle-1];
         assert(bin.handle == handle);
         bin.funcMap[host] = std::string(dev);
+    }
+    void saveVar(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar) {
+        _CudaVar var;
+        var.sim_deviceAddress = sim_deviceAddress;
+        var.deviceName = std::string(deviceName);
+        var.sim_size = sim_size;
+        var.sim_constant = sim_constant;
+        var.sim_global = sim_global;
+        var.sim_ext = sim_ext;
+        var.sim_hostVar = sim_hostVar;
+        cudaVars.push_back(var);
     }
 
     /// From gpu syscalls (used to be CUctx_st)

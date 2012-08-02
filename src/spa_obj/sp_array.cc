@@ -58,6 +58,7 @@ using namespace std;
 // From GPU syscalls
 void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *tc);
 unsigned int registerFatBinaryBottom(addr_t sim_alloc_ptr);
+void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc);
 
 StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
@@ -120,7 +121,6 @@ void StreamProcessorArray::serialize(std::ostream &os)
         paramOut(os, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
         paramOut(os, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
         paramOut(os, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
-        DPRINTF(StreamProcessorArray, "Writing %d %d %d\n", fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
 
         paramOut(os, num+"fatBinaries.funcMap.size", fatBinaries[i].funcMap.size());
         std::map<const void*,string>::iterator it;
@@ -132,7 +132,18 @@ void StreamProcessorArray::serialize(std::ostream &os)
         }
     }
 
-    DPRINTF(StreamProcessorArray, "Serializing %d, %d\n", m_last_fat_cubin_handle, m_inst_base_vaddr);
+    int numVars = cudaVars.size();
+    SERIALIZE_SCALAR(numVars);
+    for (int i=0; i<numVars; i++) {
+        _CudaVar var = cudaVars[i];
+        paramOut(os, csprintf("cudaVars[%d].sim_deviceAddress", i), var.sim_deviceAddress);
+        paramOut(os, csprintf("cudaVars[%d].deviceName", i), var.deviceName);
+        paramOut(os, csprintf("cudaVars[%d].sim_size", i), var.sim_size);
+        paramOut(os, csprintf("cudaVars[%d].sim_constant", i), var.sim_constant);
+        paramOut(os, csprintf("cudaVars[%d].sim_global", i), var.sim_global);
+        paramOut(os, csprintf("cudaVars[%d].sim_ext", i), var.sim_ext);
+        paramOut(os, csprintf("cudaVars[%d].sim_hostVar", i), var.sim_hostVar);
+    }
 }
 
 void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &section)
@@ -174,6 +185,19 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
         }
     }
 
+    int numVars;
+    UNSERIALIZE_SCALAR(numVars);
+    cudaVars.resize(numVars);
+    for (int i=0; i<numVars; i++) {
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_deviceAddress", i), cudaVars[i].sim_deviceAddress);
+        paramIn(cp, section, csprintf("cudaVars[%d].deviceName", i), cudaVars[i].deviceName);
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_size", i), cudaVars[i].sim_size);
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_constant", i), cudaVars[i].sim_constant);
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_global", i), cudaVars[i].sim_global);
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_ext", i), cudaVars[i].sim_ext);
+        paramIn(cp, section, csprintf("cudaVars[%d].sim_hostVar", i), cudaVars[i].sim_hostVar);
+    }
+
 }
 
 void StreamProcessorArray::startup()
@@ -183,11 +207,11 @@ void StreamProcessorArray::startup()
     }
 
     tc = system->getThreadContext(tid);
+    assert(tc != NULL);
     GPGPUSim_Init(tc);
 
     // Setting everything up again!
     std::vector<_FatBinary>::iterator it;
-    assert(tc != NULL);
     for (it=fatBinaries.begin(); it!=fatBinaries.end(); it++) {
         registerFatBinaryTop((*it).sim_fatCubin, (*it).sim_binSize, tc);
         registerFatBinaryBottom((*it).sim_alloc_ptr);
@@ -196,6 +220,12 @@ void StreamProcessorArray::startup()
         for (jt=(*it).funcMap.begin(); jt!=(*it).funcMap.end(); jt++) {
             register_function((*it).handle, (const char*)jt->first, jt->second.c_str());
         }
+    }
+
+
+    std::vector<_CudaVar>::iterator ij;
+    for (ij=cudaVars.begin(); ij!=cudaVars.end(); ij++) {
+        register_var((*ij).sim_deviceAddress, (*ij).deviceName.c_str(), (*ij).sim_size, (*ij).sim_constant, (*ij).sim_global, (*ij).sim_ext, (*ij).sim_hostVar);
     }
 }
 

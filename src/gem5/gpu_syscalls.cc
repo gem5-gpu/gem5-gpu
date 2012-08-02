@@ -1955,6 +1955,22 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
     delete[] device_fun;
 }
 
+void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar) 
+{
+
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = 0x%x, deviceAddress* = 0x%x, deviceName* = %s, ext = %d, size = %d, constant = %d, global = %d)\n",
+            /*sim_fatCubinHandle*/ 0, sim_hostVar, sim_deviceAddress,
+            deviceName, sim_ext, sim_size, sim_constant, sim_global);
+
+    if (sim_constant && !sim_global && !sim_ext) {
+        gpgpu_ptx_sim_register_const_variable((void*)sim_hostVar, deviceName, sim_size);
+    } else if (!sim_constant && !sim_global && !sim_ext) {
+        gpgpu_ptx_sim_register_global_variable((void*)sim_hostVar, deviceName, sim_size);
+    } else {
+        panic("__cudaRegisterVar: Don't know how to register variable!");
+    }
+}
+
 void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
@@ -1973,16 +1989,9 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN, spa->getTheGPU());
 
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = 0x%x, deviceAddress* = 0x%x, deviceName* = %s, ext = %d, size = %d, constant = %d, global = %d)\n",
-            /*sim_fatCubinHandle*/ 0, sim_hostVar, sim_deviceAddress,
-            deviceName, sim_ext, sim_size, sim_constant, sim_global);
-    if (sim_constant && !sim_global && !sim_ext) {
-        gpgpu_ptx_sim_register_const_variable((void*)sim_hostVar, deviceName, sim_size);
-    } else if (!sim_constant && !sim_global && !sim_ext) {
-        gpgpu_ptx_sim_register_global_variable((void*)sim_hostVar, deviceName, sim_size);
-    } else {
-        panic("__cudaRegisterVar: Don't know how to register variable!");
-    }
+    spa->saveVar(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
+    
+    register_var(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
 }
 
 
