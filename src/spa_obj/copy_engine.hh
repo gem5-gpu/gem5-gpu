@@ -55,23 +55,37 @@ private:
         /// holds packets that failed to send for retry
         PacketPtr outstandingPkt;
 
+        int idx;
+        bool stallOnRetry;
+
     public:
         CEPort(const std::string &_name, SPACopyEngine *_proc, int _idx)
         : MasterPort(_name, _proc), engine(_proc), idx(_idx)
         {
             outstandingPkt = NULL;
+            stallOnRetry = false;
         }
-
-        int idx;
 
     protected:
         virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
+        void setStalled(PacketPtr pkt)
+        {
+            outstandingPkt = pkt;
+            stallOnRetry = true;
+        }
+        bool isStalled() { return stallOnRetry; }
+        void sendPacket(PacketPtr pkt);
     };
 
-    CEPort port;
+    CEPort hostPort;
+    CEPort devicePort;
+
+    // Depending on memcpy type, these point to the appropriate ports
+    CEPort* readPort;
+    CEPort* writePort;
 
     class TickEvent : public Event
     {
@@ -102,12 +116,16 @@ private:
 
     int driverDelay;
 
-    TheISA::TLB *dtb;
-    TheISA::TLB *itb;
+    // Pointers to the actual TLBs
+    TheISA::TLB *hostDTB;
+    TheISA::TLB *deviceDTB;
+
+    // Pointers set as appropriate for memory space during a memcpy
+    TheISA::TLB *readDTB;
+    TheISA::TLB *writeDTB;
 
     ThreadContext *tc;
 
-    bool stallOnRetry;
     bool needToRead;
     bool needToWrite;
     Addr currentReadAddr;
@@ -124,14 +142,10 @@ private:
     bool running;
     struct CUstream_st *stream;
 
-    bool scheduledTickEvent;
-
     void initialize(ThreadContext *_tc, StreamProcessorArray* _spa) { tc = _tc; spa = _spa;}
 
     void tryRead();
     void tryWrite();
-
-    bool sendPkt(PacketPtr pkt);
 
     unsigned long long memCpyStartTime;
     std::vector<unsigned long long> memCpyTimes;
@@ -141,8 +155,9 @@ public:
     SPACopyEngine(const Params *p);
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
     void finishTranslation(WholeTranslationState *state);
-
-    int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream);
+    int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type);
+    void recvPacket(PacketPtr pkt);
+    void finishMemcpy();
 
     void cePrintStats(std::ostream& out);
 };

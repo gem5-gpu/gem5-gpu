@@ -43,16 +43,17 @@ using namespace TheISA;
 using namespace std;
 
 SPACopyEngine::SPACopyEngine(const Params *p) :
-        MemObject(p),  port(name() + ".cePort", this, 0), tickEvent(this),
+        MemObject(p), hostPort(name() + ".hostPort", this, 0),
+        devicePort(name() + ".devicePort", this, 0), readPort(NULL),
+        writePort(NULL), tickEvent(this),
         masterId(p->sys->getMasterId(name())), _params(p),
-        driverDelay(p->driverDelay), dtb(p->dtb), itb(p->itb)
+        driverDelay(p->driver_delay), hostDTB(p->host_dtb),
+        deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
 {
     DPRINTF(SPACopyEngine, "Created copy engine\n");
 
-    stallOnRetry = false;
     needToRead = false;
     needToWrite = false;
-    scheduledTickEvent = false;
     running = false;
 
     CEExitCallback* ceExitCB = new CEExitCallback(this, p->stats_filename);
@@ -72,62 +73,7 @@ void SPACopyEngine::CEPort::recvFunctional(PacketPtr pkt)
 
 bool SPACopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
 {
-    // packet done
-
-    if (pkt->isRead()) {
-        DPRINTF(SPACopyEngine, "done with a read addr: 0x%x, size: %d\n", pkt->req->getVaddr(), pkt->getSize());
-        pkt->writeData(engine->curData + (pkt->req->getVaddr() - engine->beginAddr));
-
-        // set the addresses we just got as done
-        for (int i = pkt->req->getVaddr() - engine->beginAddr;
-                i < pkt->req->getVaddr() - engine->beginAddr + pkt->getSize(); i++) {
-            engine->readsDone[i] = true;
-        }
-
-        DPRINTF(SPACopyEngine, "Data is: %d\n", *((int*) (engine->curData + (pkt->req->getVaddr() - engine->beginAddr))));
-        if (engine->readDone < engine->totalLength) {
-            DPRINTF(SPACopyEngine, "Trying to write\n");
-            engine->needToWrite = true;
-            if (!engine->scheduledTickEvent) {
-                engine->scheduledTickEvent = true;
-                engine->schedule(engine->tickEvent, curTick()+1);
-            }
-        }
-
-        // mark readDone as only the contiguous region
-        while (engine->readDone < engine->totalLength && engine->readsDone[engine->readDone]) {
-            engine->readDone++;
-        }
-
-        if (engine->readDone >= engine->totalLength) {
-            DPRINTF(SPACopyEngine, "done reading!!\n");
-            engine->needToRead = false;
-        }
-    } else {
-        DPRINTF(SPACopyEngine, "done with a write addr: 0x%x\n", pkt->req->getVaddr());
-        engine->writeDone += pkt->getSize();
-        if (!(engine->writeDone < engine->totalLength)) {
-            // we are done!
-            DPRINTF(SPACopyEngine, "done writing, completely done!!!!\n");
-            engine->needToWrite = false;
-            delete[] engine->curData;
-            delete[] engine->readsDone;
-            // unblock the cpu
-            engine->running = false;
-            engine->stream->record_next_done();
-            DPRINTF(SPACopyEngine, "Total time was: %llu\n", curTick() - engine->memCpyStartTime);
-            engine->memCpyTimes.push_back(curTick() - engine->memCpyStartTime);
-            engine->spa->streamRequestTick(1);
-            engine->tc->activate();
-        } else {
-            if (!engine->scheduledTickEvent) {
-                engine->scheduledTickEvent = true;
-                engine->schedule(engine->tickEvent, curTick()+1);
-            }
-        }
-    }
-    if (pkt->req) delete pkt->req;
-    delete pkt;
+    engine->recvPacket(pkt);
     return true;
 }
 
@@ -138,14 +84,87 @@ void SPACopyEngine::CEPort::recvRetry() {
     if(sendTimingReq(outstandingPkt)) {
         DPRINTF(SPACopyEngine, "unblocked moving on.\n");
         outstandingPkt = NULL;
-        engine->stallOnRetry = false;
-        if (!engine->scheduledTickEvent) {
-            engine->scheduledTickEvent = true;
+        stallOnRetry = false;
+        // TODO: This should just signal the engine that the packet completed
+        // engine should schedule tick as necessary. Need a test case
+        if (!engine->tickEvent.scheduled()) {
             engine->schedule(engine->tickEvent, curTick()+1);
         }
     } else {
         //DPRINTF(SPACopyEngine, "Still blocked\n");
     }
+}
+
+void SPACopyEngine::CEPort::sendPacket(PacketPtr pkt) {
+    if (!sendTimingReq(pkt)) {
+        DPRINTF(SPACopyEngine, "sendTiming failed in sendPacket(pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
+        setStalled(pkt);
+    }
+}
+
+void SPACopyEngine::finishMemcpy()
+{
+    running = false;
+    readPort = writePort = NULL;
+    readDTB = writeDTB = NULL;
+    stream->record_next_done();
+    DPRINTF(SPACopyEngine, "Total time was: %llu\n", curTick() - memCpyStartTime);
+    memCpyTimes.push_back(curTick() - memCpyStartTime);
+    spa->streamRequestTick(1);
+    tc->activate();
+}
+
+void SPACopyEngine::recvPacket(PacketPtr pkt)
+{
+    if (pkt->isRead()) {
+        DPRINTF(SPACopyEngine, "done with a read addr: 0x%x, size: %d\n", pkt->req->getVaddr(), pkt->getSize());
+        pkt->writeData(curData + (pkt->req->getVaddr() - beginAddr));
+
+        // set the addresses we just got as done
+        for (int i = pkt->req->getVaddr() - beginAddr;
+                i < pkt->req->getVaddr() - beginAddr + pkt->getSize(); i++) {
+            readsDone[i] = true;
+        }
+
+        DPRINTF(SPACopyEngine, "Data is: %d\n", *((int*) (curData + (pkt->req->getVaddr() - beginAddr))));
+        if (readDone < totalLength) {
+            DPRINTF(SPACopyEngine, "Trying to write\n");
+            needToWrite = true;
+            // TODO: Schedule an attempt to write... not just a tick?
+            if (!tickEvent.scheduled()) {
+                schedule(tickEvent, curTick()+1);
+            }
+        }
+
+        // mark readDone as only the contiguous region
+        while (readDone < totalLength && readsDone[readDone]) {
+            readDone++;
+        }
+
+        if (readDone >= totalLength) {
+            DPRINTF(SPACopyEngine, "done reading!!\n");
+            needToRead = false;
+        }
+    } else {
+        DPRINTF(SPACopyEngine, "done with a write addr: 0x%x\n", pkt->req->getVaddr());
+        writeDone += pkt->getSize();
+        if (!(writeDone < totalLength)) {
+            // we are done!
+            DPRINTF(SPACopyEngine, "done writing, completely done!!!!\n");
+            needToWrite = false;
+            delete[] curData;
+            delete[] readsDone;
+            finishMemcpy();
+        } else {
+            // TODO: Schedule the next read attempt... not just a tick?
+            // Should operate at a resonable frequency
+            if (!tickEvent.scheduled()) {
+                schedule(tickEvent, curTick()+1);
+            }
+        }
+    }
+    if (pkt->req) delete pkt->req;
+    delete pkt;
 }
 
 void SPACopyEngine::tryRead()
@@ -180,14 +199,16 @@ void SPACopyEngine::tryRead()
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
-    dtb->translateTiming(req, tc, translation, mode);
+    readDTB->translateTiming(req, tc, translation, mode);
 
     currentReadAddr += size;
 
     readLeft -= size;
 
-    if (!(readLeft > 0) && !scheduledTickEvent) {
-        scheduledTickEvent = true;
+    // TODO: Why do we need to schedule a tick here?
+    // To issue multiple outstanding reads. Should be 1 per cycle, synchronous
+    // with the Ruby clock (uncore). When blocked, skip.
+    if (!(readLeft > 0) && !tickEvent.scheduled()) {
         schedule(tickEvent, curTick()+1);
     }
     if (!(readLeft > 0)) {
@@ -237,40 +258,61 @@ void SPACopyEngine::tryWrite()
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
-    dtb->translateTiming(req, tc, translation, mode);
+    writeDTB->translateTiming(req, tc, translation, mode);
 
     currentWriteAddr += size;
 
     writeLeft -= size;
 
-    if (!(writeLeft > 0) && !scheduledTickEvent) {
-        scheduledTickEvent = true;
+    // TODO: Why do we need to schedule a tick here?
+    if (!(writeLeft > 0) && !tickEvent.scheduled()) {
         schedule(tickEvent, curTick()+1);
     }
 }
 
 void SPACopyEngine::tick()
 {
-    scheduledTickEvent = false;
-    if (stallOnRetry) {
+    if (readPort->isStalled() && writePort->isStalled()) {
         DPRINTF(SPACopyEngine, "Stalled\n");
-    }
-
-    if (needToRead && !stallOnRetry) {
-        DPRINTF(SPACopyEngine, "trying read\n");
-        tryRead();
-    }
-
-    if (needToWrite && !stallOnRetry && ((totalLength-writeLeft) < readDone)) {
-        DPRINTF(SPACopyEngine, "trying write\n");
-        tryWrite();
+    } else {
+        if (needToRead && !readPort->isStalled()) {
+            DPRINTF(SPACopyEngine, "trying read\n");
+            tryRead();
+        }
+        if (needToWrite && !writePort->isStalled() && ((totalLength - writeLeft) < readDone)) {
+            DPRINTF(SPACopyEngine, "trying write\n");
+            tryWrite();
+        }
     }
 }
 
-
-int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream)
+int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type)
 {
     stream = _stream;
+
+    switch (type) {
+    case stream_memcpy_host_to_device:
+        readPort = &hostPort;
+        readDTB = hostDTB;
+        writePort = &devicePort;
+        writeDTB = deviceDTB;
+        break;
+    case stream_memcpy_device_to_host:
+        readPort = &devicePort;
+        readDTB = deviceDTB;
+        writePort = &hostPort;
+        writeDTB = hostDTB;
+        break;
+    case stream_memcpy_device_to_device:
+        readPort = &devicePort;
+        readDTB = deviceDTB;
+        writePort = &devicePort;
+        writeDTB = deviceDTB;
+        break;
+    default:
+        panic("Unknown stream memcpy type: %d!\n", type);
+        break;
+    }
 
     assert(length > 0);
     assert(!running);
@@ -302,11 +344,11 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
         readsDone[i] = false;
     }
 
+    // TODO: Figure out scheduling... seems ridiculous
     schedule(tickEvent, curTick()+driverDelay);
 
     return 0;
 }
-
 
 void SPACopyEngine::finishTranslation(WholeTranslationState *state)
 {
@@ -318,39 +360,32 @@ void SPACopyEngine::finishTranslation(WholeTranslationState *state)
     if (state->mode == BaseTLB::Read) {
         pkt = new Packet(state->mainReq, MemCmd::ReadReq);
         pkt->allocate();
+        readPort->sendPacket(pkt);
     } else if (state->mode == BaseTLB::Write) {
         pkt = new Packet(state->mainReq, MemCmd::WriteReq);
         uint8_t *pkt_data = (uint8_t *)state->mainReq->getExtraData();
         pkt->dataDynamicArray(pkt_data);
+        writePort->sendPacket(pkt);
     } else {
         panic("Finished translation of unknown mode: %d\n", state->mode);
     }
-    if (!sendPkt(pkt)) {
-        stallOnRetry = true;
-    }
     delete state;
-}
-
-bool SPACopyEngine::sendPkt(PacketPtr pkt) {
-    if (!port.sendTimingReq(pkt)) {
-        DPRINTF(SPACopyEngine, "sendTiming failed in sendPkt (pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
-        port.outstandingPkt = pkt;
-        return false;
-    }
-    return true;
 }
 
 MasterPort&
 SPACopyEngine::getMasterPort(const std::string &if_name, int idx)
 {
-    return port;
+    if (if_name == "host_port")
+        return hostPort;
+    else if (if_name == "device_port")
+        return devicePort;
+    else
+        return MemObject::getMasterPort(if_name, idx);
 }
-
 
 SPACopyEngine *SPACopyEngineParams::create() {
     return new SPACopyEngine(this);
 }
-
 
 void SPACopyEngine::cePrintStats(std::ostream& out) {
     int i = 0;

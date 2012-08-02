@@ -273,7 +273,7 @@ public:
     void gpuPrintStats(std::ostream& out);
 
     /// Begins a timing memory copy from src to dst
-    void memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream);
+    void memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream, stream_operation_type type);
 
     /// Begins a timing memory copy from src to/from the symbol+offset
     void memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream);

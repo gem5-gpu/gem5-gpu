@@ -455,8 +455,8 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     }
 }
 
-void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream) {
-    copyEngine->memcpy((Addr)src, (Addr)dst, count, stream);
+void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream, stream_operation_type type) {
+    copyEngine->memcpy((Addr)src, (Addr)dst, count, stream, type);
 }
 
 void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream) {
@@ -473,9 +473,9 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
            count, (to ? "to" : "from"), sym_name.c_str(), offset, dst);
 
     if (to) {
-        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream);
+        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream, stream_memcpy_host_to_device);
     } else {
-        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream);
+        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream, stream_memcpy_device_to_host);
     }
 }
 

@@ -32,14 +32,15 @@ from m5.proxy import *
 
 class SPACopyEngine(MemObject):
     type = 'SPACopyEngine'
-    cePort = MasterPort("The copy engine port")
-    driverDelay = Param.Int(0, "memcpy launch delay in ticks");
+    host_port = MasterPort("The copy engine port to host coherence domain")
+    device_port = MasterPort("The copy engine port to device coherence domain")
+    driver_delay = Param.Int(0, "memcpy launch delay in ticks");
     sys = Param.System(Parent.any, "system sc will run on")
 
     if buildEnv['TARGET_ISA'] == 'x86':
         from X86TLB import X86TLB
-        dtb = Param.X86TLB(X86TLB(), "Data TLB")
-        itb = Param.X86TLB(X86TLB(), "Instruction TLB")
+        host_dtb = Param.X86TLB(X86TLB(), "TLB for the host memory space")
+        device_dtb = Param.X86TLB(X86TLB(), "TLB for the device memory space")
     else:
         print "Don't know how to do gpgpusim with %s" % \
             buildEnv['TARGET_ISA']

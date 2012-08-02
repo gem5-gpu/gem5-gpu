@@ -152,7 +152,7 @@ system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
 system.stream_proc_array = StreamProcessorArray(gpuTickConv=options.m5_cycles_per_gpu_cycles)
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
-system.stream_proc_array.ce = SPACopyEngine(driverDelay=5000000)
+system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 system.stream_proc_array.useGem5Mem = options.gpu_ruby
 system.stream_proc_array.sharedMemDelay = options.shMemDelay
 system.stream_proc_array.nonBlocking = options.gpu_nonblocking
@@ -170,8 +170,8 @@ for i in xrange(options.num_sc):
     system.stream_proc_array.shader_cores[i].dataPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
     system.stream_proc_array.shader_cores[i].instPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
     if buildEnv['TARGET_ISA'] == "x86":
-        system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        system.stream_proc_array.shader_cores[i].host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        system.stream_proc_array.shader_cores[i].device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
     #
@@ -198,10 +198,11 @@ if options.fermi:
       exec("system.dir_cntrl%d.memBuffer.mem_ctl_latency = 1" % i)
 
 #Tie the copy engine port to its cache
-system.stream_proc_array.ce.cePort = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+system.stream_proc_array.ce.host_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 if buildEnv['TARGET_ISA'] == "x86":
-    system.stream_proc_array.ce.itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-    system.stream_proc_array.ce.dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    system.stream_proc_array.ce.host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
 root = Root(full_system = True, system = system)
 
