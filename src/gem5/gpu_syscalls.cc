@@ -502,6 +502,31 @@ cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params) {
 }
 
 void
+cudaRegisterDeviceMemory(ThreadContext *tc, gpusyscall_t *call_params)
+{
+    // This GPU syscall is used to initialize tracking of GPU memory if the
+    // simulation requires access credentials between CPU and GPU memory (e.g.
+    // if the address space is segmented into CPU and device memory, or if
+    // the CPU allocates GPU memory which it should not access)
+    GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_devicePtr = *((Addr*)helper.getParam(0));
+    size_t sim_size = *((size_t*)helper.getParam(1));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaRegisterDeviceMemory(devicePtr = %x, size = %d)\n", sim_devicePtr, sim_size);
+
+    // TODO:
+    // Get the physical address of full memory allocation (i.e. all pages)
+    //   Separate function:
+    //      if (FullSystem) {
+    //          Addr paddr = TheISA::vtophys(tc, vaddr);
+    //      } else {
+    //          Addr paddr;
+    //          tc->getProcessPtr()->pTable->translate(vaddr, paddr);
+    //      }
+    // Build struct to handle devicePtr and size (inside StreamProcessorArray?)
+}
+
+void
 cudaMallocPitch(ThreadContext *tc, gpusyscall_t *call_params)
 {
     cuda_not_implemented(__my_func__,__LINE__);

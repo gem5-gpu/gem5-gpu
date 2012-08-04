@@ -236,6 +236,7 @@ typedef struct CUevent_st *cudaEvent_t;
 
 void cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params);
+void cudaRegisterDeviceMemory(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMallocPitch(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMallocArray(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaFree(ThreadContext *tc, gpusyscall_t *call_params);
@@ -414,7 +415,8 @@ cudaFunc_t gpgpu_funcs[] = {
         __cudaMutexOperation,        /* 78 */
         __cudaTextureFetch,        /* 79 */
         __cudaSynchronizeThreads,        /* 80 */
-        __cudaRegisterFatBinaryFinalize    /* 81 */
+        __cudaRegisterFatBinaryFinalize,    /* 81 */
+        cudaRegisterDeviceMemory    /* 82 */
 };
 
 #endif
