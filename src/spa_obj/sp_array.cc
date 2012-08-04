@@ -81,13 +81,6 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
 
     streamScheduled = false;
 
-    // start our brk point at 2GB. Hopefully this won't clash with what the
-    // OS is doing. See arch/x86/process.cc for what it's doing.
-    // only used for design point 1 where the CPU and GPU have partitioned mem
-    brk_point = 0x8000000;
-    // Start giving constant addresses at offset of 0x100 to match GPGPU-Sim
-    nextAddr = 0x8000100;
-
     restoring = false;
 
     //

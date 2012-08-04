@@ -153,11 +153,6 @@ private:
     int numShaderCores;
     std::vector<ShaderCore*> shaderCores;
 
-    /// Used for allocating memory that isn't global (constant, local, etc)
-    std::map<Addr,size_t> allocatedMemory;
-    Addr brk_point;
-    Addr nextAddr;
-
     /// From the process that is using this SPA
     ThreadContext *tc;
     LiveProcess *process;
