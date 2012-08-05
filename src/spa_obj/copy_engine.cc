@@ -272,6 +272,7 @@ void SPACopyEngine::tryWrite()
 
 void SPACopyEngine::tick()
 {
+    if (!running) return;
     if (readPort->isStalled() && writePort->isStalled()) {
         DPRINTF(SPACopyEngine, "Stalled\n");
     } else {
