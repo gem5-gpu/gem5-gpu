@@ -83,6 +83,8 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
 
     restoring = false;
 
+    m_inst_base_vaddr = 0;
+
     //
     // Print gpu configuration and stats at exit
     //
@@ -509,7 +511,8 @@ function_info *StreamProcessorArray::get_kernel(const char *hostFun)
 
 void StreamProcessorArray::set_inst_base_vaddr(uint64_t addr)
 {
-    m_inst_base_vaddr = addr;
+    if (!m_inst_base_vaddr)
+        m_inst_base_vaddr = addr;
 }
 
 uint64_t StreamProcessorArray::get_inst_base_vaddr()
