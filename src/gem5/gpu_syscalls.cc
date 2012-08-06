@@ -275,7 +275,7 @@ class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc)
         assert(tc != NULL);
         stream_manager *p_stream_manager;
         StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
-        gpgpu_sim *the_gpu = gem5_ptx_sim_init_perf(&p_stream_manager, spa->getUseGem5Mem(), spa->getSharedMemDelay(), spa->getConfigPath());
+        gpgpu_sim *the_gpu = gem5_ptx_sim_init_perf(&p_stream_manager, spa->getSharedMemDelay(), spa->getConfigPath());
 
         cudaDeviceProp *prop = (cudaDeviceProp *) calloc(sizeof(cudaDeviceProp),1);
         snprintf(prop->name,256,"GPGPU-Sim_v%s", g_gpgpusim_version_string );
@@ -454,29 +454,27 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMalloc(devPtr = %x, size = %d)\n", sim_devPtr, sim_size);
 
     GPGPUSim_Init(tc);
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
-    if (spa->getUseGem5Mem()) {
-        g_last_cudaError = cudaSuccess;
-        // Tell CUDA runtime to allocate memory
-        cudaError_t to_return = cudaErrorApiFailureBase;
-        helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
-        return;
-    }
+    g_last_cudaError = cudaSuccess;
+    // Tell CUDA runtime to allocate memory
+    cudaError_t to_return = cudaErrorApiFailureBase;
+    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+    return;
 
-    uint64_t i = 0;
-    uint64_t *ip = &i;
-    void **devPtr = (void**)&ip;
-
-    *devPtr = spa->getTheGPU()->gpu_malloc(sim_size);
-    helper.writeBlob(sim_devPtr, (uint8_t*)(devPtr), sizeof(void *));
-
-    if (*devPtr) {
-        g_last_cudaError = cudaSuccess;
-    } else {
-        g_last_cudaError = cudaErrorMemoryAllocation;
-    }
-    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+//    uint64_t i = 0;
+//    uint64_t *ip = &i;
+//    void **devPtr = (void**)&ip;
+//
+//    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
+//    *devPtr = spa->getTheGPU()->gpu_malloc(sim_size);
+//    helper.writeBlob(sim_devPtr, (uint8_t*)(devPtr), sizeof(void *));
+//
+//    if (*devPtr) {
+//        g_last_cudaError = cudaSuccess;
+//    } else {
+//        g_last_cudaError = cudaErrorMemoryAllocation;
+//    }
+//    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
 }
 
 void
@@ -488,17 +486,11 @@ cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params) {
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMallocHost(ptr = %x, size = %d)\n", sim_ptr, sim_size);
 
     GPGPUSim_Init(tc);
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
-    if (spa->getUseGem5Mem()) {
-        g_last_cudaError = cudaSuccess;
-        // Tell CUDA runtime to allocate memory
-        cudaError_t to_return = cudaErrorApiFailureBase;
-        helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
-    } else {
-        printf("GPGPU-Sim PTX: cudaMallocHost not implemented when not using gem5 memory\n");
-        cuda_not_implemented(__my_func__,__LINE__);
-    }
+    g_last_cudaError = cudaSuccess;
+    // Tell CUDA runtime to allocate memory
+    cudaError_t to_return = cudaErrorApiFailureBase;
+    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
 }
 
 void
@@ -671,12 +663,6 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
     gpgpu_t *gpu = spa->getTheGPU();
 
-    if (!gpu->useGem5Mem && sim_kind == cudaMemcpyHostToDevice) {
-        // @TODO: Does this get leaked?
-        uint8_t* buf = new uint8_t[sim_count];
-        helper.readBlob((Addr)sim_src, buf, (int)sim_count);
-        sim_src = (const void*)buf;
-    }
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpy(dst = %x, src = %x, count = %d, kind = %s)\n",
             sim_dst, sim_src, sim_count, cudaMemcpyKindStrings[sim_kind]);
 
@@ -916,12 +902,6 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
 
     // Get the data to be copied
     gpgpu_t *gpu = spa->getTheGPU();
-    if (!gpu->useGem5Mem && sim_kind == cudaMemcpyHostToDevice) {
-        // @TODO: Does this get leaked?
-        uint8_t* buf = new uint8_t[sim_count];
-        helper.readBlob((Addr)sim_src, buf, (int)sim_count);
-        sim_src = (const void*)buf;
-    }
 
     assert(sim_kind == cudaMemcpyHostToDevice);
     g_stream_manager->push( stream_operation(sim_src, sim_symbol, sim_count, sim_offset, NULL) );
@@ -2382,7 +2362,6 @@ static int load_constants( symbol_table *symtab, addr_t min_gaddr, gpgpu_t *gpu 
                panic("Op type not recognized in load_constants"); break;
             }
             unsigned addr = constant->get_address() + nbytes_written;
-            if (!gpu->useGem5Mem) { assert( addr+nbytes < min_gaddr ); }
 
             gpu->gem5_spa->writeFunctional(addr, nbytes, (uint8_t*)&value);
             DPRINTF(GPUSyscalls, " wrote %u bytes to \'%s\'\n", nbytes, constant->name());

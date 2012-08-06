@@ -34,7 +34,6 @@ from m5.proxy import *
 class StreamProcessorArray(SimObject):
    type = 'StreamProcessorArray'
    sys = Param.System(Parent.any, "system sp will run on")
-   useGem5Mem = Param.Bool(True, "flag to enable ruby and disable gpgpu-sim's internal mem");
    shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks");
    kernel_launch_delay = Param.Float(0.000005645904, "Kernel launch delay in seconds");
    kernel_return_delay = Param.Float(0.000002217222, "Kernel return delay in seconds");

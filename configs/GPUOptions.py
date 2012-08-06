@@ -7,7 +7,6 @@ import m5
 def addGPUOptions(parser):
     parser.add_option("--clusters", default=16, help="Number of shader core clusters in the gpu that GPGPU-sim is simulating", type="int")
     parser.add_option("--cores_per_cluster", default=1, help="Number of shader cores per cluster in the gpu that GPGPU-sim is simulating", type="int")
-    parser.add_option("--gpu_ruby", default=True, help="hook gpu up to ruby instead of its internal memory")
     parser.add_option("--sc_l1_size", default="64kB", help="size of l1 cache hooked up to each sc")
     parser.add_option("--sc_l2_size", default="128kB", help="size of L2 cache divided by num L2 caches")
     parser.add_option("--sc_l1_assoc", default=4, help="associativity of l1 cache hooked up to each sc", type="int")

@@ -132,7 +132,6 @@ private:
     int tid;
 
     /// If true do global mem requests through gem5 otherwise do them through GPGPU-Sim
-    int useGem5Mem;
     int sharedMemDelay;
     std::string gpgpusimConfigPath;
     double launchDelay;
@@ -224,7 +223,6 @@ public:
     void start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
 
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
-    int getUseGem5Mem(){ return useGem5Mem; }
     int getSharedMemDelay(){ return sharedMemDelay; }
     const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
     RubySystem* getRubySystem(){ return ruby; }

@@ -65,10 +65,10 @@ StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-    copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem),
-    sharedMemDelay(p->shared_mem_delay), gpgpusimConfigPath(p->config_path),
-    launchDelay(p->kernel_launch_delay), returnDelay(p->kernel_return_delay),
-    ruby(p->ruby), clearTick(0), dumpKernelStats(p->dump_kernel_stats)
+    copyEngine(p->ce), system(p->sys), sharedMemDelay(p->shared_mem_delay),
+    gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
+    returnDelay(p->kernel_return_delay), ruby(p->ruby), clearTick(0),
+    dumpKernelStats(p->dump_kernel_stats)
 {
     streamDelay = 1;
     assert(singletonPointer == NULL);
