@@ -247,7 +247,7 @@ int ShaderCore::dataCacheResourceAvailable(Addr addr)
 int ShaderCore::instCacheResourceAvailable(Addr addr)
 {
     map<Addr,mem_fetch *>::iterator iter = busyInstCacheLineAddrs.find(addrToLine(addr));
-    return !stallOnICacheRetry && (iter == busyInstCacheLineAddrs.end());
+    return iter == busyInstCacheLineAddrs.end();
 }
 
 void ShaderCore::tick()
@@ -607,6 +607,7 @@ ShaderCore::icacheFetch(Addr addr, mem_fetch *mf)
     Addr line_addr = addrToLine(addr);
     DPRINTF(ShaderCoreFetch, "[SC:%d] Received fetch request, addr: 0x%x, size: %d, line: 0x%x\n", id, addr, mf->size(), line_addr);
     if (!instCacheResourceAvailable(addr)) {
+        // Executed when there is a duplicate inst fetch request outstanding
         panic("This code shouldn't be executed?");
         return;
     }
