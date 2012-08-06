@@ -34,25 +34,15 @@ from m5.proxy import *
 class StreamProcessorArray(SimObject):
    type = 'StreamProcessorArray'
    sys = Param.System(Parent.any, "system sp will run on")
-   gpuTickConv = Param.Float(1.0, "number of gpgpu ticks per m5 tick")
    useGem5Mem = Param.Bool(True, "flag to enable ruby and disable gpgpu-sim's internal mem");
-   sharedMemDelay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks");
-   nonBlocking = Param.Bool(False, "flag to choose whether GPGPU kernels are nonblocking or blocking");
-   launchDelay = Param.Float(0.000005645904, "Kernel launch delay in seconds");
-   returnDelay = Param.Float(0.000002217222, "Kernel return delay in seconds");
+   shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks");
+   kernel_launch_delay = Param.Float(0.000005645904, "Kernel launch delay in seconds");
+   kernel_return_delay = Param.Float(0.000002217222, "Kernel return delay in seconds");
 
    ruby = Param.RubySystem(Parent.any, "ruby system")
 
    ce = Param.SPACopyEngine(Parent.any, "copy engine")
 
-   if buildEnv['TARGET_ISA'] == 'x86':
-      from X86TLB import X86TLB
-      dtb = Param.X86TLB(X86TLB(), "Data TLB")
-      itb = Param.X86TLB(X86TLB(), "Instruction TLB")
-   else:
-      print "Don't know how to do gpgpusim with %s" % \
-         buildEnv['TARGET_ISA']
-      sys.exit(1)
    stats_filename = Param.String("gpu_stats.txt",
          "file to which gpgpu-sim dumps its stats")
    config_path = Param.String('gpgpusim.config', "file to which gpgpu-sim dumps its stats")

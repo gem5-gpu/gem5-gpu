@@ -157,14 +157,10 @@ private:
     ThreadContext *tc;
     LiveProcess *process;
 
-    /// Conversion from the requests that GPGPU-Sim makes to gem5 ticks
-    /// Right now this should be seconds to picoseconds (10^12)
-    float gpuTickConversion;
-
     /// For statistics
     std::vector<unsigned long long> kernelTimes;
     Tick clearTick;
-    std::queue<kernelTermInfo> finished_kernels;
+    std::queue<kernelTermInfo> finishedKernels;
     bool dumpKernelStats;
 
     /// Pointers to GPGPU-Sim objects
@@ -183,7 +179,7 @@ private:
     std::map<unsigned,symbol_table*> m_code; // fat binary handle => global symbol table
     unsigned int m_last_fat_cubin_handle;
     std::map<const void*,function_info*> m_kernel_lookup; // unique id (CUDA app function address) => kernel entry point
-    uint64_t m_inst_base_vaddr;
+    uint64_t instBaseVaddr;
 
     /**
      * Helper class for checkpointing
@@ -306,8 +302,8 @@ public:
     void add_ptxinfo( const char *deviceFun, const struct gpgpu_ptx_sim_kernel_info info );
     void register_function( unsigned fat_cubin_handle, const char *hostFun, const char *deviceFun );
     function_info *get_kernel(const char *hostFun);
-    void set_inst_base_vaddr(uint64_t addr);
-    uint64_t get_inst_base_vaddr();
+    void setInstBaseVaddr(uint64_t addr);
+    uint64_t getInstBaseVaddr();
 };
 
 /**

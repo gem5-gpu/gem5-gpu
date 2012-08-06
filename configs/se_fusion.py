@@ -189,12 +189,11 @@ system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
 system.mem_mode = test_mem_mode
 Simulation.setWorkCountOptions(system, options)
 
-system.stream_proc_array = StreamProcessorArray(gpuTickConv=options.m5_cycles_per_gpu_cycles)
+system.stream_proc_array = StreamProcessorArray()
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
 system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 system.stream_proc_array.useGem5Mem = options.gpu_ruby
-system.stream_proc_array.sharedMemDelay = options.shMemDelay
-system.stream_proc_array.nonBlocking = options.gpu_nonblocking
+system.stream_proc_array.shared_mem_delay = options.shMemDelay
 system.stream_proc_array.config_path = gpgpusimconfig
 system.stream_proc_array.dump_kernel_stats = options.kernel_stats
 buildEnv['PROTOCOL'] +=  '_fusion'

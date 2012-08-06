@@ -64,12 +64,11 @@ class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc);
 StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
-        SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-        copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem),
-        sharedMemDelay(p->sharedMemDelay), gpgpusimConfigPath(p->config_path),
-        launchDelay(p->launchDelay), returnDelay(p->returnDelay), ruby(p->ruby),
-        gpuTickConversion(p->gpuTickConv), clearTick(0),
-        dumpKernelStats(p->dump_kernel_stats)
+    SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
+    copyEngine(p->ce), system(p->sys), useGem5Mem(p->useGem5Mem),
+    sharedMemDelay(p->shared_mem_delay), gpgpusimConfigPath(p->config_path),
+    launchDelay(p->kernel_launch_delay), returnDelay(p->kernel_return_delay),
+    ruby(p->ruby), clearTick(0), dumpKernelStats(p->dump_kernel_stats)
 {
     streamDelay = 1;
     assert(singletonPointer == NULL);
@@ -83,7 +82,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
 
     restoring = false;
 
-    m_inst_base_vaddr = 0;
+    instBaseVaddr = 0;
 
     //
     // Print gpu configuration and stats at exit
@@ -101,7 +100,7 @@ void StreamProcessorArray::serialize(std::ostream &os)
     }
 
     SERIALIZE_SCALAR(m_last_fat_cubin_handle);
-    SERIALIZE_SCALAR(m_inst_base_vaddr);
+    SERIALIZE_SCALAR(instBaseVaddr);
 
     int tid = tc->threadId();
     SERIALIZE_SCALAR(tid);
@@ -148,12 +147,12 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
     restoring = true;
 
     UNSERIALIZE_SCALAR(m_last_fat_cubin_handle);
-    UNSERIALIZE_SCALAR(m_inst_base_vaddr);
+    UNSERIALIZE_SCALAR(instBaseVaddr);
 
     int tid;
     UNSERIALIZE_SCALAR(tid);
 
-    DPRINTF(StreamProcessorArray, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, m_inst_base_vaddr);
+    DPRINTF(StreamProcessorArray, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, instBaseVaddr);
 
     int numBinaries;
     UNSERIALIZE_SCALAR(numBinaries);
@@ -250,29 +249,29 @@ void StreamProcessorArray::gpuTick()
     if( term_info.grid_uid ) {
         Tick delay = 1;
         Tick curTime = curTick();
-        if (curTime - term_info.time < returnDelay*gpuTickConversion ) {
-            delay = (Tick)(returnDelay*gpuTickConversion) - (curTime - term_info.time); //delay by whatever is left over
+        if (curTime - term_info.time < returnDelay * SimClock::Frequency ) {
+            delay = (Tick)(returnDelay * SimClock::Frequency) - (curTime - term_info.time); //delay by whatever is left over
         }
 
-        finished_kernels.push(kernelTermInfo(term_info.grid_uid, curTick()+delay));
+        finishedKernels.push(kernelTermInfo(term_info.grid_uid, curTick()+delay));
         streamRequestTick(1);
 
         running = false;
     }
 
-    while(!finished_kernels.empty() && finished_kernels.front().time < curTick()) {
-        DPRINTF(StreamProcessorArrayTick, "GPU finished a kernel id %d\n", finished_kernels.front().grid_uid);
+    while(!finishedKernels.empty() && finishedKernels.front().time < curTick()) {
+        DPRINTF(StreamProcessorArrayTick, "GPU finished a kernel id %d\n", finishedKernels.front().grid_uid);
 
         DPRINTF(StreamProcessorArray, "GPGPU-sim done! Activating original thread context at %llu.\n", getCurTick());
-        streamManager->register_finished_kernel(finished_kernels.front().grid_uid);
-        finished_kernels.pop();
+        streamManager->register_finished_kernel(finishedKernels.front().grid_uid);
+        finishedKernels.pop();
 
         kernelTimes.push_back(curTick());
         if (dumpKernelStats) {
             PseudoInst::dumpresetstats(tc, 0, 0);
         }
 
-        if (unblockNeeded && streamManager->empty() && finished_kernels.empty()) {
+        if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
             tc->activate();
             unblockNeeded = false;
@@ -283,8 +282,8 @@ void StreamProcessorArray::gpuTick()
     if( theGPU->active() ) {
         theGPU->cycle();
     } else {
-        if(!finished_kernels.empty()) {
-            schedule(gpuTickEvent, finished_kernels.front().time + 1);
+        if(!finishedKernels.empty()) {
+            schedule(gpuTickEvent, finishedKernels.front().time + 1);
         }
     }
     theGPU->deadlock_check();
@@ -321,7 +320,7 @@ void StreamProcessorArray::unblock()
 
 
 void StreamProcessorArray::gpuRequestTick(float gpuTicks) {
-    Tick gpuWakeupTick = (int)(gpuTicks*gpuTickConversion) + curTick();
+    Tick gpuWakeupTick = (int)(gpuTicks * SimClock::Frequency) + curTick();
 
     schedule(gpuTickEvent, gpuWakeupTick);
 }
@@ -385,11 +384,11 @@ void StreamProcessorArray::beginRunning(Tick launchTime)
 
     Tick delay = 1;
     Tick curTime = curTick();
-    if (curTime - launchTime < launchDelay*gpuTickConversion) {
-        delay = (Tick)(launchDelay*gpuTickConversion) - (curTime - launchTime); //delay by whatever is left over
+    if (curTime - launchTime < launchDelay * SimClock::Frequency) {
+        delay = (Tick)(launchDelay * SimClock::Frequency) - (curTime - launchTime); //delay by whatever is left over
     }
 
-    schedule(gpuTickEvent, curTick()+delay);
+    schedule(gpuTickEvent, curTick() + delay);
 }
 
 
@@ -509,15 +508,15 @@ function_info *StreamProcessorArray::get_kernel(const char *hostFun)
     return i->second;
 }
 
-void StreamProcessorArray::set_inst_base_vaddr(uint64_t addr)
+void StreamProcessorArray::setInstBaseVaddr(uint64_t addr)
 {
-    if (!m_inst_base_vaddr)
-        m_inst_base_vaddr = addr;
+    if (!instBaseVaddr)
+        instBaseVaddr = addr;
 }
 
-uint64_t StreamProcessorArray::get_inst_base_vaddr()
+uint64_t StreamProcessorArray::getInstBaseVaddr()
 {
-    return m_inst_base_vaddr;
+    return instBaseVaddr;
 }
 
 

@@ -1455,7 +1455,7 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     struct CUstream_st *stream = config.get_stream();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun* = %x)\n", (void*)sim_hostFun);
     kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(config.get_args(), config.grid_dim(), config.block_dim(), spa->get_kernel(sim_hostFun));
-    grid->set_inst_base_vaddr(spa->get_inst_base_vaddr());
+    grid->set_inst_base_vaddr(spa->getInstBaseVaddr());
     std::string kname = grid->name();
     //dim3 gridDim = config.grid_dim();
     //dim3 blockDim = config.block_dim();
@@ -1808,7 +1808,7 @@ void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if(ptx_entry_ptr->ptx != 0) {
             DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %p", ptx_entry_ptr->ptx);
-            spa->set_inst_base_vaddr((address_type)(Addr)ptx_entry_ptr->ptx);
+            spa->setInstBaseVaddr((address_type)(Addr)ptx_entry_ptr->ptx);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             GPUSyscallHelper::readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize, tc);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];
