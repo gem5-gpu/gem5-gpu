@@ -170,8 +170,8 @@ extern void exit_simulation();
 gpusyscall_t *decode_package(ThreadContext *tc, gpusyscall_t *call_params);
 char *unpack(char *bytes, int &bytes_off, int *lengths, int &lengths_off);
 
-static int load_static_globals( symbol_table *symtab, unsigned min_gaddr, unsigned max_gaddr, gpgpu_t *gpu );
-static int load_constants( symbol_table *symtab, addr_t min_gaddr, gpgpu_t *gpu );
+static int load_static_globals(symbol_table *symtab, gpgpu_t *gpu);
+static int load_constants(symbol_table *symtab, gpgpu_t *gpu);
 
 static kernel_info_t *gpgpu_cuda_ptx_sim_init_grid(gpgpu_ptx_sim_arg_list_t args,
         struct dim3 gridDim,
@@ -1731,10 +1731,10 @@ get_global_and_constant_alloc_size(symbol_table* symtab)
 }
 
 void
-finalize_global_and_constant_setup(addr_t base_addr, symbol_table* symtab)
+finalize_global_and_constant_setup(Addr base_addr, symbol_table* symtab)
 {
-    addr_t curr_addr = base_addr;
-    addr_t next_addr = 0;
+    Addr curr_addr = base_addr;
+    Addr next_addr = 0;
     symbol_table::iterator iter;
     for (iter = symtab->global_iterator_begin(); iter != symtab->global_iterator_end(); iter++) {
         symbol* global = *iter;
@@ -1886,7 +1886,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
 }
 
 
-unsigned int registerFatBinaryBottom(addr_t sim_alloc_ptr)
+unsigned int registerFatBinaryBottom(Addr sim_alloc_ptr)
 {
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
@@ -1901,8 +1901,8 @@ unsigned int registerFatBinaryBottom(addr_t sim_alloc_ptr)
         finalize_global_and_constant_setup(sim_alloc_ptr, registering_symtab);
     }
 
-    load_static_globals(registering_symtab, STATIC_ALLOC_LIMIT, 0xFFFFFFFF, spa->getTheGPU());
-    load_constants(registering_symtab, STATIC_ALLOC_LIMIT, spa->getTheGPU());
+    load_static_globals(registering_symtab, spa->getTheGPU());
+    load_constants(registering_symtab, spa->getTheGPU());
 
     unsigned int handle = registering_fat_cubin_handle;
 
@@ -1919,7 +1919,7 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
     GPUSyscallHelper helper(tc, call_params);
     GPGPUSim_Init(tc);
 
-    addr_t sim_alloc_ptr = *((addr_t*)helper.getParam(0));
+    Addr sim_alloc_ptr = *((Addr*)helper.getParam(0));
 
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
@@ -2298,7 +2298,7 @@ extern "C" FILE *ptxinfo_in;
 
 /// static functions
 
-static int load_static_globals( symbol_table *symtab, unsigned min_gaddr, unsigned max_gaddr, gpgpu_t *gpu )
+static int load_static_globals(symbol_table *symtab, gpgpu_t *gpu)
 {
     DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: loading globals with explicit initializers\n");
     int ng_bytes = 0;
@@ -2320,7 +2320,6 @@ static int load_static_globals( symbol_table *symtab, unsigned min_gaddr, unsign
             for (std::list<operand_info>::iterator i = init_list.begin(); i != init_list.end(); i++) {
                 operand_info op = *i;
                 ptx_reg_t value = op.get_literal_value();
-                assert((addr+offset+nbytes) < min_gaddr); // min_gaddr is start of "heap" for cudaMalloc
                 panic("Global statics load untested!!");
                 gpu->gem5_spa->writeFunctional(addr+offset, nbytes, (uint8_t*)&value);
                 offset += nbytes;
@@ -2333,7 +2332,7 @@ static int load_static_globals( symbol_table *symtab, unsigned min_gaddr, unsign
     return ng_bytes;
 }
 
-static int load_constants( symbol_table *symtab, addr_t min_gaddr, gpgpu_t *gpu )
+static int load_constants(symbol_table *symtab, gpgpu_t *gpu)
 {
    DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: loading constants with explicit initializers\n");
    int nc_bytes = 0;

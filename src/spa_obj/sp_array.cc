@@ -57,7 +57,7 @@ using namespace std;
 
 // From GPU syscalls
 void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *tc);
-unsigned int registerFatBinaryBottom(addr_t sim_alloc_ptr);
+unsigned int registerFatBinaryBottom(Addr sim_alloc_ptr);
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc);
 
