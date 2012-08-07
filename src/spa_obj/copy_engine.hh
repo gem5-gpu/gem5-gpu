@@ -106,8 +106,6 @@ private:
     MasterID masterId;
 
 private:
-    friend class StreamProcessorArray;
-
     StreamProcessorArray *spa;
 
     const SPACopyEngineParams *_params;
@@ -142,10 +140,9 @@ private:
     bool running;
     struct CUstream_st *stream;
 
-    void initialize(ThreadContext *_tc, StreamProcessorArray* _spa) { tc = _tc; spa = _spa;}
-
     void tryRead();
     void tryWrite();
+    void finishMemcpy();
 
     unsigned long long memCpyStartTime;
     std::vector<unsigned long long> memCpyTimes;
@@ -154,10 +151,10 @@ public:
 
     SPACopyEngine(const Params *p);
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
+    void initialize(ThreadContext *_tc) { tc = _tc; }
     void finishTranslation(WholeTranslationState *state);
     int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type);
     void recvPacket(PacketPtr pkt);
-    void finishMemcpy();
 
     void cePrintStats(std::ostream& out);
 };

@@ -50,21 +50,18 @@ using namespace TheISA;
 using namespace std;
 
 ShaderCore::ShaderCore(const Params *p) :
-        MemObject(p), dataPort(name() + ".data_port", this),
-        instPort(name() + ".inst_port", this), _params(p), tickEvent(this),
-        scheduledTickEvent(false), masterId(p->sys->getMasterId(name())),
-        id(p->id), dtb(p->dtb), itb(p->itb), spa(p->spa)
+    MemObject(p), dataPort(name() + ".data_port", this),
+    instPort(name() + ".inst_port", this), _params(p), tickEvent(this),
+    scheduledTickEvent(false), masterId(p->sys->getMasterId(name())), id(p->id),
+    dtb(p->dtb), itb(p->itb), spa(p->spa)
 {
-    int _id = spa->registerShaderCore(this);
-    if (_id != id) {
-        assert(0);
-    }
-
     stallOnDCacheRetry = false;
     stallOnICacheRetry = false;
     currDataBusy = 0;
     currInstBusy = 0;
     writesInProcess = 0;
+
+    spa->registerShaderCore(this);
 
     DPRINTF(ShaderCore, "[SC:%d] Created shader core\n", id);
 }
@@ -96,7 +93,7 @@ void ShaderCore::initialize(ThreadContext *_tc)
 {
     tc = _tc;
 
-    shaderImpl = spa->theGPU->get_shader(id);
+    shaderImpl = spa->getTheGPU()->get_shader(id);
 }
 
 bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
@@ -351,7 +348,7 @@ int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
 
     // Currently, we don't handle reads that stride across multiple lines
     // @TODO: This will require issuing multiple translation requests to the DTB
-    assert(addr + size <= addrToLine(addr) + spa->ruby->getBlockSizeBytes());
+    assert(addr + size <= addrToLine(addr) + spa->getRubySystem()->getBlockSizeBytes());
 
     // For each buffered read landing in this block, check the warp ID to verify
     // that this coalesced read should include the buffered read
@@ -409,7 +406,7 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
 
     // Currently, we don't handle writes that stride across multiple lines
     // @TODO: This will require issuing multiple translation requests to the DTB
-    assert(addr + size <= addrToLine(addr) + spa->ruby->getBlockSizeBytes());
+    assert(addr + size <= addrToLine(addr) + spa->getRubySystem()->getBlockSizeBytes());
 
     // @TODO: This should be extracted as a separate function: coalesceBlockHints()
     uint8_t* block_write_data = new uint8_t[size];
@@ -511,7 +508,7 @@ int ShaderCore::atomicRMW(Addr addr, size_t size,  mem_fetch *mf)
 
 inline Addr ShaderCore::addrToLine(Addr a)
 {
-    unsigned int maskBits = spa->ruby->getBlockSizeBits();
+    unsigned int maskBits = spa->getRubySystem()->getBlockSizeBits();
     return a & (((uint64_t)-1) << maskBits);
 }
 

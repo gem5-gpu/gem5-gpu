@@ -43,12 +43,11 @@ using namespace TheISA;
 using namespace std;
 
 SPACopyEngine::SPACopyEngine(const Params *p) :
-        MemObject(p), hostPort(name() + ".hostPort", this, 0),
-        devicePort(name() + ".devicePort", this, 0), readPort(NULL),
-        writePort(NULL), tickEvent(this),
-        masterId(p->sys->getMasterId(name())), _params(p),
-        driverDelay(p->driver_delay), hostDTB(p->host_dtb),
-        deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
+    MemObject(p), hostPort(name() + ".hostPort", this, 0),
+    devicePort(name() + ".devicePort", this, 0), readPort(NULL),
+    writePort(NULL), tickEvent(this), masterId(p->sys->getMasterId(name())),
+    spa(p->spa), _params(p), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
+    deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
 {
     DPRINTF(SPACopyEngine, "Created copy engine\n");
 
@@ -58,6 +57,8 @@ SPACopyEngine::SPACopyEngine(const Params *p) :
 
     CEExitCallback* ceExitCB = new CEExitCallback(this, p->stats_filename);
     registerExitCallback(ceExitCB);
+
+    spa->registerCopyEngine(this);
 }
 
 Tick SPACopyEngine::CEPort::recvAtomic(PacketPtr pkt)

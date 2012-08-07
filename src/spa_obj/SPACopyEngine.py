@@ -36,6 +36,7 @@ class SPACopyEngine(MemObject):
     device_port = MasterPort("The copy engine port to device coherence domain")
     driver_delay = Param.Int(0, "memcpy launch delay in ticks");
     sys = Param.System(Parent.any, "system sc will run on")
+    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
 
     if buildEnv['TARGET_ISA'] == 'x86':
         from X86TLB import X86TLB

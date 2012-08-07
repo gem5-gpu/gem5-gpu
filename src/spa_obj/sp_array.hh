@@ -62,8 +62,8 @@ class StreamProcessorArray : public SimObject
 {
 public:
     /**
-     *  In order to get around the fact that we can't modify any of gem5,
-     *  we need a pointer to the SPA. You can get it by calling this.
+     *  Only to be used in GPU system calls (gpu_syscalls) as a way to access
+     *  the currently running SPA.
      *  Note: We could easily make this implement multiple SPA's when we
      *        get to that point
      */
@@ -108,16 +108,11 @@ protected:
     TickEvent streamTickEvent;
 
 private:
-    friend class ShaderCore;
-
     /// Callback for the gpu tick
     void gpuTick();
 
     /// Callback for the stream manager tick
     void streamTick();
-
-    /// When the shader core is created it calls this
-    int registerShaderCore(ShaderCore *sc);
 
     /// Pointer to the copy engine for this device
     SPACopyEngine *copyEngine;
@@ -149,7 +144,6 @@ private:
     RubySystem *ruby;
 
     /// Holds all of the shader cores in this stream processor array
-    int numShaderCores;
     std::vector<ShaderCore*> shaderCores;
 
     /// From the process that is using this SPA
@@ -222,10 +216,14 @@ public:
     /// Called during GPGPU-Sim initialization to initialize the SPA
     void start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
 
+    /// Register devices callbacks
+    void registerShaderCore(ShaderCore *sc);
+    void registerCopyEngine(SPACopyEngine *ce);
+
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
-    int getSharedMemDelay(){ return sharedMemDelay; }
+    int getSharedMemDelay() { return sharedMemDelay; }
     const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
-    RubySystem* getRubySystem(){ return ruby; }
+    RubySystem* getRubySystem() { return ruby; }
     gpgpu_sim* getTheGPU() { return theGPU; }
 
     /// called if the gpu is going to block the processor and should unblock it

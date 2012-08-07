@@ -65,7 +65,7 @@ StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-    copyEngine(p->ce), system(p->sys), sharedMemDelay(p->shared_mem_delay),
+    system(p->sys), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
     returnDelay(p->kernel_return_delay), ruby(p->ruby), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats)
@@ -75,8 +75,6 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     singletonPointer = this;
 
     running = false;
-
-    numShaderCores = 0;
 
     streamScheduled = false;
 
@@ -230,15 +228,15 @@ void StreamProcessorArray::clearStats()
     clearTick = curTick();
 }
 
-
-int StreamProcessorArray::registerShaderCore(ShaderCore *sc)
+void StreamProcessorArray::registerShaderCore(ShaderCore *sc)
 {
-    // I don't think we need this function. I think it will work the way
-    // the ruby system object works.
     shaderCores.push_back(sc);
-    return numShaderCores++;
 }
 
+void StreamProcessorArray::registerCopyEngine(SPACopyEngine *ce)
+{
+    copyEngine = ce;
+}
 
 void StreamProcessorArray::gpuTick()
 {
@@ -349,7 +347,7 @@ void StreamProcessorArray::start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_
         (*iter)->initialize(tc);
     }
 
-    copyEngine->initialize(tc, this);
+    copyEngine->initialize(tc);
 
     DPRINTF(StreamProcessorArray, "Starting this stream processor from tc\n");
 }
@@ -406,7 +404,7 @@ void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* dat
 
 ShaderCore *StreamProcessorArray::getShaderCore(int coreId)
 {
-    assert(coreId < numShaderCores);
+    assert(coreId < shaderCores.size());
     return shaderCores[coreId];
 }
 

@@ -145,8 +145,6 @@ protected:
     MasterID masterId;
 
 private:
-    friend class StreamProcessorArray;
-
     /// Called on tick events, and re-schedules a previously failed access
     void tick();
 
@@ -198,9 +196,6 @@ private:
 
     /// Point to SPA this shader core is part of
     StreamProcessorArray *spa;
-
-    /// Perform initialization. Called from SPA
-    void initialize(ThreadContext *_tc);
 
     /// Pointer to GPGPU-Sim shader this shader core is a proxy for
     shader_core_ctx *shaderImpl;
@@ -273,6 +268,9 @@ public:
 
     /// Required for implementing MemObject
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
+
+    /// Perform initialization. Called from SPA
+    void initialize(ThreadContext *_tc);
 
     /// Required for translation. Calls sendPkt with physical address
     void finishTranslation(WholeTranslationState *state);
