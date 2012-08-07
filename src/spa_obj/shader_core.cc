@@ -50,8 +50,8 @@ using namespace TheISA;
 using namespace std;
 
 ShaderCore::ShaderCore(const Params *p) :
-        MemObject(p), dataPort(name() + ".dataPort", this),
-        instPort(name() + ".instPort", this), _params(p), tickEvent(this),
+        MemObject(p), dataPort(name() + ".data_port", this),
+        instPort(name() + ".inst_port", this), _params(p), tickEvent(this),
         scheduledTickEvent(false), masterId(p->sys->getMasterId(name())),
         id(p->id), dtb(p->dtb), itb(p->itb), spa(p->spa)
 {
