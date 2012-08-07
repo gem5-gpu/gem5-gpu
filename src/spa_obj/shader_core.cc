@@ -53,9 +53,8 @@ ShaderCore::ShaderCore(const Params *p) :
         MemObject(p), dataPort(name() + ".dataPort", this),
         instPort(name() + ".instPort", this), _params(p), tickEvent(this),
         scheduledTickEvent(false), masterId(p->sys->getMasterId(name())),
-        id(p->id), dtb(p->dtb), itb(p->itb)
+        id(p->id), dtb(p->dtb), itb(p->itb), spa(p->spa)
 {
-    spa = StreamProcessorArray::getStreamProcessorArray();
     int _id = spa->registerShaderCore(this);
     if (_id != id) {
         assert(0);
@@ -73,9 +72,9 @@ ShaderCore::ShaderCore(const Params *p) :
 MasterPort&
 ShaderCore::getMasterPort(const std::string &if_name, int idx)
 {
-    if (if_name == "dataPort") {
+    if (if_name == "data_port") {
         return dataPort;
-    } else if (if_name == "instPort") {
+    } else if (if_name == "inst_port") {
         return instPort;
     } else {
         return MemObject::getMasterPort(if_name, idx);

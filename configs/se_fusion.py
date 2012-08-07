@@ -204,8 +204,8 @@ if options.fermi:
     system.ruby.clock = "2.6GHz" # NOTE: This is the memory clock
 
 for i in xrange(options.num_sc):
-   system.stream_proc_array.shader_cores[i].dataPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-   system.stream_proc_array.shader_cores[i].instPort = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+   system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+   system.stream_proc_array.shader_cores[i].inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
     ruby_port = system.ruby._cpu_ruby_ports[i]

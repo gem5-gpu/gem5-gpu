@@ -31,18 +31,19 @@ from m5.params import *
 from m5.proxy import *
 
 class ShaderCore(MemObject):
-        type = 'ShaderCore'
-        dataPort = MasterPort("The data cache port for this SC")
-        instPort = MasterPort("The instruction cache port for this SC")
-        sys = Param.System(Parent.any, "system sc will run on")
-
-        if buildEnv['TARGET_ISA'] == 'x86':
-                from X86TLB import X86TLB
-                dtb = Param.X86TLB(X86TLB(), "Data TLB")
-                itb = Param.X86TLB(X86TLB(), "Instruction TLB")
-        else:
-                print "Don't know how to do gpgpusim with %s" % \
-                        buildEnv['TARGET_ISA']
-                sys.exit(1)
-
-        id = Param.Int(-1, "ID of the SP")
+    type = 'ShaderCore'
+    data_port = MasterPort("The data cache port for this SC")
+    inst_port = MasterPort("The instruction cache port for this SC")
+    sys = Param.System(Parent.any, "system sc will run on")
+    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    
+    if buildEnv['TARGET_ISA'] == 'x86':
+        from X86TLB import X86TLB
+        dtb = Param.X86TLB(X86TLB(), "Data TLB")
+        itb = Param.X86TLB(X86TLB(), "Instruction TLB")
+    else:
+        print "Don't know how to do gpgpusim with %s" % \
+            buildEnv['TARGET_ISA']
+        sys.exit(1)
+    
+    id = Param.Int(-1, "ID of the SP")
