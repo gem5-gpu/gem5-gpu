@@ -140,7 +140,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
         DPRINTF(ShaderCoreAccess, "Got read_buffer %x with %d buffered reads\n", read_buffer, read_buffer->numBufferedReads());
         std::list<MemRequestHint*> coalesced_reads = read_buffer->getBufferedReads();
         std::list<MemRequestHint*>::iterator it;
-        std::vector<int> vectorReg;
+        std::map<int,int> vectorReg;
         for (it = coalesced_reads.begin(); it != coalesced_reads.end();) {
             MemRequestHint* curr_hint = (*it);
             DPRINTF(ShaderCoreAccess, "Completed read of addr %x for thread ID:%d:%d\n", curr_hint->getAddr(), curr_hint->getWID(), curr_hint->getTID());
@@ -165,9 +165,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             if (!vector_spec) {
                 thread->set_operand_value(dst, register_data, type, thread, pI);
             } else {
-                if (vectorReg.size() <= curr_hint->getTID()) {
-                    vectorReg.push_back(0);
-                }
+                // NOTE: The code below may be buggy. Does std::map[] always initialize int to 0? 
                 thread->set_reg(dst.vec_symbol(vectorReg[curr_hint->getTID()]), register_data);
                 vectorReg[curr_hint->getTID()]++;
             }
