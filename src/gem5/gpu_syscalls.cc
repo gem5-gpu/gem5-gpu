@@ -1028,34 +1028,15 @@ cudaMemcpy2DFromArrayAsync(ThreadContext *tc, gpusyscall_t *call_params)
 void
 cudaMemset(ThreadContext *tc, gpusyscall_t *call_params)
 {
-    cuda_not_implemented(__my_func__,__LINE__);
+    GPUSyscallHelper helper(tc, call_params);
 
-//    int index = 1;
-//    uint64_t arg0 = process->getSyscallArg(tc, index);
-//    uint64_t arg1 = process->getSyscallArg(tc, index);
-//    uint64_t arg2 = process->getSyscallArg(tc, index);
-//
-//    void *mem = (void *)arg0;
-//    int c = (int)arg1;
-//    size_t count = (size_t)arg2;
-//
-//    CUctx_st *context = GPGPUSim_Context(process, tc);
-//    gpgpu_t *gpu = context->get_device()->get_gpgpu();
-//    if(gpu->useGem5Mem) {
-//        DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: setting %zu bytes of memory to 0x%x starting at 0x%Lx... ",
-//                count, (unsigned char) c, (unsigned long long) mem );
-//        unsigned char c_value = (unsigned char)c;
-//        for (unsigned n=0; n < count; n ++ )
-//            gpu->gem5_spa->writeFunctional((Addr)mem+n, 1, const_cast<const uint8_t*>(&c_value));
-//            //g_global_mem->write(dst_start_addr+n,1,&c_value);
-//        DPRINTF(GPUSyscalls,  " done.\n");
-//        //uint8 *buf = new uint8_t[count];
-//        //m5_spa->readFunctional((Addr)src, count, buf);
-//        //m5_spa->writeFunctional((Addr)dst, count, const_cast<const uint8_t*>(buf));
-//    } else {
-//        gpu->gpu_memset((size_t)mem, c, count);
-//    }
-//    return g_last_cudaError = cudaSuccess;
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall Stub: cudaMemcpy()\n");
+
+    g_last_cudaError = cudaSuccess;
+    // Tell CUDA runtime to use CPU memset by default
+    cudaError_t to_return = cudaErrorApiFailureBase;
+    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+    return;
 }
 
 void
