@@ -600,23 +600,28 @@ cudaMallocArray(ThreadContext *tc, gpusyscall_t *call_params) {
 
 void
 cudaFree(ThreadContext *tc, gpusyscall_t *call_params) {
-    // TODO...  manage g_global_mem space?
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFree() - Faked\n");
+    GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_devPtr = *((Addr*)helper.getParam(0));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFree(devPtr = %x)\n", sim_devPtr);
+
     g_last_cudaError = cudaSuccess;
+    // Tell CUDA runtime to free memory
+    cudaError_t to_return = cudaErrorApiFailureBase;
+    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
 }
 
 void
 cudaFreeHost(ThreadContext *tc, gpusyscall_t *call_params) {
-    cuda_not_implemented(__my_func__,__LINE__);
-// 	int index = 1;
-// 	uint64_t arg0 = process->getSyscallArg(tc, index);
-//
-//    cuda_not_implemented(__my_func__,__LINE__);
-//
-// 	void *ptr = (void*)(arg0);
-// 	free (ptr);  // this will crash the system if called twice
-//
-// 	return g_last_cudaError = cudaSuccess;
+    GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_ptr = *((Addr*)helper.getParam(0));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFreeHost(ptr = %x)\n", sim_ptr);
+
+    g_last_cudaError = cudaSuccess;
+    // Tell CUDA runtime to free memory
+    cudaError_t to_return = cudaErrorApiFailureBase;
+    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
 }
 
 //__host__ cudaError_t CUDARTAPI cudaFreeArray(struct cudaArray *array){
