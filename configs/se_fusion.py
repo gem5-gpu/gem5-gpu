@@ -167,7 +167,15 @@ if options.fermi:
     options.l1d_assoc = 8
     options.l2_assoc = 16
 
-class CPUClass(TimingSimpleCPU): pass
+cpu_type = options.cpu_type
+if cpu_type != 'timing' and cpu_type != 'detailed':
+    cpu_type = 'timing'
+
+if cpu_type == 'timing':
+    class CPUClass(TimingSimpleCPU): pass
+elif cpu_type == 'detailed':
+    class CPUClass(DerivO3CPU): pass
+
 test_mem_mode = 'timing'
 
 FutureClass = None
