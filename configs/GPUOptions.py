@@ -14,7 +14,6 @@ def addGPUOptions(parser):
     parser.add_option("--baseline", default=False, help="size of l1 cache hooked up to each sc")
     parser.add_option("--validation", default=False, help="size of l1 cache hooked up to each sc")
     parser.add_option("--fermi", default=False, help="size of l1 cache hooked up to each sc")
-    parser.add_option("--gpu_only", default=False, help="Only time the GPU, use atomic CPU")
     parser.add_option("--shMemDelay", default=1, help="delay to access shared memory in gpgpu-sim ticks", type="int")
     parser.add_option("--kernel_stats", default=False, action="store_true", help="Dump statistics on GPU kernel boundaries")
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")

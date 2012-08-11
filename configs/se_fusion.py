@@ -167,15 +167,8 @@ if options.fermi:
     options.l1d_assoc = 8
     options.l2_assoc = 16
 
-#
-# Currently ruby only works in timing mode
-#
-if options.gpu_only:
-    class CPUClass(AtomicSimpleCPU): pass
-    test_mem_mode = 'timing'
-else:
-    class CPUClass(TimingSimpleCPU): pass
-    test_mem_mode = 'timing'
+class CPUClass(TimingSimpleCPU): pass
+test_mem_mode = 'timing'
 
 FutureClass = None
 
@@ -216,12 +209,8 @@ for (i, cpu) in enumerate(system.cpu):
     #
     # Tie the cpu ports to the ruby cpu ports
     #
-    if options.gpu_only:
-        cpu.icache_port = system.physmem.port
-        cpu.dcache_port = system.physmem.port
-    else:
-        cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
-        cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
 
     '''process = LiveProcess()
     process.executable = options.cmd
