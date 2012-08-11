@@ -71,7 +71,6 @@ GPUOptions.addGPUOptions(parser)
 
 # Benchmark options
 parser.add_option("-d", "--detailed", action="store_true", default=True)
-parser.add_option("-t", "--timing", action="store_true")
 
 #
 # Add the ruby specific and protocol specific options
@@ -185,7 +184,7 @@ CPUClass.clock = options.clock
 np = options.num_cpus
 
 system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
-                physmem = SimpleMemory(range=AddrRange("1536MB")))
+                physmem = SimpleMemory(range=AddrRange(options.total_mem_size)))
 system.mem_mode = test_mem_mode
 Simulation.setWorkCountOptions(system, options)
 
