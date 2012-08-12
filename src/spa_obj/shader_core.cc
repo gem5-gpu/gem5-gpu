@@ -173,7 +173,6 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             delete curr_hint;
         }
         assert(coalesced_reads.begin() == coalesced_reads.end() && coalesced_reads.size() == 0);
-        assert(read_buffer->numBufferedReads() == 0);
         delete read_buffer;
     } else if (pkt->isWrite()) {
         writePackets[proc->addrToLine(pkt->req->getVaddr())].remove(pkt);
