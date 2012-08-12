@@ -172,6 +172,8 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             coalesced_reads.erase(it++);
             delete curr_hint;
         }
+        assert(coalesced_reads.begin() == coalesced_reads.end() && coalesced_reads.size() == 0);
+        assert(read_buffer->numBufferedReads() == 0);
         delete read_buffer;
     } else if (pkt->isWrite()) {
         writePackets[proc->addrToLine(pkt->req->getVaddr())].remove(pkt);
@@ -859,8 +861,8 @@ ShaderCore::record_block_commit(unsigned hw_cta_id)
 
 void ShaderCore::printCTAStats(std::ostream& out)
 {
-    std::map<unsigned, std::list<unsigned long long> >::iterator iter;
-    std::list<unsigned long long>::iterator times;
+    std::map<unsigned, std::vector<unsigned long long> >::iterator iter;
+    std::vector<unsigned long long>::iterator times;
     for (iter = shaderCTAActiveStats.begin(); iter != shaderCTAActiveStats.end(); iter++) {
         unsigned cta_id = iter->first;
         out << id << ", " << cta_id << ", ";
