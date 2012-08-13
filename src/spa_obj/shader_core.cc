@@ -407,6 +407,7 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
     int chunks_to_write = 0;
     for (Addr offset = 0; offset < size; ) {
         std::list<MemRequestHint*> addr_hints = memWriteHints[base_addr + offset];
+        Addr offset_advance = 1;
         if (addr_hints.size()) {
             std::list<MemRequestHint*>::iterator it = addr_hints.begin();
             assert(addr_hints.size() <= 1);
@@ -433,7 +434,7 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
                 for (Addr within_chunk = offset + 1; within_chunk < curr_hint->getSize(); ++within_chunk) {
                     assert(memWriteHints[base_addr + within_chunk].size() == 0);
                 }
-                offset += curr_hint->getSize();
+                offset_advance = curr_hint->getSize();
                 delete curr_hint;
             }
         } else {
@@ -442,8 +443,11 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
                     write_end_addr = base_addr + offset - 1;
                 }
             }
-            ++offset;
         }
+        if (memWriteHints[base_addr + offset].size() == 0) {
+            memWriteHints.erase(base_addr + offset);
+        }
+        offset += offset_advance;
     }
     size_t packet_size;
     if (write_start_addr < base_addr) {
