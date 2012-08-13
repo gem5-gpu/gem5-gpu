@@ -349,8 +349,8 @@ int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
     ReadPacketBuffer* read_buffer = new ReadPacketBuffer(mf);
     Addr base_addr = addr;
     for (Addr offset = 0; offset < size;) {
-        std::list<MemRequestHint*> addr_hints = memReadHints[base_addr + offset];
-        if (addr_hints.size()) {
+        if (memReadHints.find(base_addr + offset) != memReadHints.end()) {
+            std::list<MemRequestHint*> addr_hints = memReadHints[base_addr + offset];
             std::list<MemRequestHint*>::iterator it = addr_hints.begin();
             for (; it != addr_hints.end(); ++it) {
                 // If this buffered read is the correct warp/thread ID, then
@@ -362,6 +362,9 @@ int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
                     read_buffer->addBufferedRead(curr_hint);
                     memReadHints[base_addr + offset].remove(curr_hint);
                 }
+            }
+            if (memReadHints[base_addr + offset].size() == 0) {
+                memReadHints.erase(base_addr + offset);
             }
         }
         offset++;
