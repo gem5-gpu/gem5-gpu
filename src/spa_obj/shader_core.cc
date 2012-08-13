@@ -319,6 +319,7 @@ void ShaderCore::finishTranslation(WholeTranslationState *state)
             dataPort.writePackets[addrToLine(block_vaddr)].push_back(pkt);
         }
         assert(!packet_hints.size());
+        writePacketHints.erase(block_vaddr);
         pkt = dataPort.writePackets[addrToLine(block_vaddr)].front();
         dataPort.sendPkt(pkt);
         if (state->mainReq) delete state->mainReq;
