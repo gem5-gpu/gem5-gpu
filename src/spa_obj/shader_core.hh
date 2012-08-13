@@ -180,8 +180,6 @@ private:
     /// used mostly for acking GPGPU-Sim
     std::map<Addr,mem_fetch *> busyDataCacheLineAddrs;
     std::map<Addr,mem_fetch *> busyInstCacheLineAddrs;
-    int currDataBusy;
-    int currInstBusy;
 
     /// Queue for outstanding atomic writes (see stallOnAtomicQueue)
     std::queue<PendingReq*> atomicQueue;

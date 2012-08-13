@@ -57,8 +57,6 @@ ShaderCore::ShaderCore(const Params *p) :
 {
     stallOnDCacheRetry = false;
     stallOnICacheRetry = false;
-    currDataBusy = 0;
-    currInstBusy = 0;
 
     spa->registerShaderCore(this);
 
@@ -179,7 +177,6 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
         // If the write consists of multiple packets and there are more
         // to send, then the next packet in the series needs to be issued
         if (writePackets[line_addr].size()) {
-            proc->currDataBusy--;
             if (pkt->req) delete pkt->req;
             delete pkt;
             pkt = writePackets[line_addr].front();
@@ -190,12 +187,10 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
         }
     }
     // need to clear mshr so this can commit
-    DPRINTF(ShaderCoreAccess, "[SC:%d] Removing vaddr 0x%x from busy. Curr busy: %d\n", proc->id, proc->addrToLine(pkt->req->getVaddr()), proc->currDataBusy);
+    proc->busyDataCacheLineAddrs.erase(iter);
+    DPRINTF(ShaderCoreAccess, "[SC:%d] Removing vaddr 0x%x from busy. Curr busy: %d\n", proc->id, proc->addrToLine(pkt->req->getVaddr()), proc->busyDataCacheLineAddrs.size());
     iter->second->set_reply();
     proc->shaderImpl->accept_ldst_unit_response(iter->second);
-
-    proc->busyDataCacheLineAddrs.erase(iter);
-    proc->currDataBusy--;
 
     if (pkt->req) delete pkt->req;
     delete pkt;
@@ -536,7 +531,7 @@ void ShaderCore::accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode
 bool ShaderCore::SCDataPort::sendPkt(PacketPtr pkt)
 {
     // @TODO: Throttle the number of packets that can be sent per cycle here?
-    DPRINTF(ShaderCoreAccess, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->currDataBusy);
+    DPRINTF(ShaderCoreAccess, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->busyDataCacheLineAddrs.size());
     if (!sendTimingReq(pkt)) {
         DPRINTF(ShaderCoreAccess, "dataPort.sendPkt failed. pkt: %p vaddr: 0x%x\n", pkt, pkt->req->getVaddr());
         proc->stallOnDCacheRetry = true;
@@ -547,7 +542,6 @@ bool ShaderCore::SCDataPort::sendPkt(PacketPtr pkt)
         return false;
     }
     proc->numDataCacheRequests++;
-    proc->currDataBusy++;
     return true;
 }
 
@@ -618,7 +612,7 @@ ShaderCore::icacheFetch(Addr addr, mem_fetch *mf)
 bool
 ShaderCore::SCInstPort::sendPkt(PacketPtr pkt)
 {
-    DPRINTF(ShaderCoreFetch, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->currInstBusy);
+    DPRINTF(ShaderCoreFetch, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", proc->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), proc->busyInstCacheLineAddrs.size());
     if (!sendTimingReq(pkt)) {
         DPRINTF(ShaderCoreFetch, "instPort.sendPkt failed. pkt: %p vaddr: 0x%x\n", pkt, pkt->req->getVaddr());
         proc->stallOnICacheRetry = true;
@@ -629,7 +623,6 @@ ShaderCore::SCInstPort::sendPkt(PacketPtr pkt)
         return false;
     }
     proc->numInstCacheRequests++;
-    proc->currInstBusy++;
     return true;
 }
 
@@ -648,7 +641,6 @@ ShaderCore::SCInstPort::recvTimingResp(PacketPtr pkt)
     proc->shaderImpl->accept_fetch_response(iter->second);
 
     proc->busyInstCacheLineAddrs.erase(iter);
-    proc->currInstBusy--;
 
     if (pkt->req) delete pkt->req;
     delete pkt;
