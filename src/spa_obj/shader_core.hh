@@ -182,7 +182,6 @@ private:
     std::map<Addr,mem_fetch *> busyInstCacheLineAddrs;
     int currDataBusy;
     int currInstBusy;
-    int writesInProcess;
 
     /// Queue for outstanding atomic writes (see stallOnAtomicQueue)
     std::queue<PendingReq*> atomicQueue;

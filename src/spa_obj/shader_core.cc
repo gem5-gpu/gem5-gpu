@@ -59,7 +59,6 @@ ShaderCore::ShaderCore(const Params *p) :
     stallOnICacheRetry = false;
     currDataBusy = 0;
     currInstBusy = 0;
-    writesInProcess = 0;
 
     spa->registerShaderCore(this);
 
@@ -175,19 +174,19 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
         assert(coalesced_reads.begin() == coalesced_reads.end() && coalesced_reads.size() == 0);
         delete read_buffer;
     } else if (pkt->isWrite()) {
-        writePackets[proc->addrToLine(pkt->req->getVaddr())].remove(pkt);
+        Addr line_addr = proc->addrToLine(pkt->req->getVaddr());
+        writePackets[line_addr].remove(pkt);
         // If the write consists of multiple packets and there are more
         // to send, then the next packet in the series needs to be issued
-        if (writePackets[proc->addrToLine(pkt->req->getVaddr())].size()) {
+        if (writePackets[line_addr].size()) {
             proc->currDataBusy--;
-            Addr line_addr = proc->addrToLine(pkt->req->getVaddr());
             if (pkt->req) delete pkt->req;
             delete pkt;
             pkt = writePackets[line_addr].front();
             sendPkt(pkt);
             return true;
         } else {
-            proc->writesInProcess--;
+            writePackets.erase(line_addr);
         }
     }
     // need to clear mshr so this can commit
@@ -395,8 +394,6 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
     if (!dataCacheResourceAvailable(addr)) {
         return 1;
     }
-
-    writesInProcess++;
 
     // According to the CUDA spec: coalesced writes are sized 32, 64 or 128B
     // and they must be address-aligned on their size
