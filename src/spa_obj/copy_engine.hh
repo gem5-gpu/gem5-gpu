@@ -154,6 +154,7 @@ public:
     void initialize(ThreadContext *_tc) { tc = _tc; }
     void finishTranslation(WholeTranslationState *state);
     int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type);
+    int memset(Addr dst, int value, size_t length, struct CUstream_st *_stream);
     void recvPacket(PacketPtr pkt);
 
     void cePrintStats(std::ostream& out);
