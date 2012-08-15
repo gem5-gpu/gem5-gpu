@@ -136,6 +136,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                dcache = cache,
                                access_phys_mem = True,
                                max_outstanding_requests=10, # This directly corresponds to the CE bandwidth
+                               support_inst_reqs = False,
                                ruby_system = ruby_system)
 
     ce_cntrl = L1CacheCE_Controller(version = 0,
