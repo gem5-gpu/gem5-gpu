@@ -471,6 +471,10 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
     }
 }
 
+void StreamProcessorArray::memset(Addr dst, int value, size_t count, struct CUstream_st *stream) {
+    copyEngine->memset(dst, value, count, stream);
+}
+
 void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )
 {
     m_code[fat_cubin_handle] = symtab;

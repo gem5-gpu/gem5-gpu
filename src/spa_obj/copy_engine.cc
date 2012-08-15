@@ -352,6 +352,48 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
     return 0;
 }
 
+int SPACopyEngine::memset(Addr dst, int value, size_t length, struct CUstream_st *_stream)
+{
+    stream = _stream;
+
+    assert(!running && !readPort && !readDTB);
+    readPort = &hostPort;
+    readDTB = hostDTB;
+    writePort = &devicePort;
+    writeDTB = deviceDTB;
+
+    assert(length > 0);
+    running = true;
+
+    DPRINTF(SPACopyEngine, "Initiating memset of %d bytes at 0x%x to %d\n", length, dst, value);
+    memCpyStartTime = curTick();
+
+    needToRead = false;
+    needToWrite = true;
+
+    currentWriteAddr = dst;
+
+    readLeft = 0;
+    writeLeft = length;
+
+    totalLength = length;
+
+    readDone = length;
+    writeDone = 0;
+
+    curData = new uint8_t[length];
+    readsDone = new bool[length];
+    for (int i = 0; i < length; i++) {
+        curData[i] = value;
+        readsDone[i] = true;
+    }
+
+    // TODO: Figure out scheduling... seems ridiculous
+    schedule(tickEvent, curTick()+driverDelay);
+
+    return 0;
+}
+
 void SPACopyEngine::finishTranslation(WholeTranslationState *state)
 {
     if (state->getFault() != NoFault) {

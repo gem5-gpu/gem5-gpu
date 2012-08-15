@@ -265,6 +265,9 @@ public:
     /// Begins a timing memory copy from src to/from the symbol+offset
     void memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream);
 
+    /// Begins a timing memory set of value to dst
+    void memset(Addr dst, int value, size_t count, struct CUstream_st *stream);
+
     void saveFatBinaryInfoTop(unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
         _FatBinary bin;
         bin.handle = handle;
