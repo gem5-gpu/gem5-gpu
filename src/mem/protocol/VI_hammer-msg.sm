@@ -106,6 +106,8 @@ structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
     NetDest Destination,             desc="Multicast destination mask";
     DataBlock DataBlk,           desc="data for the cache line";
     MessageSizeType MessageSize, desc="size category of the message";
+    int Offset, desc="Offset of write into line";
+    int Size, desc="Size of the write request";
 }
 
 // ResponseMsg (and also unblock requests)

@@ -111,6 +111,10 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     Time ForwardRequestTime, default="0", desc="time the dir forwarded the request";
     Time FirstResponseTime, default="0", desc="the time the first response was received";
 
+    DataBlock DirtyDataBlk, desc="Dirty data for a write. Separate from DataBlk since that's 'clean' data from other caches";
+    int Offset,             desc="Offset of write into line";
+    int Size,               desc="Size of the write";
+
     MachineID Requestor,     desc="The requestor for this block";
   }
 
@@ -434,28 +438,20 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   action(hh_store_hit, "\h", desc="Notify L1 that store completed.") {
     assert(is_valid(cache_entry));
     peek(requestQueue_in, RequestMsgVI) {
-      enqueue(responseNetworkL1_out, ResponseMsgVI, latency=l2_response_latency) {
-        out_msg.Address := address;
-        out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
-        out_msg.Sender := machineID;
-        out_msg.Destination.add(in_msg.Requestor);
-        out_msg.MessageSize := MessageSizeType:Writeback_Control;
-      }
+      cache_entry.DataBlk.copyPartial(in_msg.DataBlk, in_msg.Offset, in_msg.Size);
       cache_entry.Dirty := true;
     }
+    DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
   }
 
   action(sx_external_store_hit, "sx", desc="store required external msgs, Notify L1 that store completed.") {
     assert(is_valid(cache_entry));
     assert(is_valid(tbe));
-    enqueue(responseNetworkL1_out, ResponseMsgVI, latency=l2_response_latency) {
-      out_msg.Address := address;
-      out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
-      out_msg.Sender := machineID;
-      out_msg.Destination.add(tbe.Requestor);
-      out_msg.MessageSize := MessageSizeType:Writeback_Control;
-    }
+    cache_entry.DataBlk.copyPartial(tbe.DirtyDataBlk, tbe.Offset, tbe.Size);
     cache_entry.Dirty := true;
+    DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
+    DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, tbe.Offset, tbe.Size);
+    DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
   }
 
   action(sa_store_hit, "sa", desc="Notify L1 that an atomic store completed.") {
@@ -475,6 +471,9 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     assert(is_valid(tbe));
     peek(requestQueue_in, RequestMsgVI) {
       tbe.Requestor := in_msg.Requestor;
+      tbe.DirtyDataBlk := in_msg.DataBlk;
+      tbe.Offset := in_msg.Offset;
+      tbe.Size := in_msg.Size;
     }
   }
 

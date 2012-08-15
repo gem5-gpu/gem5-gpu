@@ -17,8 +17,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   state_declaration(State, desc="Cache states") {
     I, AccessPermission:Invalid, desc="Not Present/Invalid";
     V, AccessPermission:Read_Only, desc="Valid";
+
     V_a, AccessPermission:Read_Only, desc="Valid waiting for other atomic (locked & blocking)";
-    VI, AccessPermission:Busy, desc="Modified, issued PUT";
     VI_a, AccessPermission:Busy, desc="Modified by atomic, issued PUT";
 
     IV, AccessPermission:Busy, desc="Issued request for LOAD/IFETCH";
@@ -85,6 +85,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
 
   int l2_select_low_bit, default="RubySystem::getBlockSizeBits()";
+
+  DataBlock temp_store_data;
 
   // External functions
   MachineID getL2ID(Address num, int num_l2, int select_bits, int select_start_bit);
@@ -178,9 +180,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
         if (in_msg.Type == CoherenceResponseTypeVI:DATA) {
           trigger(Event:Data, in_msg.Address, cache_entry, tbe);
         }
-        else if (in_msg.Type == CoherenceResponseTypeVI:WB_ACK) {
-          trigger(Event:Writeback_Ack, in_msg.Address, cache_entry, tbe);
-        }
         else {
           error("Unexpected message");
         }
@@ -222,12 +221,18 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   action(b_issuePUT, "b", desc="Issue a PUT request") {
-    enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
-      out_msg.Address := address;
-      out_msg.Type := CoherenceRequestTypeVI:PUT;
-      out_msg.Requestor := machineID;
-      out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
-      out_msg.MessageSize := MessageSizeType:Data;
+    peek(mandatoryQueue_in, RubyRequest) {
+      enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
+        out_msg.Address := address;
+        out_msg.Type := CoherenceRequestTypeVI:PUT;
+        out_msg.Requestor := machineID;
+        out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
+        out_msg.MessageSize := MessageSizeType:Data;
+        out_msg.DataBlk := temp_store_data;
+        out_msg.Offset := addressOffset(in_msg.PhysicalAddress);
+        out_msg.Size := in_msg.Size;
+        DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, out_msg.Offset, out_msg.Size);
+      }
     }
   }
 
@@ -298,11 +303,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   action(s_store_hit, "i", desc="Notify sequencer that store completed.") {
-    assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
     sequencer.writeCallback(address,
                             GenericMachineType:L1Cache,
-                            cache_entry.DataBlk);
+                            temp_store_data);
+    DPRINTF(RubySlicc,"%s %s\n", address, temp_store_data);
   }
 
    action(sx_store_hit, "sx", desc="External store completed.") {
@@ -343,7 +347,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // TRANSITIONS
 
-  transition({IV, IV_a, VI_a, VI}, {Load, Ifetch, Store, Replacement, Atomic}) {
+  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Replacement, Atomic}) {
     z_stall;
   }
 
@@ -351,25 +355,21 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     z_stall;
   }
 
-  transition(V, Store, VI) {
-    m_popMandatoryQueue;
-
-    v_allocateTBE;
+  transition(V, Store, I) {
+    s_store_hit;
     b_issuePUT;
-    x_copyDataFromCacheToTBE;
+    m_popMandatoryQueue;
+  }
+
+  transition(I, Store) {
+    s_store_hit;
+    b_issuePUT;
+    m_popMandatoryQueue;
   }
 
   transition(V, {Load, Ifetch}) {
     r_load_hit;
     m_popMandatoryQueue;
-  }
-
-  transition(I, Store, VI) {
-    v_allocateTBE;
-    p_profileMiss;
-    m_popMandatoryQueue;
-
-    b_issuePUT;
   }
 
   transition(I, {Load, Ifetch}, IV) {
@@ -418,12 +418,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   transition({I, V}, Replacement, I) {
     h_deallocateL1CacheBlock;
-  }
-
-  transition(VI, Writeback_Ack, I) {
-    sx_store_hit;
-    w_deallocateTBE;
-    n_popResponseQueue;
   }
 
   transition(VI_a, Writeback_Ack, I) {

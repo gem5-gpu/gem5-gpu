@@ -90,12 +90,14 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
     }
   }
 
-  action(s_sendReadRequest, "s", desc="Send a DMA read request to memory") {
+  action(s_sendReadRequest, "r", desc="Send a DMA read request to memory") {
     peek(dmaRequestQueue_in, RubyRequest) {
       enqueue(reqToDirectory_out, DMARequestMsg, latency=request_latency) {
+        out_msg.PhysicalAddress := in_msg.PhysicalAddress;
         out_msg.LineAddress := in_msg.LineAddress;
         out_msg.Type := DMARequestType:READ;
         out_msg.Requestor := machineID;
+        out_msg.DataBlk := tbe.DataBlk;
         out_msg.Len := in_msg.Size;
         out_msg.Destination.add(map_Address_to_Directory(address));
         out_msg.MessageSize := MessageSizeType:Writeback_Control;
@@ -104,22 +106,25 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
   }
 
   action(s_sendWriteRequest, "\s", desc="Send a DMA write request to memory") {
+    assert(is_valid(tbe));
     peek(dmaRequestQueue_in, RubyRequest) {
       enqueue(reqToDirectory_out, DMARequestMsg, latency=request_latency) {
+          out_msg.PhysicalAddress := in_msg.PhysicalAddress;
           out_msg.LineAddress := in_msg.LineAddress;
           out_msg.Type := DMARequestType:WRITE;
           out_msg.Requestor := machineID;
           out_msg.Len := in_msg.Size;
+          out_msg.DataBlk := tbe.DataBlk;
           out_msg.Destination.add(map_Address_to_Directory(address));
           out_msg.MessageSize := MessageSizeType:Writeback_Control;
         }
       }
   }
 
-  action(a_ackCallback, "a", desc="Notify dma controller that write request completed") {
-    peek (dmaResponseQueue_in, DMAResponseMsg) {
-        DataBlock db := in_msg.DataBlk;
-        sequencer.writeCallback(in_msg.LineAddress, db);
+  action(s_store_hit, "s", desc="Notify controller of store complete") {
+    assert(is_valid(tbe));
+    peek(dmaRequestQueue_in, RubyRequest) {
+      sequencer.writeCallback(in_msg.LineAddress, tbe.DataBlk);
     }
   }
 
@@ -148,26 +153,33 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
     unset_tbe();
   }
 
-  transition(READY, ReadRequest) {
+  action(z_stall, "z", desc="...") {
+  }
+
+  transition({BUSY_RD, BUSY_WR}, {ReadRequest, WriteRequest}) {
+    z_stall;
+  }
+
+  transition(READY, ReadRequest, BUSY_RD) {
+    v_allocateTBE;
     s_sendReadRequest;
-    v_allocateTBE;
     p_popRequestQueue;
   }
 
-  transition(READY, WriteRequest) {
+  transition(READY, WriteRequest, BUSY_WR) {
+    v_allocateTBE;
+    s_store_hit;
     s_sendWriteRequest;
-    v_allocateTBE;
     p_popRequestQueue;
   }
 
-  transition(READY, Data) {
+  transition(BUSY_RD, Data, READY) {
     d_dataCallback;
     w_deallocateTBE;
     p_popResponseQueue;
   }
 
-  transition(READY, Ack) {
-    a_ackCallback;
+  transition(BUSY_WR, Ack, READY) {
     w_deallocateTBE;
     p_popResponseQueue;
   }

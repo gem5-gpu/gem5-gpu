@@ -554,6 +554,7 @@ machine(Directory, "AMD Hammer-like protocol")
     peek(dmaRequestQueue_in, DMARequestMsg) {
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
+      tbe.DataBlk := getDirectoryEntry(address).DataBlk;
       tbe.DmaDataBlk := in_msg.DataBlk;
       tbe.PhysicalAddress := in_msg.PhysicalAddress;
       tbe.Len := in_msg.Len;
@@ -1183,12 +1184,12 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   action(dwt_writeDmaDataFromTBE, "dwt", desc="DMA Write data to memory from TBE") {
-    DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
+    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
     assert(is_valid(tbe));
     getDirectoryEntry(address).DataBlk := tbe.DataBlk;
-    DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
+    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
     getDirectoryEntry(address).DataBlk.copyPartial(tbe.DmaDataBlk, addressOffset(tbe.PhysicalAddress), tbe.Len);
-    DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
+    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
   }
 
   action(wdt_writeDataFromTBE, "wdt", desc="DMA Write data to memory from TBE") {
