@@ -67,7 +67,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
     system(p->sys), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
-    returnDelay(p->kernel_return_delay), ruby(p->ruby), clearTick(0),
+    returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats)
 {
     streamDelay = 1;
@@ -100,7 +100,10 @@ void StreamProcessorArray::serialize(std::ostream &os)
     SERIALIZE_SCALAR(m_last_fat_cubin_handle);
     SERIALIZE_SCALAR(instBaseVaddr);
 
-    int tid = tc->threadId();
+    int tid = -1;
+    if (tc) {
+        tid = tc->threadId();
+    }
     SERIALIZE_SCALAR(tid);
 
     int numBinaries = fatBinaries.size();
