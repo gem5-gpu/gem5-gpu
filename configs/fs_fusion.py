@@ -168,8 +168,8 @@ for i in xrange(options.num_sc):
     system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
     system.stream_proc_array.shader_cores[i].inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
     if buildEnv['TARGET_ISA'] == "x86":
-        system.stream_proc_array.shader_cores[i].host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        system.stream_proc_array.shader_cores[i].device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
     #
