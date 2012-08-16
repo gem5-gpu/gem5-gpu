@@ -65,6 +65,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         panic("This script requires the VI_hammer protocol to be built.")
 
     cpu_sequencers = []
+    dma_cntrl_nodes = []
 
     topology = Cluster()
 
