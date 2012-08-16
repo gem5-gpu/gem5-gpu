@@ -97,11 +97,18 @@ if options.benchmark:
 else:
     bm = [SysConfig()]
 
-# Check for timing mode because ruby does not support atomic accesses
-if not (options.cpu_type == "detailed" or options.cpu_type == "timing"):
-    print >> sys.stderr, "Ruby requires TimingSimpleCPU or O3CPU!!"
-    sys.exit(1)
-(CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
+cpu_type = options.cpu_type
+if cpu_type != 'timing' and cpu_type != 'detailed':
+    cpu_type = 'timing'
+
+if cpu_type == 'timing':
+    class CPUClass(TimingSimpleCPU): pass
+elif cpu_type == 'detailed':
+    class CPUClass(DerivO3CPU): pass
+
+test_mem_mode = 'timing'
+
+FutureClass = None
 
 CPUClass.clock = options.clock
 
