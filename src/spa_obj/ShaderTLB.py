@@ -25,23 +25,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from MemObject import MemObject
-from ShaderTLB import ShaderTLB
-from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
+from X86TLB import X86TLB
 
-class SPACopyEngine(MemObject):
-    type = 'SPACopyEngine'
-    host_port = MasterPort("The copy engine port to host coherence domain")
-    device_port = MasterPort("The copy engine port to device coherence domain")
-    driver_delay = Param.Int(0, "memcpy launch delay in ticks");
-    sys = Param.System(Parent.any, "system sc will run on")
+class ShaderTLB(X86TLB):
+    type = 'ShaderTLB'
+    access_host_pagetable = Param.Bool(False, "Whether to allow accesses to host page table")
     spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
-
-    host_dtb = Param.ShaderTLB(ShaderTLB(access_host_pagetable = True), "TLB for the host memory space")
-    device_dtb = Param.ShaderTLB(ShaderTLB(), "TLB for the device memory space")
-
-    id = Param.Int(-1, "ID of the CE")
-    stats_filename = Param.String("ce_stats.txt",
-        "file to which copy engine dumps its stats")

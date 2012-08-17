@@ -456,25 +456,14 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
     GPGPUSim_Init(tc);
 
     g_last_cudaError = cudaSuccess;
+
+    // TODO: if CPU should allocate GPU memory:
     // Tell CUDA runtime to allocate memory
     cudaError_t to_return = cudaErrorApiFailureBase;
     helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
     return;
 
-//    uint64_t i = 0;
-//    uint64_t *ip = &i;
-//    void **devPtr = (void**)&ip;
-//
-//    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
-//    *devPtr = spa->getTheGPU()->gpu_malloc(sim_size);
-//    helper.writeBlob(sim_devPtr, (uint8_t*)(devPtr), sizeof(void *));
-//
-//    if (*devPtr) {
-//        g_last_cudaError = cudaSuccess;
-//    } else {
-//        g_last_cudaError = cudaErrorMemoryAllocation;
-//    }
-//    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    // TODO: else (if gem5 should allocate GPU - split physmem):
 }
 
 void
@@ -496,26 +485,16 @@ cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params) {
 void
 cudaRegisterDeviceMemory(ThreadContext *tc, gpusyscall_t *call_params)
 {
-    // This GPU syscall is used to initialize tracking of GPU memory if the
-    // simulation requires access credentials between CPU and GPU memory (e.g.
-    // if the address space is segmented into CPU and device memory, or if
-    // the CPU allocates GPU memory which it should not access)
+    // This GPU syscall is used to initialize tracking of GPU memory so that
+    // the GPU can do TLB lookups and if necessary, physical memory allocations
     GPUSyscallHelper helper(tc, call_params);
 
     Addr sim_devicePtr = *((Addr*)helper.getParam(0));
     size_t sim_size = *((size_t*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaRegisterDeviceMemory(devicePtr = %x, size = %d)\n", sim_devicePtr, sim_size);
 
-    // TODO:
-    // Get the physical address of full memory allocation (i.e. all pages)
-    //   Separate function:
-    //      if (FullSystem) {
-    //          Addr paddr = TheISA::vtophys(tc, vaddr);
-    //      } else {
-    //          Addr paddr;
-    //          tc->getProcessPtr()->pTable->translate(vaddr, paddr);
-    //      }
-    // Build struct to handle devicePtr and size (inside StreamProcessorArray?)
+    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
+    spa->registerDeviceMemory(sim_devicePtr, sim_size);
 }
 
 void
@@ -1719,12 +1698,14 @@ get_global_and_constant_alloc_size(symbol_table* symtab)
 void
 finalize_global_and_constant_setup(Addr base_addr, symbol_table* symtab)
 {
+    StreamProcessorArray* spa = StreamProcessorArray::getStreamProcessorArray();
     Addr curr_addr = base_addr;
     Addr next_addr = 0;
     symbol_table::iterator iter;
     for (iter = symtab->global_iterator_begin(); iter != symtab->global_iterator_end(); iter++) {
         symbol* global = *iter;
         global->set_address(curr_addr);
+        spa->registerDeviceMemory(curr_addr, global->get_size_in_bytes());
         next_addr = curr_addr + global->get_size_in_bytes();
         if (next_addr - base_addr > registering_allocation_size) {
             panic("Didn't allocate enough global+const memory. Bailing!");
@@ -1737,6 +1718,7 @@ finalize_global_and_constant_setup(Addr base_addr, symbol_table* symtab)
     for (iter = symtab->const_iterator_begin(); iter != symtab->const_iterator_end(); iter++) {
         symbol* constant = *iter;
         constant->set_address(curr_addr);
+        spa->registerDeviceMemory(curr_addr, constant->get_size_in_bytes());
         next_addr = curr_addr + constant->get_size_in_bytes();
         if (next_addr - base_addr > registering_allocation_size) {
             panic("Didn't allocate enough global+const memory. Bailing!");
@@ -1773,8 +1755,9 @@ void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *
 
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if(ptx_entry_ptr->ptx != 0) {
-            DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %p", ptx_entry_ptr->ptx);
+            DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (address_type)(Addr)ptx_entry_ptr->ptx);
             spa->setInstBaseVaddr((address_type)(Addr)ptx_entry_ptr->ptx);
+            spa->registerDeviceMemory((Addr)ptx_entry_ptr->ptx, sim_binSize);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             GPUSyscallHelper::readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize, tc);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];

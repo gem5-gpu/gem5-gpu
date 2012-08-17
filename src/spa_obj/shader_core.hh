@@ -43,6 +43,7 @@
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/ShaderCore.hh"
+#include "shader_tlb.hh"
 #include "sim/process.hh"
 
 class StreamProcessorArray;
@@ -185,8 +186,8 @@ private:
     std::queue<PendingReq*> atomicQueue;
 
     /// TLB's. These do NOT perform any timing right now
-    TheISA::TLB *dtb;
-    TheISA::TLB *itb;
+    ShaderTLB *dtb;
+    ShaderTLB *itb;
 
     /// Pointer to thread context for translation
     ThreadContext *tc;

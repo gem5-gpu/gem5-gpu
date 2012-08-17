@@ -40,6 +40,7 @@
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
+#include "debug/StreamProcessorArrayPageTable.hh"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/StreamProcessorArray.hh"
@@ -202,6 +203,36 @@ private:
     std::vector<_FatBinary> fatBinaries;
     std::vector<_CudaVar> cudaVars;
 
+    class SPAPageTable : public SimObject
+    {
+      private:
+        std::map<Addr, Addr> pageTable;
+
+      public:
+        SPAPageTable(const Params *p) : SimObject(p) {};
+
+        Addr addrToPage(Addr addr);
+        void insert(Addr vaddr, Addr paddr) {
+            if (pageTable.find(vaddr) == pageTable.end()) {
+                DPRINTF(StreamProcessorArrayPageTable, " Mapping vaddr %x to paddr %x\n", vaddr, paddr);
+                pageTable[vaddr] = paddr;
+            } else {
+                assert(paddr == pageTable[vaddr]);
+            }
+        }
+        bool lookup(Addr vaddr, Addr& paddr) {
+            DPRINTF(StreamProcessorArrayPageTable, " Looking up vaddr %x\n", vaddr);
+            Addr page_vaddr = addrToPage(vaddr);
+            Addr offset = vaddr - page_vaddr;
+            if (pageTable.find(page_vaddr) != pageTable.end()) {
+                paddr = pageTable[page_vaddr] + offset;
+                return true;
+            }
+            return false;
+        }
+    };
+    SPAPageTable* pageTable;
+
 public:
     /// Constructor
     StreamProcessorArray(const Params *p);
@@ -303,6 +334,10 @@ public:
     function_info *get_kernel(const char *hostFun);
     void setInstBaseVaddr(uint64_t addr);
     uint64_t getInstBaseVaddr();
+
+    /// For handling GPU memory mapping table
+    SPAPageTable* getGPUPageTable() { return pageTable; };
+    void registerDeviceMemory(Addr vaddr, size_t size);
 };
 
 /**

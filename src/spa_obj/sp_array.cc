@@ -42,6 +42,7 @@
 #include "debug/GpuTick.hh"
 #include "debug/StreamProcessorArray.hh"
 #include "debug/StreamProcessorArrayAccess.hh"
+#include "debug/StreamProcessorArrayPageTable.hh"
 #include "debug/StreamProcessorArrayTick.hh"
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
@@ -79,6 +80,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     streamScheduled = false;
 
     restoring = false;
+    pageTable = new SPAPageTable(p);
 
     instBaseVaddr = 0;
 
@@ -524,6 +526,27 @@ uint64_t StreamProcessorArray::getInstBaseVaddr()
     return instBaseVaddr;
 }
 
+Addr StreamProcessorArray::SPAPageTable::addrToPage(Addr addr)
+{
+    Addr offset = addr % TheISA::PageBytes;
+    return addr - offset;
+}
+
+void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
+{
+    DPRINTF(StreamProcessorArrayPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
+    // Get the physical address of full memory allocation (i.e. all pages)
+    Addr page_vaddr, page_paddr;
+    for (ChunkGenerator gen(vaddr, size, TheISA::PageBytes); !gen.done(); gen.next()) {
+        page_vaddr = pageTable->addrToPage(gen.addr());
+        if (FullSystem) {
+            page_paddr = TheISA::vtophys(tc, page_vaddr);
+        } else {
+            tc->getProcessPtr()->pTable->translate(page_vaddr, page_paddr);
+        }
+        pageTable->insert(page_vaddr, page_paddr);
+    }
+}
 
 /**
 * virtual process function that is invoked when the callback

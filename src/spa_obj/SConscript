@@ -32,21 +32,26 @@ Import('*')
 
 SimObject('StreamProcessorArray.py')
 SimObject('ShaderCore.py')
+SimObject('ShaderTLB.py')
 SimObject('SPACopyEngine.py')
 
 Source('sp_array.cc')
 Source('shader_core.cc')
+Source('shader_tlb.cc')
 Source('copy_engine.cc')
 
 
-DebugFlag('StreamProcessorArrayAccess')
-DebugFlag('StreamProcessorArrayTick')
 DebugFlag('GpuTick')
 DebugFlag('StreamProcessorArray')
+DebugFlag('StreamProcessorArrayAccess')
+DebugFlag('StreamProcessorArrayPageTable')
+DebugFlag('StreamProcessorArrayTick')
 
 DebugFlag('ShaderCore')
 DebugFlag('ShaderCoreAccess')
 DebugFlag('ShaderCoreFetch')
 DebugFlag('ShaderCoreTick')
+
+DebugFlag('ShaderTLB')
 
 DebugFlag('SPACopyEngine')

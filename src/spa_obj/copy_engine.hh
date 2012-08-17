@@ -115,12 +115,12 @@ private:
     int driverDelay;
 
     // Pointers to the actual TLBs
-    TheISA::TLB *hostDTB;
-    TheISA::TLB *deviceDTB;
+    ShaderTLB *hostDTB;
+    ShaderTLB *deviceDTB;
 
     // Pointers set as appropriate for memory space during a memcpy
-    TheISA::TLB *readDTB;
-    TheISA::TLB *writeDTB;
+    ShaderTLB *readDTB;
+    ShaderTLB *writeDTB;
 
     ThreadContext *tc;
 

@@ -528,11 +528,11 @@ void ShaderCore::accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode
     if (req->isInstFetch()) {
         assert(busyInstCacheLineAddrs.find(addrToLine(req->getVaddr())) == busyInstCacheLineAddrs.end());
         busyInstCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
-        itb->translateTiming(req, tc, translation, mode);
+        itb->beginTranslateTiming(req, tc, translation, mode);
     } else {
         assert(busyDataCacheLineAddrs.find(addrToLine(req->getVaddr())) == busyDataCacheLineAddrs.end());
         busyDataCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
-        dtb->translateTiming(req, tc, translation, mode);
+        dtb->beginTranslateTiming(req, tc, translation, mode);
     }
 }
 
