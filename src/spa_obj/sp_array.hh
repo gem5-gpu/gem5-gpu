@@ -121,6 +121,9 @@ private:
     /// Used to register this SPA with the system
     System *system;
 
+    /// Frequency of GPU in Hz
+    Tick frequency;
+
     /// Are we restoring from a checkpoint?
     bool restoring;
 
@@ -286,6 +289,8 @@ public:
 
     /// Callback for GPGPU-Sim to get the current simulation time
     unsigned long long getCurTick(){ return curTick(); }
+
+    Tick getFrequency() { return frequency; }
 
     /// Used to print stats at the end of simulation
     void gpuPrintStats(std::ostream& out);

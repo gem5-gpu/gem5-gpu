@@ -2,6 +2,7 @@
 import os
 
 import m5
+from m5.util.convert import *
 
 
 def addGPUOptions(parser):
@@ -15,6 +16,7 @@ def addGPUOptions(parser):
     parser.add_option("--kernel_stats", default=False, action="store_true", help="Dump statistics on GPU kernel boundaries")
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")
     parser.add_option("--gpu_l1_buf_depth", type="int", default=16, help="Number of buffered L1 requests per shader")
+    parser.add_option("--gpu-core-clock", default='700MHz', help="Frequency of GPU. (note: all 32 threads in the warp execute simultaneously. In Fermi, each pipeline has 16 execution units, so the Core clock needs to be divided by 2)")
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
@@ -38,13 +40,15 @@ def parseGpgpusimConfig(options):
         config = config.replace("%clusters%", str(options.clusters))
         config = config.replace("%cores_per_cluster%", str(options.cores_per_cluster))
         config = config.replace("%icnt_file%", os.path.join(os.path.dirname(__file__), "gpu_config/icnt_config_fermi_islip.txt"))
+        # GPGPU-Sim config expects freq in MHz
+        config = config.replace("%freq%", str(toFrequency(options.gpu_core_clock)/1.0e6))
         options.num_sc = options.clusters*options.cores_per_cluster
         f = open(m5.options.outdir+'/gpgpusim.config', 'w')
         f.write(config)
         f.close()
         gpgpusimconfig = m5.options.outdir+'/gpgpusim.config'
     else:
-        print "Using gpgpusim.config for clusters and cores_per_cluster"
+        print "Using gpgpusim.config for clusters, cores_per_cluster, Frequency"
         start = config.find("-gpgpu_n_clusters ")+len("-gpgpu_n_clusters ")
         end = config.find('-', start)
         gpgpu_n_clusters = int(config[start:end])
@@ -53,6 +57,9 @@ def parseGpgpusimConfig(options):
         gpgpu_n_cores_per_cluster = int(config[start:end])
         num_sc = gpgpu_n_clusters*gpgpu_n_cores_per_cluster
         options.num_sc = num_sc
+        start = config.find("-gpgpu_clock_domains ") + len("-gpgpu_clock_domains ")
+        end = config.find(':', start)
+        options.gpu_core_clock = config[start:end]+"MHz"
 
     return gpgpusimconfig
 

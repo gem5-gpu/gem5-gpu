@@ -44,3 +44,5 @@ class StreamProcessorArray(SimObject):
          "file to which gpgpu-sim dumps its stats")
    config_path = Param.String('gpgpusim.config', "file to which gpgpu-sim dumps its stats")
    dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
+
+   frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")

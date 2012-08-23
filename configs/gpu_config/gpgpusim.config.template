@@ -12,7 +12,7 @@
 #-gpgpu_clock_domains <Core Clock>:<Interconnect Clock>:<L2 Clock>:<DRAM Clock>
 # In Fermi, each pipeline has 16 execution units, so the Core clock needs to be divided
 # by 2. (GPGPU-Sim simulates a warp (32 threads) in a single cycle). 1400/2 = 700
--gpgpu_clock_domains 700.0:1400.0:700.0:1848.0
+-gpgpu_clock_domains %freq%:1400.0:700.0:1848.0
 
 # shader core pipeline config
 -gpgpu_shader_registers 32768
