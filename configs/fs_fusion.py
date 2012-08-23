@@ -62,15 +62,8 @@ config_root = os.path.join(config_path,"../../configs")
 parser = optparse.OptionParser()
 Options.addCommonOptions(parser)
 Options.addFSOptions(parser)
-Options.addMemCtrlOptions(parser)
+GPUOptions.addMemCtrlOptions(parser)
 GPUOptions.addGPUOptions(parser)
-
-# Benchmark options
-parser.add_option("-o", "--options", default="",
-    help='The options to pass to the binary, use " " around the entire string')
-parser.add_option("-i", "--input", default="", help="Read stdin from a file.")
-parser.add_option("--output", default="", help="Redirect stdout to a file.")
-parser.add_option("--errout", default="", help="Redirect stderr to a file.")
 
 #
 # Add the ruby specific and protocol specific options
@@ -78,24 +71,12 @@ parser.add_option("--errout", default="", help="Redirect stderr to a file.")
 Ruby.define_options(parser)
 
 (options, args) = parser.parse_args()
-options.ruby = True
 
 if args:
     print "Error: script doesn't take any positional arguments"
     sys.exit(1)
 
-# Clean GPGPU-Sim params
-options.sc_l1_assoc = options.l1d_assoc
-
-if options.benchmark:
-    try:
-        bm = Benchmarks[options.benchmark]
-    except KeyError:
-        print "Error benchmark %s has not been defined." % options.benchmark
-        print "Valid benchmarks are: %s" % DefinedBenchmarks
-        sys.exit(1)
-else:
-    bm = [SysConfig()]
+bm = [SysConfig()]
 
 cpu_type = options.cpu_type
 if cpu_type != 'timing' and cpu_type != 'detailed':
@@ -112,48 +93,22 @@ FutureClass = None
 
 CPUClass.clock = options.clock
 
-if buildEnv['TARGET_ISA'] == "alpha":
-    system = makeLinuxAlphaRubySystem(test_mem_mode, bm[0])
-elif buildEnv['TARGET_ISA'] == "x86":
+#
+# GPGPU-Sim configuration
+#
+gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
+
+if buildEnv['TARGET_ISA'] == "x86":
     system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
     Simulation.setWorkCountOptions(system, options)
 else:
-    fatal("incapable of building non-alpha or non-x86 full system!")
+    fatal("Incapable of building non-x86 full system!")
 
 if options.kernel is not None:
     system.kernel = binary(options.kernel)
 
 if options.script is not None:
     system.readfile = options.script
-
-gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
-
-if options.baseline:
-        print "Using options based on baseline!"
-        print "Remember any command line options may be ignored"
-        options.clock = "3GHz"
-        options.sc_l1_size = "64kB"
-
-if options.fermi:
-    print "Using options based on fermi!"
-    print "Remember any command line options may be ignored"
-    options.topology = "Crossbar"
-    options.clock = "2.6GHz"
-    options.cacheline_size = 128
-    options.sc_l1_size = "16kB"
-    options.sc_l1_assoc = 64
-    options.sc_l2_size = "128kB"
-    options.sc_l2_assoc = 64
-    options.num_dirs = 8
-    options.shMemDelay = 30
-
-    #CPU things
-    options.l1d_size = "64kB"
-    options.l1i_size = "32kB"
-    options.l2_size = "256kB"
-    options.l1i_assoc = 4
-    options.l1d_assoc = 8
-    options.l2_assoc = 16
 
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
@@ -168,46 +123,32 @@ Ruby.create_system(options, system, system.piobus, system._dma_ports)
 system.stream_proc_array.ruby = system.ruby
 system.ruby.block_size_bytes = 128
 
-if options.fermi:
-    system.ruby.clock = "2.6GHz" # NOTE: This is the memory clock
-
 for i in xrange(options.num_sc):
     system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
     system.stream_proc_array.shader_cores[i].inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-    if buildEnv['TARGET_ISA'] == "x86":
-        system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
+    cpu.createInterruptController()
+    cpu.interrupts.pio = system.piobus.master
+    cpu.interrupts.int_master = system.piobus.slave
+    cpu.interrupts.int_slave = system.piobus.master
     #
     # Tie the cpu ports to the correct ruby system ports
     #
-    cpu.createInterruptController()
     cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
-    if buildEnv['TARGET_ISA'] == "x86":
-        cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-        cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-        cpu.interrupts.pio = system.piobus.master
-        cpu.interrupts.int_master = system.piobus.slave
-        cpu.interrupts.int_slave = system.piobus.master
-
-if options.baseline:
-        # need to do this after ruby created
-        for i in xrange(options.num_dirs):
-                exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 5" % i)
-
-if options.fermi:
-   for i in xrange(options.num_dirs):
-      exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 1" % i)
-      exec("system.dir_cntrl%d.memBuffer.mem_ctl_latency = 1" % i)
+    cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
 
 #Tie the copy engine port to its cache
 system.stream_proc_array.ce.host_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-if buildEnv['TARGET_ISA'] == "x86":
-    system.stream_proc_array.ce.host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-    system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+system.stream_proc_array.ce.host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+
+GPUOptions.setMemoryControlOptions(system, options)
 
 root = Root(full_system = True, system = system)
 

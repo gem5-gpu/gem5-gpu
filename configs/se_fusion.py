@@ -61,16 +61,12 @@ from cpu2000 import *
 # Get paths we might need.  It's expected this file is in m5/configs/example.
 config_path = os.path.dirname(os.path.abspath(__file__))
 config_root = os.path.join(config_path,"../../configs")
-m5_root = os.path.dirname(config_root)
 
 parser = optparse.OptionParser()
 Options.addCommonOptions(parser)
 Options.addSEOptions(parser)
-Options.addMemCtrlOptions(parser)
+GPUOptions.addMemCtrlOptions(parser)
 GPUOptions.addGPUOptions(parser)
-
-# Benchmark options
-parser.add_option("-d", "--detailed", action="store_true", default=True)
 
 #
 # Add the ruby specific and protocol specific options
@@ -83,21 +79,9 @@ if args:
     print "Error: script doesn't take any positional arguments"
     sys.exit(1)
 
-if options.bench:
-    try:
-        if buildEnv['TARGET_ISA'] != 'alpha':
-            print >>sys.stderr, "Simpoints code only works for Alpha ISA at this time"
-            sys.exit(1)
-        exec("workload = %s('alpha', 'tru64', 'ref')" % options.bench)
-        process = workload.makeLiveProcess()
-    except:
-        print >>sys.stderr, "Unable to find workload for %s" % options.bench
-        sys.exit(1)
-else:
-    process = LiveProcess()
-    process.executable = options.cmd
-    process.cmd = [options.cmd] + options.options.split()
-
+process = LiveProcess()
+process.executable = options.cmd
+process.cmd = [options.cmd] + options.options.split()
 
 if options.input != "":
     process.input = options.input
@@ -105,67 +89,6 @@ if options.output != "":
     process.output = options.output
 if options.errout != "":
     process.errout = options.errout
-
-options.sc_l1_assoc = options.l1d_assoc
-
-if options.detailed:
-    #check for SMT workload
-    workloads = options.cmd.split(';')
-    if len(workloads) > 1:
-        process = []
-        smt_idx = 0
-        inputs = []
-        outputs = []
-        errouts = []
-
-        if options.input != "":
-            inputs = options.input.split(';')
-        if options.output != "":
-            outputs = options.output.split(';')
-        if options.errout != "":
-            errouts = options.errout.split(';')
-
-        for wrkld in workloads:
-            smt_process = LiveProcess()
-            smt_process.executable = wrkld
-            smt_process.cmd = wrkld + " " + options.options
-            if inputs and inputs[smt_idx]:
-                smt_process.input = inputs[smt_idx]
-            if outputs and outputs[smt_idx]:
-                smt_process.output = outputs[smt_idx]
-            if errouts and errouts[smt_idx]:
-                smt_process.errout = errouts[smt_idx]
-            process += [smt_process, ]
-            smt_idx += 1
-
-gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
-
-if options.baseline:
-    print "Using options based on baseline!"
-    print "Remember any command line options may be ignored"
-    options.clock = "3GHz"
-    options.sc_l1_size = "64kB"
-
-if options.fermi:
-    print "Using options based on fermi!"
-    print "Remember any command line options may be ignored"
-    options.topology = "Crossbar"
-    options.clock = "2.6GHz"
-    options.cacheline_size = 128
-    options.sc_l1_size = "16kB"
-    options.sc_l1_assoc = 64
-    options.sc_l2_size = "128kB"
-    options.sc_l2_assoc = 64
-    options.num_dirs = 8
-    options.shMemDelay = 30
-
-    #CPU things
-    options.l1d_size = "64kB"
-    options.l1i_size = "32kB"
-    options.l2_size = "256kB"
-    options.l1i_assoc = 4
-    options.l1d_assoc = 8
-    options.l2_assoc = 16
 
 cpu_type = options.cpu_type
 if cpu_type != 'timing' and cpu_type != 'detailed':
@@ -182,9 +105,15 @@ FutureClass = None
 
 CPUClass.clock = options.clock
 
-np = options.num_cpus
+#
+# GPGPU-Sim configuration
+#
+gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
 
-system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
+if buildEnv['TARGET_ISA'] != "x86":
+    fatal("gem5-fusion doesn't currently work with non-x86 system!")
+
+system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)],
                 physmem = SimpleMemory(range=AddrRange(options.total_mem_size)))
 system.mem_mode = test_mem_mode
 Simulation.setWorkCountOptions(system, options)
@@ -199,9 +128,6 @@ buildEnv['PROTOCOL'] +=  '_fusion'
 Ruby.create_system(options, system)
 system.stream_proc_array.ruby = system.ruby
 system.ruby.block_size_bytes = 128
-
-if options.fermi:
-    system.ruby.clock = "2.6GHz" # NOTE: This is the memory clock
 
 for i in xrange(options.num_sc):
    system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
@@ -220,26 +146,13 @@ for (i, cpu) in enumerate(system.cpu):
     cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
 
-    '''process = LiveProcess()
-    process.executable = options.cmd
-    process.cmd = [options.cmd, str(i)]
-    '''
     cpu.workload = process
-
-if options.baseline:
-    # need to do this after ruby created
-    for i in xrange(options.num_dirs):
-        exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 5" % i)
-
-if options.fermi:
-   system.ruby.block_size_bytes = 128
-   for i in xrange(options.num_dirs):
-      exec("system.dir_cntrl%d.memBuffer.mem_bus_cycle_multiplier = 1" % i)
-      exec("system.dir_cntrl%d.memBuffer.mem_ctl_latency = 1" % i)
 
 # Tie the copy engine port to its cache
 system.stream_proc_array.ce.host_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+
+GPUOptions.setMemoryControlOptions(system, options)
 
 root = Root(full_system = False, system = system)
 
