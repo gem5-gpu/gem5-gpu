@@ -90,6 +90,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 icache = cache,
                                 dcache = cache,
                                 access_phys_mem = True,
+                                max_outstanding_requests = options.gpu_l1_buf_depth,
                                 ruby_system = ruby_system)
 
         l1_cntrl.sequencer = cpu_seq
@@ -135,7 +136,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                icache = cache,
                                dcache = cache,
                                access_phys_mem = True,
-                               max_outstanding_requests=10, # This directly corresponds to the CE bandwidth
+                               max_outstanding_requests = 64,
                                support_inst_reqs = False,
                                ruby_system = ruby_system)
 

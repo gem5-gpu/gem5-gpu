@@ -14,6 +14,7 @@ def addGPUOptions(parser):
     parser.add_option("--shMemDelay", default=1, help="delay to access shared memory in gpgpu-sim ticks", type="int")
     parser.add_option("--kernel_stats", default=False, action="store_true", help="Dump statistics on GPU kernel boundaries")
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")
+    parser.add_option("--gpu_l1_buf_depth", type="int", default=16, help="Number of buffered L1 requests per shader")
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
