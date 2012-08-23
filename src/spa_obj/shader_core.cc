@@ -41,6 +41,7 @@
 #include "debug/ShaderCoreFetch.hh"
 #include "debug/ShaderCoreTick.hh"
 #include "mem/page_table.hh"
+#include "mem/ruby/fusion_profiler.hh"
 #include "params/ShaderCore.hh"
 #include "shader_core.hh"
 #include "sp_array.hh"
@@ -101,6 +102,16 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
 
     if (iter == proc->busyDataCacheLineAddrs.end()) {
         panic("We should always find the address!!\n");
+    }
+
+    // profile the warp memory latency
+    mem_fetch *mf = iter->second;
+    map<pair<uint64_t, unsigned>, WarpMemRequest>::iterator wIter = 
+        proc->warpMemRequests.find(make_pair((uint64_t)mf->get_pc(), mf->get_wid()));
+    assert(wIter != proc->warpMemRequests.end());
+    bool done = wIter->second.requestFinish(curTick(), pkt->isRead());
+    if (done) {
+        proc->warpMemRequests.erase(wIter);
     }
 
     if (pkt->req->isLocked()) {
@@ -344,6 +355,11 @@ int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
     // @TODO: This will require issuing multiple translation requests to the DTB
     assert(addr + size <= addrToLine(addr) + spa->getRubySystem()->getBlockSizeBytes());
 
+    // Mark this as the begin time for the memory request in the mf warp inst object
+    // This is just for profiling and should probably be put after the translation
+    WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
+    warpReq.addRequest(curTick());
+
     // For each buffered read landing in this block, check the warp ID to verify
     // that this coalesced read should include the buffered read
     ReadPacketBuffer* read_buffer = new ReadPacketBuffer(mf);
@@ -402,6 +418,11 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
     // Currently, we don't handle writes that stride across multiple lines
     // @TODO: This will require issuing multiple translation requests to the DTB
     assert(addr + size <= addrToLine(addr) + spa->getRubySystem()->getBlockSizeBytes());
+
+    // Mark this as the begin time for the memory request in the mf warp inst object
+    // This is just for profiling and should probably be put after the translation
+    WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
+    warpReq.addRequest(curTick());
 
     // @TODO: This should be extracted as a separate function: coalesceBlockHints()
     uint8_t* block_write_data = new uint8_t[size];

@@ -182,6 +182,9 @@ private:
     std::map<Addr,mem_fetch *> busyDataCacheLineAddrs;
     std::map<Addr,mem_fetch *> busyInstCacheLineAddrs;
 
+    /// For profiling warp specific latencies pair is (pc, warpID)
+    std::map<std::pair<uint64_t, unsigned>, class WarpMemRequest> warpMemRequests;
+
     /// Queue for outstanding atomic writes (see stallOnAtomicQueue)
     std::queue<PendingReq*> atomicQueue;
 

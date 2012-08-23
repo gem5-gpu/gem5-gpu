@@ -82,6 +82,37 @@ void FusionProfiler::regStats()
 		.init(32)
 		.name("FusionProfiler.cpuOtherLatency")
 		.desc("Latency of all Others to CPU caches");
+
+    readRequestPerWarp
+        .init(16)
+        .name("FusionProfiler.readRequestPerWarp")
+        .desc("Total requests required for each warp")
+        ;
+    totalWarpReadLatency
+        .init(16)
+        .name("FusionProfiler.totalWarpReadLatency")
+        .desc("Latency in cycles to finish all memory requests for the warp")
+        ;
+    interWarpReadLatency
+        .init(16)
+        .name("FusionProfiler.interWarpReadLatency")
+        .desc("Latency in cycles because of differing request latency within the warp")
+        ;
+    writeRequestPerWarp
+        .init(16)
+        .name("FusionProfiler.writeRequestPerWarp")
+        .desc("Total requests required for each warp")
+        ;
+    totalWarpWriteLatency
+        .init(16)
+        .name("FusionProfiler.totalWarpWriteLatency")
+        .desc("Latency in cycles to finish all memory requests for the warp")
+        ;
+    interWarpWriteLatency
+        .init(16)
+        .name("FusionProfiler.interWarpWriteLatency")
+        .desc("Latency in cycles because of differing request latency within the warp")
+        ;
 }
 
 FusionProfiler *FusionProfilerParams::create() {
