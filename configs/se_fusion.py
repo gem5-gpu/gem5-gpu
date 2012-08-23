@@ -120,6 +120,13 @@ Simulation.setWorkCountOptions(system, options)
 
 system.stream_proc_array = StreamProcessorArray()
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
+
+# This is a stop-gap solution until we implement a better way to register device memory
+if options.access_host_pagetable:
+    for sc in system.stream_proc_array.shader_cores:
+        sc.itb.access_host_pagetable = True
+        sc.dtb.access_host_pagetable = True
+
 system.stream_proc_array.frequency = options.gpu_core_clock
 system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 system.stream_proc_array.shared_mem_delay = options.shMemDelay

@@ -17,6 +17,7 @@ def addGPUOptions(parser):
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")
     parser.add_option("--gpu_l1_buf_depth", type="int", default=16, help="Number of buffered L1 requests per shader")
     parser.add_option("--gpu-core-clock", default='700MHz', help="Frequency of GPU. (note: all 32 threads in the warp execute simultaneously. In Fermi, each pipeline has 16 execution units, so the Core clock needs to be divided by 2)")
+    parser.add_option("--access-host-pagetable", action="store_true", default=False)
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
