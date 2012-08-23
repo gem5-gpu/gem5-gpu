@@ -148,6 +148,8 @@ system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.nu
 system.stream_proc_array.ce.host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+
 GPUOptions.setMemoryControlOptions(system, options)
 
 root = Root(full_system = True, system = system)

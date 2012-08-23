@@ -154,6 +154,8 @@ system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.nu
 
 GPUOptions.setMemoryControlOptions(system, options)
 
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+
 root = Root(full_system = False, system = system)
 
 m5.disableAllListeners()
