@@ -18,6 +18,9 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_l1_buf_depth", type="int", default=16, help="Number of buffered L1 requests per shader")
     parser.add_option("--gpu-core-clock", default='700MHz', help="Frequency of GPU. (note: all 32 threads in the warp execute simultaneously. In Fermi, each pipeline has 16 execution units, so the Core clock needs to be divided by 2)")
     parser.add_option("--access-host-pagetable", action="store_true", default=False)
+    parser.add_option("--split", default=False, action="store_true", help="Use split CPU and GPU cache hierarchies instead of fusion")
+    parser.add_option("--num-dev-dirs", default=1, help="In split hierarchies, number of device directories", type="int")
+    parser.add_option("--gpu-mem-size", default='1GB', help="In split hierarchies, amount of GPU memory")
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file

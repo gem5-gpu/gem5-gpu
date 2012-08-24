@@ -69,7 +69,10 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     system(p->sys), frequency(p->frequency), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
     returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), clearTick(0),
-    dumpKernelStats(p->dump_kernel_stats)
+    dumpKernelStats(p->dump_kernel_stats),
+    manageGPUMemory(p->manage_gpu_memory),
+    physicalGPUBaseAddr(p->gpu_segment_base),
+    physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
 {
     streamDelay = 1;
     assert(singletonPointer == NULL);
@@ -83,6 +86,10 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     pageTable = new SPAPageTable(p);
 
     instBaseVaddr = 0;
+    instBaseVaddrSet = false;
+
+    // Reserve the 0 virtual page for NULL pointers
+    virtualGPUBaseAddr = virtualGPUBrkAddr = TheISA::PageBytes;
 
     //
     // Print gpu configuration and stats at exit
@@ -517,8 +524,10 @@ function_info *StreamProcessorArray::get_kernel(const char *hostFun)
 
 void StreamProcessorArray::setInstBaseVaddr(uint64_t addr)
 {
-    if (!instBaseVaddr)
+    if (!instBaseVaddrSet) {
         instBaseVaddr = addr;
+        instBaseVaddrSet = true;
+    }
 }
 
 uint64_t StreamProcessorArray::getInstBaseVaddr()
@@ -534,6 +543,7 @@ Addr StreamProcessorArray::SPAPageTable::addrToPage(Addr addr)
 
 void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
 {
+    if (manageGPUMemory) return;
     DPRINTF(StreamProcessorArrayPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
     // Get the physical address of full memory allocation (i.e. all pages)
     Addr page_vaddr, page_paddr;
@@ -546,6 +556,59 @@ void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
         }
         pageTable->insert(page_vaddr, page_paddr);
     }
+}
+
+void StreamProcessorArray::registerDeviceInstText(Addr vaddr, size_t size)
+{
+    if (manageGPUMemory) {
+        // Allocate virtual and physical memory for the device text
+        Addr gpu_vaddr = allocateGPUMemory(size);
+        setInstBaseVaddr(gpu_vaddr);
+    } else {
+        setInstBaseVaddr(vaddr);
+        registerDeviceMemory(vaddr, size);
+    }
+}
+
+Addr StreamProcessorArray::allocateGPUMemory(size_t size)
+{
+    assert(manageGPUMemory);
+    DPRINTF(StreamProcessorArrayPageTable, "GPU allocating %d bytes\n", size);
+
+    if (size == 0) return 0;
+
+    // TODO: When we need to reclaim memory, this will need to be modified
+    // heavily to actually track allocated and free physical and virtual memory
+
+    // Cache block align the allocation size
+    size_t block_part = size % ruby->getBlockSizeBytes();
+    size_t aligned_size = size + (block_part ? (ruby->getBlockSizeBytes() - block_part) : 0);
+
+    Addr base_vaddr = virtualGPUBrkAddr;
+    virtualGPUBrkAddr += aligned_size;
+    Addr base_paddr = physicalGPUBrkAddr;
+    physicalGPUBrkAddr += aligned_size;
+
+    if (virtualGPUBrkAddr > gpuMemorySize) {
+        panic("Ran out of GPU memory!");
+    }
+
+    // Map pages to physical pages
+    for (ChunkGenerator gen(base_vaddr, aligned_size, TheISA::PageBytes); !gen.done(); gen.next()) {
+        Addr page_vaddr = pageTable->addrToPage(gen.addr());
+        Addr page_paddr;
+        if (page_vaddr <= base_vaddr) {
+            page_paddr = base_paddr - (base_vaddr - page_vaddr);
+        } else {
+            page_paddr = base_paddr + (page_vaddr - base_vaddr);
+        }
+        DPRINTF(StreamProcessorArrayPageTable, "  Trying to allocate page at vaddr %x with addr %x\n", page_vaddr, gen.addr());
+        pageTable->insert(page_vaddr, page_paddr);
+    }
+
+    DPRINTF(StreamProcessorArrayAccess, "Allocating %d bytes for GPU at address 0x%x\n", size, base_vaddr);
+
+    return base_vaddr;
 }
 
 /**

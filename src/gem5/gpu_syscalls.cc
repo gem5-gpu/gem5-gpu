@@ -457,13 +457,23 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
 
     g_last_cudaError = cudaSuccess;
 
-    // TODO: if CPU should allocate GPU memory:
-    // Tell CUDA runtime to allocate memory
-    cudaError_t to_return = cudaErrorApiFailureBase;
-    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
-    return;
+    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
-    // TODO: else (if gem5 should allocate GPU - split physmem):
+    if (!spa->isManagingGPUMemory()) {
+        // Tell CUDA runtime to allocate memory
+        cudaError_t to_return = cudaErrorApiFailureBase;
+        helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+        return;
+    } else {
+        Addr addr = spa->allocateGPUMemory(sim_size);
+        helper.writeBlob(sim_devPtr, (uint8_t*)(&addr), sizeof(Addr));
+        if (addr) {
+            g_last_cudaError = cudaSuccess;
+        } else {
+            g_last_cudaError = cudaErrorMemoryAllocation;
+        }
+        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    }
 }
 
 void
@@ -584,10 +594,18 @@ cudaFree(ThreadContext *tc, gpusyscall_t *call_params) {
     Addr sim_devPtr = *((Addr*)helper.getParam(0));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFree(devPtr = %x)\n", sim_devPtr);
 
-    g_last_cudaError = cudaSuccess;
-    // Tell CUDA runtime to free memory
-    cudaError_t to_return = cudaErrorApiFailureBase;
-    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
+
+    if (!spa->isManagingGPUMemory()) {
+        g_last_cudaError = cudaSuccess;
+        // Tell CUDA runtime to free memory
+        cudaError_t to_return = cudaErrorApiFailureBase;
+        helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+    } else {
+        // TODO: Tell SPA to free this memory
+        cudaError_t to_return = cudaSuccess;
+        helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
+    }
 }
 
 void
@@ -1014,13 +1032,25 @@ cudaMemset(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall Stub: cudaMemcpy()\n");
+    Addr sim_mem = *((Addr*)helper.getParam(0));
+    int sim_c = *((int*)helper.getParam(1));
+    size_t sim_count = *((size_t*)helper.getParam(2));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemset(mem = %x, c = %d, count = %d)\n", sim_mem, sim_c, sim_count);
 
-    g_last_cudaError = cudaSuccess;
-    // Tell CUDA runtime to use CPU memset by default
-    cudaError_t to_return = cudaErrorApiFailureBase;
-    helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
-    return;
+    GPGPUSim_Init(tc);
+
+    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
+
+    if (!spa->isManagingGPUMemory()) {
+        // Signal to libcuda that it should handle the memset
+        g_last_cudaError = cudaErrorApiFailureBase;
+        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    } else {
+        g_stream_manager->push( stream_operation((size_t)sim_mem, sim_c, sim_count, 0) );
+
+        g_last_cudaError = cudaSuccess;
+        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    }
 }
 
 void
@@ -1676,6 +1706,7 @@ deleteFatCudaBinary(__cudaFatCudaBinary* fat_cubin) {
 symbol_table* registering_symtab = NULL;
 unsigned registering_fat_cubin_handle = 0;
 int registering_allocation_size = -1;
+Addr registering_allocation_ptr = 0;
 
 unsigned
 get_global_and_constant_alloc_size(symbol_table* symtab)
@@ -1756,8 +1787,7 @@ void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if(ptx_entry_ptr->ptx != 0) {
             DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (address_type)(Addr)ptx_entry_ptr->ptx);
-            spa->setInstBaseVaddr((address_type)(Addr)ptx_entry_ptr->ptx);
-            spa->registerDeviceMemory((Addr)ptx_entry_ptr->ptx, sim_binSize);
+            spa->registerDeviceInstText((Addr)ptx_entry_ptr->ptx, sim_binSize);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             GPUSyscallHelper::readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize, tc);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];
@@ -1851,7 +1881,14 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
 
     spa->saveFatBinaryInfoTop(registering_fat_cubin_handle, sim_fatCubin, sim_binSize);
 
-    helper.setReturn((uint8_t*)&registering_allocation_size, sizeof(int));
+    if (!spa->isManagingGPUMemory()) {
+        helper.setReturn((uint8_t*)&registering_allocation_size, sizeof(int));
+    } else {
+        assert(!registering_allocation_ptr);
+        registering_allocation_ptr = spa->allocateGPUMemory(registering_allocation_size);
+        int zero_allocation = 0;
+        helper.setReturn((uint8_t*)&zero_allocation, sizeof(int));
+    }
 }
 
 
@@ -1878,6 +1915,7 @@ unsigned int registerFatBinaryBottom(Addr sim_alloc_ptr)
     registering_symtab = NULL;
     registering_fat_cubin_handle = 0;
     registering_allocation_size = -1;
+    registering_allocation_ptr = 0;
 
     return handle;
 }
@@ -1894,7 +1932,16 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
 
     spa->saveFatBinaryInfoBottom(sim_alloc_ptr);
 
-    unsigned int handle = registerFatBinaryBottom(sim_alloc_ptr);
+    unsigned int handle;
+    if (!spa->isManagingGPUMemory()) {
+        spa->saveFatBinaryInfoBottom(sim_alloc_ptr);
+        handle = registerFatBinaryBottom(sim_alloc_ptr);
+    } else {
+        assert(!sim_alloc_ptr);
+        assert(registering_allocation_ptr || registering_allocation_size == 0);
+        spa->saveFatBinaryInfoBottom(registering_allocation_ptr);
+        handle = registerFatBinaryBottom(registering_allocation_ptr);
+    }
 
     helper.setReturn((uint8_t*)&handle, sizeof(void**));
 }

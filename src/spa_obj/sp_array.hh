@@ -177,6 +177,7 @@ private:
     unsigned int m_last_fat_cubin_handle;
     std::map<const void*,function_info*> m_kernel_lookup; // unique id (CUDA app function address) => kernel entry point
     uint64_t instBaseVaddr;
+    bool instBaseVaddrSet;
 
     /**
      * Helper class for checkpointing
@@ -235,6 +236,11 @@ private:
         }
     };
     SPAPageTable* pageTable;
+    bool manageGPUMemory;
+    Addr physicalGPUBaseAddr, physicalGPUBrkAddr;
+    Addr virtualGPUBaseAddr, virtualGPUBrkAddr;
+    Addr gpuMemorySize;
+    std::map<Addr,size_t> allocatedGPUMemory;
 
 public:
     /// Constructor
@@ -343,6 +349,9 @@ public:
     /// For handling GPU memory mapping table
     SPAPageTable* getGPUPageTable() { return pageTable; };
     void registerDeviceMemory(Addr vaddr, size_t size);
+    void registerDeviceInstText(Addr vaddr, size_t size);
+    bool isManagingGPUMemory() { return manageGPUMemory; }
+    Addr allocateGPUMemory(size_t size);
 };
 
 /**
