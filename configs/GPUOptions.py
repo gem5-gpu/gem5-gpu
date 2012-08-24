@@ -21,6 +21,10 @@ def addGPUOptions(parser):
     parser.add_option("--split", default=False, action="store_true", help="Use split CPU and GPU cache hierarchies instead of fusion")
     parser.add_option("--num-dev-dirs", default=1, help="In split hierarchies, number of device directories", type="int")
     parser.add_option("--gpu-mem-size", default='1GB', help="In split hierarchies, amount of GPU memory")
+    parser.add_option("--gpu_mem_ctl_latency", type="int", default=-1, help="GPU memory controller latency in cycles")
+    parser.add_option("--gpu_mem_freq", type="string", default=None, help="GPU memory controller frequency")
+    parser.add_option("--gpu_membus_busy_cycles", type="int", default=-1, help="GPU memory bus busy cycles per data transfer")
+    parser.add_option("--gpu_membank_busy_time", type="string", default=None, help="GPU memory bank busy time in ns (CL+tRP+tRCD+CAS)")
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
@@ -87,3 +91,17 @@ def setMemoryControlOptions(system, options):
             mem_cycle_seconds = float(cntrl.memBuffer.clock.period)
             bank_latency_seconds = Latency(options.membank_busy_time)
             cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+
+    if options.split:
+        for i in xrange(options.num_dev_dirs):
+            cntrl = eval("system.dev_dir_cntrl%d" % i)
+            if options.gpu_mem_freq:
+                cntrl.memBuffer.clock = options.gpu_mem_freq
+            if options.mem_ctl_latency >= 0:
+                cntrl.memBuffer.mem_ctl_latency = options.gpu_mem_ctl_latency
+            if options.membus_busy_cycles > 0:
+                cntrl.memBuffer.basic_bus_busy_time = options.gpu_membus_busy_cycles
+            if options.gpu_membank_busy_time:
+                mem_cycle_seconds = float(cntrl.memBuffer.clock.period)
+                bank_latency_seconds = Latency(options.gpu_membank_busy_time)
+                cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
