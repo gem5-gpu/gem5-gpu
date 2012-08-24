@@ -106,6 +106,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
 
     // profile the warp memory latency
     mem_fetch *mf = iter->second;
+    DPRINTF(ShaderCoreAccess, "Looking for (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
     map<pair<uint64_t, unsigned>, WarpMemRequest>::iterator wIter = 
         proc->warpMemRequests.find(make_pair((uint64_t)mf->get_pc(), mf->get_wid()));
     assert(wIter != proc->warpMemRequests.end());
@@ -357,6 +358,7 @@ int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
 
     // Mark this as the begin time for the memory request in the mf warp inst object
     // This is just for profiling and should probably be put after the translation
+    DPRINTF(ShaderCoreAccess, "Adding (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
     WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
     warpReq.addRequest(curTick());
 
@@ -421,6 +423,7 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
 
     // Mark this as the begin time for the memory request in the mf warp inst object
     // This is just for profiling and should probably be put after the translation
+    DPRINTF(ShaderCoreAccess, "Adding (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
     WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
     warpReq.addRequest(curTick());
 
@@ -451,6 +454,10 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
                         write_start_addr = base_addr + offset;
                         write_end_addr = base_addr - 1;
                         chunks_to_write++;
+                        
+                        DPRINTF(ShaderCoreAccess, "Adding (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
+                        WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
+                        warpReq.addRequest(curTick());
                     }
                 }
                 memWriteHints[base_addr + offset].remove(curr_hint);
