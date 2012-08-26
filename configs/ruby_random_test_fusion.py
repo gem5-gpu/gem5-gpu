@@ -142,6 +142,8 @@ for ruby_port in system.ruby._cpu_ruby_ports:
 # run simulation
 # -----------------------
 
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+
 root = Root( full_system = False, system = system )
 root.system.mem_mode = 'timing'
 
