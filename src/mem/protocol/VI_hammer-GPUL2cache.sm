@@ -500,8 +500,12 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     unset_tbe();
   }
 
-  action(z_stall, "z", desc="stall") {
-    // do nothing
+  action(z_stall, "z", desc="Stall") {
+    // empty
+  }
+
+  action(zz_stallAndWaitRequestQueue, "\z", desc="...") {
+    stall_and_wait(requestQueue_in, address);
   }
 
   action(m_decrementNumberOfMessages, "m", desc="Decrement the number of messages for which we're waiting") {
@@ -785,15 +789,15 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   // TRANSITIONS
 
   transition({IM, IS, OI, MI}, {Get, Store, Replacement, Get_Atom}) {
-    z_stall;
+    zz_stallAndWaitRequestQueue;
   }
 
   transition({ISM,SM,OM,SS}, {Replacement,Store,Get_Atom}) {
-    z_stall;
+    zz_stallAndWaitRequestQueue;
   }
 
   transition({M_W,MM_W}, {Replacement, Get_Atom}) {
-    z_stall;
+    zz_stallAndWaitRequestQueue;
   }
 
   transition(I, Store, IM) {
@@ -1085,6 +1089,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     u_writeDataToCache;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
+    kd_wakeUpDependents;
     n_popResponseQueue;
   }
 

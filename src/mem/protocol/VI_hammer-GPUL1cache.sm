@@ -32,6 +32,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     Load,       desc="Load request from processor";
     Ifetch,     desc="Ifetch request from processor";
     Store,      desc="Store request from processor";
+    Flush_line, desc="Invalidate the line if valid";
 
     Atomic,     desc="Atomic request from processor";
 
@@ -78,6 +79,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   void unset_cache_entry();
   void set_tbe(TBE b);
   void unset_tbe();
+  void wakeUpAllBuffers();
+  void wakeUpBuffers(Address a);
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", cacheMemory.lookup(address));
@@ -99,6 +102,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
       return Event:Ifetch;
     } else if (type == RubyRequestType:ST)  {
       return Event:Store;
+    } else if ((type == RubyRequestType:FLUSH)) {
+      return Event:Flush_line;
     } else if (type == RubyRequestType:ATOMIC) {
       return Event:Atomic;
     } else {
@@ -341,18 +346,22 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     tbe.DataBlk := cache_entry.DataBlk;
   }
 
-  action(z_stall, "z", desc="stall") {
-    // do nothing
+  action(zz_stallAndWaitMandatoryQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {
+    stall_and_wait(mandatoryQueue_in, address);
+  }
+
+  action(kd_wakeUpDependents, "kd", desc="wake-up dependents") {
+    wakeUpBuffers(address);
   }
 
   // TRANSITIONS
 
-  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Replacement, Atomic}) {
-    z_stall;
+  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {
+    zz_stallAndWaitMandatoryQueue;
   }
 
-  transition(V_a, {Load, Ifetch, Store, Replacement}) {
-    z_stall;
+  transition(V_a, {Load, Ifetch, Store, Flush_line, Replacement}) {
+    zz_stallAndWaitMandatoryQueue;
   }
 
   transition(V, Store, I) {
@@ -384,6 +393,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     u_writeDataToCache;
     rx_load_hit;
     w_deallocateTBE;
+    kd_wakeUpDependents;
     n_popResponseQueue;
   }
 
@@ -425,6 +435,15 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     h_deallocateL1CacheBlock;
     w_deallocateTBE;
     n_popResponseQueue;
+  }
+
+  transition(V, Flush_line, I) {
+    h_deallocateL1CacheBlock;
+    m_popMandatoryQueue;
+  }
+
+  transition(I, Flush_line) {
+    m_popMandatoryQueue;
   }
 
 }
