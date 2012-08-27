@@ -138,6 +138,8 @@ for ruby_port in system.ruby._cpu_ruby_ports:
     #
     ruby_port.access_phys_mem = False
 
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+
 # -----------------------
 # run simulation
 # -----------------------

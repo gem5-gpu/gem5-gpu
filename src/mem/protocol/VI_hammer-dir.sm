@@ -542,6 +542,7 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   action(v_allocateTBE, "v", desc="Allocate TBE") {
+    check_allocate(TBEs);
     peek(requestQueue_in, RequestMsg) {
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
@@ -551,6 +552,7 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   action(vd_allocateDmaRequestInTBE, "vd", desc="Record Data in TBE") {
+    check_allocate(TBEs);
     peek(dmaRequestQueue_in, DMARequestMsg) {
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
@@ -1038,7 +1040,7 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   action(nofc_forwardRequestConditionalOwner, "nofc", desc="Forward request to one or more nodes if the requestor is not the owner") {
-    assert(machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache) > 1);
+    if (machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache) > 1) {
 
      if (probe_filter_enabled || full_bit_dir_enabled) {
        peek(requestQueue_in, RequestMsg) {
@@ -1071,7 +1073,7 @@ machine(Directory, "AMD Hammer-like protocol")
         }
       }
      }
-
+    }
   }
 
   action(f_forwardWriteFromDma, "fw", desc="Forward requests") {
