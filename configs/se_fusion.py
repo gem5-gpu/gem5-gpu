@@ -144,15 +144,17 @@ system.stream_proc_array = StreamProcessorArray(manage_gpu_memory = options.spli
 if options.split:
     system.gpu_physmem = SimpleMemory(range=AddrRange(gpu_addr_range))
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
+system.stream_proc_array.frequency = options.gpu_core_clock
+system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 
 # This is a stop-gap solution until we implement a better way to register device memory
 if options.access_host_pagetable:
     for sc in system.stream_proc_array.shader_cores:
         sc.itb.access_host_pagetable = True
         sc.dtb.access_host_pagetable = True
+    system.stream_proc_array.ce.device_dtb.access_host_pagetable = True
+    system.stream_proc_array.ce.host_dtb.access_host_pagetable = True
 
-system.stream_proc_array.frequency = options.gpu_core_clock
-system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 system.stream_proc_array.shared_mem_delay = options.shMemDelay
 system.stream_proc_array.config_path = gpgpusimconfig
 system.stream_proc_array.dump_kernel_stats = options.kernel_stats
