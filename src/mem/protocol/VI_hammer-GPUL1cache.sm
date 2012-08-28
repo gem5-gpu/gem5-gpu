@@ -354,6 +354,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     wakeUpBuffers(address);
   }
 
+  action(ka_wakeUpAllDependents, "ka", desc="wake-up all dependents") {
+    wakeUpAllBuffers();
+  }
+
   // TRANSITIONS
 
   transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {
@@ -393,7 +397,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     u_writeDataToCache;
     rx_load_hit;
     w_deallocateTBE;
-    kd_wakeUpDependents;
+    ka_wakeUpAllDependents;
     n_popResponseQueue;
   }
 
@@ -428,6 +432,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   transition({I, V}, Replacement, I) {
     h_deallocateL1CacheBlock;
+    ka_wakeUpAllDependents;
   }
 
   transition(VI_a, Writeback_Ack, I) {
