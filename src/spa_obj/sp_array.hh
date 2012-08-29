@@ -207,35 +207,36 @@ private:
     std::vector<_FatBinary> fatBinaries;
     std::vector<_CudaVar> cudaVars;
 
-    class SPAPageTable : public SimObject
+    class SPAPageTable
     {
       private:
-        std::map<Addr, Addr> pageTable;
+        std::map<Addr, Addr> pageMap;
 
       public:
-        SPAPageTable(const Params *p) : SimObject(p) {};
+        SPAPageTable() {};
 
         Addr addrToPage(Addr addr);
         void insert(Addr vaddr, Addr paddr) {
-            if (pageTable.find(vaddr) == pageTable.end()) {
-                DPRINTF(StreamProcessorArrayPageTable, " Mapping vaddr %x to paddr %x\n", vaddr, paddr);
-                pageTable[vaddr] = paddr;
+            if (pageMap.find(vaddr) == pageMap.end()) {
+                pageMap[vaddr] = paddr;
             } else {
-                assert(paddr == pageTable[vaddr]);
+                assert(paddr == pageMap[vaddr]);
             }
         }
         bool lookup(Addr vaddr, Addr& paddr) {
-            DPRINTF(StreamProcessorArrayPageTable, " Looking up vaddr %x\n", vaddr);
             Addr page_vaddr = addrToPage(vaddr);
             Addr offset = vaddr - page_vaddr;
-            if (pageTable.find(page_vaddr) != pageTable.end()) {
-                paddr = pageTable[page_vaddr] + offset;
+            if (pageMap.find(page_vaddr) != pageMap.end()) {
+                paddr = pageMap[page_vaddr] + offset;
                 return true;
             }
             return false;
         }
+        /// For checkpointing
+        void serialize(std::ostream &os);
+        void unserialize(Checkpoint *cp, const std::string &section);
     };
-    SPAPageTable* pageTable;
+    SPAPageTable pageTable;
     bool manageGPUMemory;
     Addr physicalGPUBaseAddr, physicalGPUBrkAddr;
     Addr virtualGPUBaseAddr, virtualGPUBrkAddr;
@@ -347,7 +348,7 @@ public:
     uint64_t getInstBaseVaddr();
 
     /// For handling GPU memory mapping table
-    SPAPageTable* getGPUPageTable() { return pageTable; };
+    SPAPageTable* getGPUPageTable() { return &pageTable; };
     void registerDeviceMemory(Addr vaddr, size_t size);
     void registerDeviceInstText(Addr vaddr, size_t size);
     bool isManagingGPUMemory() { return manageGPUMemory; }

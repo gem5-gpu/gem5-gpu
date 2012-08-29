@@ -69,7 +69,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     system(p->sys), frequency(p->frequency), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
     returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), clearTick(0),
-    dumpKernelStats(p->dump_kernel_stats),
+    dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
     physicalGPUBaseAddr(p->gpu_segment_base),
     physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
@@ -83,7 +83,6 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     streamScheduled = false;
 
     restoring = false;
-    pageTable = new SPAPageTable(p);
 
     instBaseVaddr = 0;
     instBaseVaddrSet = false;
@@ -148,6 +147,8 @@ void StreamProcessorArray::serialize(std::ostream &os)
         paramOut(os, csprintf("cudaVars[%d].sim_ext", i), var.sim_ext);
         paramOut(os, csprintf("cudaVars[%d].sim_hostVar", i), var.sim_hostVar);
     }
+
+    pageTable.serialize(os);
 }
 
 void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &section)
@@ -202,6 +203,7 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
         paramIn(cp, section, csprintf("cudaVars[%d].sim_hostVar", i), cudaVars[i].sim_hostVar);
     }
 
+    pageTable.unserialize(cp, section);
 }
 
 void StreamProcessorArray::startup()
@@ -541,6 +543,39 @@ Addr StreamProcessorArray::SPAPageTable::addrToPage(Addr addr)
     return addr - offset;
 }
 
+void StreamProcessorArray::SPAPageTable::serialize(std::ostream &os)
+{
+    unsigned int num_ptes = pageMap.size();
+    unsigned int index = 0;
+    Addr* pagetable_vaddrs = new Addr[num_ptes];
+    Addr* pagetable_paddrs = new Addr[num_ptes];
+    std::map<Addr, Addr>::iterator it;
+    for (it = pageMap.begin(); it != pageMap.end(); ++it) {
+        pagetable_vaddrs[index] = (*it).first;
+        pagetable_paddrs[index++] = (*it).second;
+    }
+    SERIALIZE_SCALAR(num_ptes);
+    SERIALIZE_ARRAY(pagetable_vaddrs, num_ptes);
+    SERIALIZE_ARRAY(pagetable_paddrs, num_ptes);
+    delete[] pagetable_vaddrs;
+    delete[] pagetable_paddrs;
+}
+
+void StreamProcessorArray::SPAPageTable::unserialize(Checkpoint *cp, const std::string &section)
+{
+    unsigned int num_ptes = 0;
+    UNSERIALIZE_SCALAR(num_ptes);
+    Addr* pagetable_vaddrs = new Addr[num_ptes];
+    Addr* pagetable_paddrs = new Addr[num_ptes];
+    UNSERIALIZE_ARRAY(pagetable_vaddrs, num_ptes);
+    UNSERIALIZE_ARRAY(pagetable_paddrs, num_ptes);
+    for (unsigned int i = 0; i < num_ptes; ++i) {
+        pageMap[pagetable_vaddrs[i]] = pagetable_paddrs[i];
+    }
+    delete[] pagetable_vaddrs;
+    delete[] pagetable_paddrs;
+}
+
 void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
 {
     if (manageGPUMemory) return;
@@ -548,13 +583,13 @@ void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
     // Get the physical address of full memory allocation (i.e. all pages)
     Addr page_vaddr, page_paddr;
     for (ChunkGenerator gen(vaddr, size, TheISA::PageBytes); !gen.done(); gen.next()) {
-        page_vaddr = pageTable->addrToPage(gen.addr());
+        page_vaddr = pageTable.addrToPage(gen.addr());
         if (FullSystem) {
             page_paddr = TheISA::vtophys(tc, page_vaddr);
         } else {
             tc->getProcessPtr()->pTable->translate(page_vaddr, page_paddr);
         }
-        pageTable->insert(page_vaddr, page_paddr);
+        pageTable.insert(page_vaddr, page_paddr);
     }
 }
 
@@ -595,7 +630,7 @@ Addr StreamProcessorArray::allocateGPUMemory(size_t size)
 
     // Map pages to physical pages
     for (ChunkGenerator gen(base_vaddr, aligned_size, TheISA::PageBytes); !gen.done(); gen.next()) {
-        Addr page_vaddr = pageTable->addrToPage(gen.addr());
+        Addr page_vaddr = pageTable.addrToPage(gen.addr());
         Addr page_paddr;
         if (page_vaddr <= base_vaddr) {
             page_paddr = base_paddr - (base_vaddr - page_vaddr);
@@ -603,7 +638,7 @@ Addr StreamProcessorArray::allocateGPUMemory(size_t size)
             page_paddr = base_paddr + (page_vaddr - base_vaddr);
         }
         DPRINTF(StreamProcessorArrayPageTable, "  Trying to allocate page at vaddr %x with addr %x\n", page_vaddr, gen.addr());
-        pageTable->insert(page_vaddr, page_paddr);
+        pageTable.insert(page_vaddr, page_paddr);
     }
 
     DPRINTF(StreamProcessorArrayAccess, "Allocating %d bytes for GPU at address 0x%x\n", size, base_vaddr);
