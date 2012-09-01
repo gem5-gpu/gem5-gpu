@@ -192,7 +192,7 @@ for (i, cpu) in enumerate(system.cpu):
     #
     cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
-    if buildEnv['TARGET_ISA'] != "x86":
+    if buildEnv['TARGET_ISA'] == "x86":
         cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
         cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
 
