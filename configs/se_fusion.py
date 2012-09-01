@@ -94,14 +94,28 @@ cpu_type = options.cpu_type
 if cpu_type != 'timing' and cpu_type != 'detailed':
     cpu_type = 'timing'
 
+restore_cpu_type = options.restore_with_cpu
+if restore_cpu_type != 'timing' and restore_cpu_type != 'detailed':
+    restore_cpu_type = 'timing'
+
+FutureClass = None
+if options.checkpoint_restore != None:
+    if restore_cpu_type != cpu_type:
+        if cpu_type == 'timing':
+            class FutureClass(TimingSimpleCPU): pass
+            cpu_type = restore_cpu_type
+            FutureClass.clock = options.clock
+        elif cpu_type == 'detailed':
+            class FutureClass(DerivO3CPU): pass
+            cpu_type = restore_cpu_type
+            FutureClass.clock = options.clock
+
 if cpu_type == 'timing':
     class CPUClass(TimingSimpleCPU): pass
 elif cpu_type == 'detailed':
     class CPUClass(DerivO3CPU): pass
 
 test_mem_mode = 'timing'
-
-FutureClass = None
 
 CPUClass.clock = options.clock
 
