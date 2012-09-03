@@ -108,11 +108,9 @@ void SPACopyEngine::finishMemcpy()
     running = false;
     readPort = writePort = NULL;
     readDTB = writeDTB = NULL;
-    stream->record_next_done();
     DPRINTF(SPACopyEngine, "Total time was: %llu\n", curTick() - memCpyStartTime);
     memCpyTimes.push_back(curTick() - memCpyStartTime);
-    spa->streamRequestTick(1);
-    tc->activate();
+    spa->finishCopyOperation();
 }
 
 void SPACopyEngine::recvPacket(PacketPtr pkt)
@@ -288,10 +286,8 @@ void SPACopyEngine::tick()
     }
 }
 
-int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type)
+int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_type type)
 {
-    stream = _stream;
-
     switch (type) {
     case stream_memcpy_host_to_device:
         readPort = &hostPort;
@@ -352,10 +348,8 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, struct CUstream_st 
     return 0;
 }
 
-int SPACopyEngine::memset(Addr dst, int value, size_t length, struct CUstream_st *_stream)
+int SPACopyEngine::memset(Addr dst, int value, size_t length)
 {
-    stream = _stream;
-
     assert(!running && !readPort && !readDTB);
     readPort = &hostPort;
     readDTB = hostDTB;

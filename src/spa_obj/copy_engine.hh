@@ -138,7 +138,6 @@ private:
     uint8_t *curData;
     bool *readsDone;
     bool running;
-    struct CUstream_st *stream;
 
     void tryRead();
     void tryWrite();
@@ -153,8 +152,8 @@ public:
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
     void initialize(ThreadContext *_tc) { tc = _tc; }
     void finishTranslation(WholeTranslationState *state);
-    int memcpy(Addr src, Addr dst, size_t length, struct CUstream_st *_stream, stream_operation_type type);
-    int memset(Addr dst, int value, size_t length, struct CUstream_st *_stream);
+    int memcpy(Addr src, Addr dst, size_t length, stream_operation_type type);
+    int memset(Addr dst, int value, size_t length);
     void recvPacket(PacketPtr pkt);
 
     void cePrintStats(std::ostream& out);

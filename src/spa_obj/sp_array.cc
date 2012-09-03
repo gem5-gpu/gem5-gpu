@@ -68,8 +68,8 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
     system(p->sys), frequency(p->frequency), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
-    returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), clearTick(0),
-    dumpKernelStats(p->dump_kernel_stats), pageTable(),
+    returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), stream(NULL),
+    clearTick(0), dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
     physicalGPUBaseAddr(p->gpu_segment_base),
     physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
@@ -460,11 +460,12 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     }
 }
 
-void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream, stream_operation_type type) {
-    copyEngine->memcpy((Addr)src, (Addr)dst, count, stream, type);
+void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
+    stream = _stream;
+    copyEngine->memcpy((Addr)src, (Addr)dst, count, type);
 }
 
-void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream) {
+void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *_stream) {
     // Lookup destination address for transfer:
     std::string sym_name = gpgpu_ptx_sim_hostvar_to_sym_name(hostVar);
     std::map<std::string,symbol_table*>::iterator st = g_sym_name_to_symbol_table.find(sym_name.c_str());
@@ -477,15 +478,25 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
     printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes %s symbol %s+%zu @0x%x ...\n",
            count, (to ? "to" : "from"), sym_name.c_str(), offset, dst);
 
+    stream = _stream;
     if (to) {
-        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream, stream_memcpy_host_to_device);
+        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream_memcpy_host_to_device);
     } else {
-        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream, stream_memcpy_device_to_host);
+        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream_memcpy_device_to_host);
     }
 }
 
-void StreamProcessorArray::memset(Addr dst, int value, size_t count, struct CUstream_st *stream) {
-    copyEngine->memset(dst, value, count, stream);
+void StreamProcessorArray::memset(Addr dst, int value, size_t count, struct CUstream_st *_stream) {
+    stream = _stream;
+    copyEngine->memset(dst, value, count);
+}
+
+void StreamProcessorArray::finishCopyOperation()
+{
+    stream->record_next_done();
+    stream = NULL;
+    streamRequestTick(1);
+    tc->activate();
 }
 
 void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )

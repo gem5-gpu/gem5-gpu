@@ -153,6 +153,7 @@ private:
     /// From the process that is using this SPA
     ThreadContext *tc;
     LiveProcess *process;
+    struct CUstream_st *stream;
 
     /// For statistics
     std::vector<unsigned long long> kernelTimes;
@@ -310,6 +311,9 @@ public:
 
     /// Begins a timing memory set of value to dst
     void memset(Addr dst, int value, size_t count, struct CUstream_st *stream);
+
+    /// Called by the copy engine when a memcpy or memset is complete
+    void finishCopyOperation();
 
     void saveFatBinaryInfoTop(unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
         _FatBinary bin;
