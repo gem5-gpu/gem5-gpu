@@ -275,7 +275,7 @@ public:
     void unblock();
 
     /// Called at the beginning of each kernel launch to start the statistics
-    void beginRunning(Tick launchTime);
+    void beginRunning(Tick launchTime, struct CUstream_st *_stream = NULL);
 
     /// Called from GPGPU-Sim next_clock_domain and schedules cycle() to be run
     /// gpuTicks (in GPPGU-Sim tick (seconds)) from now

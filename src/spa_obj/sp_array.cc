@@ -381,8 +381,7 @@ bool StreamProcessorArray::setUnblock()
     }
 }
 
-
-void StreamProcessorArray::beginRunning(Tick launchTime)
+void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_stream)
 {
     DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", curTick());
     kernelTimes.push_back(curTick());
