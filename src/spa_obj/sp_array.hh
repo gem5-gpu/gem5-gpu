@@ -127,9 +127,6 @@ private:
     /// Are we restoring from a checkpoint?
     bool restoring;
 
-    /// Used when restoring from checkpoint
-    int tid;
-
     /// If true do global mem requests through gem5 otherwise do them through GPGPU-Sim
     int sharedMemDelay;
     std::string gpgpusimConfigPath;
@@ -150,10 +147,24 @@ private:
     /// Holds all of the shader cores in this stream processor array
     std::vector<ShaderCore*> shaderCores;
 
-    /// From the process that is using this SPA
-    ThreadContext *tc;
-    LiveProcess *process;
-    struct CUstream_st *stream;
+    /// The thread context, stream and thread ID currently running on the SPA
+    ThreadContext *runningTC;
+    struct CUstream_st *runningStream;
+    int runningTID;
+    void beginStreamOperation(struct CUstream_st *_stream) {
+        // We currently do not support multiple concurrent streams
+        if (runningStream || runningTC) {
+            panic("Already a stream operation running (only support one at a time)!");
+        }
+        runningStream = _stream;
+        runningTC = runningStream->getThreadContext();
+        runningTID = runningTC->threadId();
+    }
+    void endStreamOperation() {
+        runningStream = NULL;
+        runningTC = NULL;
+        runningTID = -1;
+    }
 
     /// For statistics
     std::vector<unsigned long long> kernelTimes;
@@ -186,6 +197,7 @@ private:
     class _FatBinary
     {
     public:
+        int tid; // CPU thread ID
         unsigned int handle;
         Addr sim_fatCubin;
         size_t sim_binSize;
@@ -256,7 +268,7 @@ public:
     virtual void startup();
 
     /// Called during GPGPU-Sim initialization to initialize the SPA
-    void start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager);
+    void start(gpgpu_sim *the_gpu, stream_manager *_stream_manager);
 
     /// Register devices callbacks
     void registerShaderCore(ShaderCore *sc);
@@ -276,7 +288,7 @@ public:
     void unblock();
 
     /// Called at the beginning of each kernel launch to start the statistics
-    void beginRunning(Tick launchTime, struct CUstream_st *_stream = NULL);
+    void beginRunning(Tick launchTime, struct CUstream_st *_stream);
 
     /// Called from GPGPU-Sim next_clock_domain and schedules cycle() to be run
     /// gpuTicks (in GPPGU-Sim tick (seconds)) from now
@@ -317,10 +329,11 @@ public:
 
     /// Called from shader TLB to be used for X86TLB lookups
     // TODO: Remove this when we remove shader TLB access to X86TLB
-    ThreadContext *getThreadContext() { return tc; }
+    ThreadContext *getThreadContext() { return runningTC; }
 
-    void saveFatBinaryInfoTop(unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
+    void saveFatBinaryInfoTop(int tid, unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
         _FatBinary bin;
+        bin.tid = tid;
         bin.handle = handle;
         bin.sim_fatCubin = sim_fatCubin;
         bin.sim_binSize = sim_binSize;
@@ -357,8 +370,8 @@ public:
 
     /// For handling GPU memory mapping table
     SPAPageTable* getGPUPageTable() { return &pageTable; };
-    void registerDeviceMemory(Addr vaddr, size_t size);
-    void registerDeviceInstText(Addr vaddr, size_t size);
+    void registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size);
+    void registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size);
     bool isManagingGPUMemory() { return manageGPUMemory; }
     Addr allocateGPUMemory(size_t size);
 };

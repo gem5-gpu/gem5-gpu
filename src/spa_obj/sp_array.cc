@@ -57,10 +57,10 @@ using namespace TheISA;
 using namespace std;
 
 // From GPU syscalls
-void registerFatBinaryTop(Addr sim_fatCubin, size_t sim_binSize, ThreadContext *tc);
-unsigned int registerFatBinaryBottom(Addr sim_alloc_ptr);
+void registerFatBinaryTop(ThreadContext *tc, Addr sim_fatCubin, size_t sim_binSize);
+unsigned int registerFatBinaryBottom(ThreadContext *tc, Addr sim_alloc_ptr);
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
-class _cuda_device_id *GPGPUSim_Init(ThreadContext *tc);
+class _cuda_device_id *GPGPUSim_Init();
 
 StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
@@ -68,8 +68,9 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
     system(p->sys), frequency(p->frequency), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
-    returnDelay(p->kernel_return_delay), ruby(p->ruby), tc(NULL), stream(NULL),
-    clearTick(0), dumpKernelStats(p->dump_kernel_stats), pageTable(),
+    returnDelay(p->kernel_return_delay), ruby(p->ruby), runningTC(NULL),
+    runningStream(NULL), runningTID(-1), clearTick(0),
+    dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
     physicalGPUBaseAddr(p->gpu_segment_base),
     physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
@@ -108,11 +109,7 @@ void StreamProcessorArray::serialize(std::ostream &os)
     SERIALIZE_SCALAR(m_last_fat_cubin_handle);
     SERIALIZE_SCALAR(instBaseVaddr);
 
-    int tid = -1;
-    if (tc) {
-        tid = tc->threadId();
-    }
-    SERIALIZE_SCALAR(tid);
+    SERIALIZE_SCALAR(runningTID);
 
     int numBinaries = fatBinaries.size();
     SERIALIZE_SCALAR(numBinaries);
@@ -120,6 +117,7 @@ void StreamProcessorArray::serialize(std::ostream &os)
         stringstream ss;
         ss << i;
         string num = ss.str();
+        paramOut(os, num+"fatBinaries.tid", fatBinaries[i].tid);
         paramOut(os, num+"fatBinaries.handle", fatBinaries[i].handle);
         paramOut(os, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
         paramOut(os, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
@@ -160,8 +158,7 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
     UNSERIALIZE_SCALAR(m_last_fat_cubin_handle);
     UNSERIALIZE_SCALAR(instBaseVaddr);
 
-    int tid;
-    UNSERIALIZE_SCALAR(tid);
+    UNSERIALIZE_SCALAR(runningTID);
 
     DPRINTF(StreamProcessorArray, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, instBaseVaddr);
 
@@ -173,6 +170,7 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
         stringstream ss;
         ss << i;
         string num = ss.str();
+        paramIn(cp, section, num+"fatBinaries.tid", fatBinaries[i].tid);
         paramIn(cp, section, num+"fatBinaries.handle", fatBinaries[i].handle);
         paramIn(cp, section, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
         paramIn(cp, section, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
@@ -212,29 +210,35 @@ void StreamProcessorArray::startup()
         return;
     }
 
-    tc = system->getThreadContext(tid);
-    assert(tc != NULL);
-    GPGPUSim_Init(tc);
+    if (runningTID >= 0) {
+        runningTC = system->getThreadContext(runningTID);
+        assert(runningTC);
+    }
+    GPGPUSim_Init();
 
     // Setting everything up again!
-    std::vector<_FatBinary>::iterator it;
-    for (it=fatBinaries.begin(); it!=fatBinaries.end(); it++) {
-        registerFatBinaryTop((*it).sim_fatCubin, (*it).sim_binSize, tc);
-        registerFatBinaryBottom((*it).sim_alloc_ptr);
+    std::vector<_FatBinary>::iterator binaries;
+    for (binaries = fatBinaries.begin(); binaries != fatBinaries.end(); ++binaries) {
+        _FatBinary bin = *binaries;
+        ThreadContext *bin_tc = system->getThreadContext(bin.tid);
+        assert(bin_tc);
+        registerFatBinaryTop(bin_tc, bin.sim_fatCubin, bin.sim_binSize);
+        registerFatBinaryBottom(bin_tc, bin.sim_alloc_ptr);
 
-        std::map<const void*,string>::iterator jt;
-        for (jt=(*it).funcMap.begin(); jt!=(*it).funcMap.end(); jt++) {
-            register_function((*it).handle, (const char*)jt->first, jt->second.c_str());
+        std::map<const void*, string>::iterator functions;
+        for (functions = bin.funcMap.begin(); functions != bin.funcMap.end(); ++functions) {
+            const char *host_fun = (const char*)functions->first;
+            const char *device_fun = functions->second.c_str();
+            register_function(bin.handle, host_fun, device_fun);
         }
     }
 
-
-    std::vector<_CudaVar>::iterator ij;
-    for (ij=cudaVars.begin(); ij!=cudaVars.end(); ij++) {
-        register_var((*ij).sim_deviceAddress, (*ij).deviceName.c_str(), (*ij).sim_size, (*ij).sim_constant, (*ij).sim_global, (*ij).sim_ext, (*ij).sim_hostVar);
+    std::vector<_CudaVar>::iterator variables;
+    for (variables = cudaVars.begin(); variables != cudaVars.end(); ++variables) {
+        _CudaVar var = *variables;
+        register_var(var.sim_deviceAddress, var.deviceName.c_str(), var.sim_size, var.sim_constant, var.sim_global, var.sim_ext, var.sim_hostVar);
     }
 }
-
 
 void StreamProcessorArray::clearStats()
 {
@@ -257,6 +261,7 @@ void StreamProcessorArray::gpuTick()
     DPRINTF(GpuTick, "GPU Tick\n");
 
     // check if a kernel has completed
+    // TODO: Cleanup this code to schedule an event for a completed kernel
     kernelTermInfo term_info = theGPU->finished_kernel();
     if( term_info.grid_uid ) {
         Tick delay = 1;
@@ -280,14 +285,16 @@ void StreamProcessorArray::gpuTick()
 
         kernelTimes.push_back(curTick());
         if (dumpKernelStats) {
-            PseudoInst::dumpresetstats(tc, 0, 0);
+            PseudoInst::dumpresetstats(runningTC, 0, 0);
         }
 
         if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
-            tc->activate();
+            runningTC->activate();
             unblockNeeded = false;
         }
+
+        endStreamOperation();
     }
 
     // simulate a clock cycle on the GPU
@@ -322,14 +329,12 @@ void StreamProcessorArray::streamTick() {
     }
 }
 
-
 void StreamProcessorArray::unblock()
 {
     DPRINTF(StreamProcessorArray, "Unblocking for an event\n");
-    assert(tc->status() == ThreadContext::Suspended);
-    tc->activate();
+    assert(runningTC->status() == ThreadContext::Suspended);
+    runningTC->activate();
 }
-
 
 void StreamProcessorArray::gpuRequestTick(float gpuTicks) {
     Tick gpuWakeupTick = (int)(gpuTicks * SimClock::Frequency) + curTick();
@@ -348,10 +353,8 @@ void StreamProcessorArray::streamRequestTick(int ticks) {
     streamScheduled = true;
 }
 
-void StreamProcessorArray::start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager)
+void StreamProcessorArray::start(gpgpu_sim *the_gpu, stream_manager *_stream_manager)
 {
-    tc = _tc;
-    process = (LiveProcess*)tc->getProcessPtr();
     theGPU = the_gpu;
     streamManager = _stream_manager;
 
@@ -379,10 +382,12 @@ bool StreamProcessorArray::setUnblock()
 
 void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_stream)
 {
+    beginStreamOperation(_stream);
+
     DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", curTick());
     kernelTimes.push_back(curTick());
     if (dumpKernelStats) {
-        PseudoInst::dumpresetstats(tc, 0, 0);
+        PseudoInst::dumpresetstats(runningTC, 0, 0);
     }
     if (running) {
         panic("Should not already be running if we are starting\n");
@@ -402,13 +407,13 @@ void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_st
 void StreamProcessorArray::writeFunctional(Addr addr, size_t length, const uint8_t* data)
 {
     DPRINTF(StreamProcessorArrayAccess, "Writing to addr 0x%x\n", addr);
-    tc->getMemProxy().writeBlob(addr, const_cast<uint8_t*>(data), length);
+    runningTC->getMemProxy().writeBlob(addr, const_cast<uint8_t*>(data), length);
 }
 
 void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* data)
 {
     DPRINTF(StreamProcessorArrayAccess, "Reading from addr 0x%x\n", addr);
-    tc->getMemProxy().readBlob(addr, data, length);
+    runningTC->getMemProxy().readBlob(addr, data, length);
 }
 
 ShaderCore *StreamProcessorArray::getShaderCore(int coreId)
@@ -457,11 +462,14 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
 }
 
 void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
-    stream = _stream;
+    beginStreamOperation(_stream);
     copyEngine->memcpy((Addr)src, (Addr)dst, count, type);
 }
 
 void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *_stream) {
+    // First, initialize the stream operation
+    beginStreamOperation(_stream);
+
     // Lookup destination address for transfer:
     std::string sym_name = gpgpu_ptx_sim_hostvar_to_sym_name(hostVar);
     std::map<std::string,symbol_table*>::iterator st = g_sym_name_to_symbol_table.find(sym_name.c_str());
@@ -474,7 +482,6 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
     printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes %s symbol %s+%zu @0x%x ...\n",
            count, (to ? "to" : "from"), sym_name.c_str(), offset, dst);
 
-    stream = _stream;
     if (to) {
         copyEngine->memcpy((Addr)src, (Addr)dst, count, stream_memcpy_host_to_device);
     } else {
@@ -483,16 +490,16 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
 }
 
 void StreamProcessorArray::memset(Addr dst, int value, size_t count, struct CUstream_st *_stream) {
-    stream = _stream;
+    beginStreamOperation(_stream);
     copyEngine->memset(dst, value, count);
 }
 
 void StreamProcessorArray::finishCopyOperation()
 {
-    stream->record_next_done();
-    stream = NULL;
+    runningStream->record_next_done();
     streamRequestTick(1);
-    tc->activate();
+    runningTC->activate();
+    endStreamOperation();
 }
 
 void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )
@@ -582,7 +589,7 @@ void StreamProcessorArray::SPAPageTable::unserialize(Checkpoint *cp, const std::
     delete[] pagetable_paddrs;
 }
 
-void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
+void StreamProcessorArray::registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size)
 {
     if (manageGPUMemory) return;
     DPRINTF(StreamProcessorArrayPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
@@ -599,7 +606,7 @@ void StreamProcessorArray::registerDeviceMemory(Addr vaddr, size_t size)
     }
 }
 
-void StreamProcessorArray::registerDeviceInstText(Addr vaddr, size_t size)
+void StreamProcessorArray::registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size)
 {
     if (manageGPUMemory) {
         // Allocate virtual and physical memory for the device text
@@ -607,7 +614,7 @@ void StreamProcessorArray::registerDeviceInstText(Addr vaddr, size_t size)
         setInstBaseVaddr(gpu_vaddr);
     } else {
         setInstBaseVaddr(vaddr);
-        registerDeviceMemory(vaddr, size);
+        registerDeviceMemory(tc, vaddr, size);
     }
 }
 
