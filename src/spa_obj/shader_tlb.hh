@@ -45,7 +45,7 @@ class ShaderTLB : public X86ISA::TLB
     typedef ShaderTLBParams Params;
     ShaderTLB(const Params *p);
 
-    void beginTranslateTiming(RequestPtr req, ThreadContext *tc, BaseTLB::Translation *translation, BaseTLB::Mode mode);
+    void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode);
 };
 
 #endif /* SHADER_TLB_HH_ */

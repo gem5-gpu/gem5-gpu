@@ -35,10 +35,10 @@ ShaderTLB::ShaderTLB(const Params *p) :
 }
 
 void
-ShaderTLB::beginTranslateTiming(RequestPtr req, ThreadContext *tc, BaseTLB::Translation *translation, BaseTLB::Mode mode)
+ShaderTLB::beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode)
 {
     if (accessHostPageTable) {
-        translateTiming(req, tc, translation, mode);
+        translateTiming(req, spa->getThreadContext(), translation, mode);
     } else {
         // The below code implements a perfect TLB with instant access to the
         // device page table.
@@ -50,7 +50,7 @@ ShaderTLB::beginTranslateTiming(RequestPtr req, ThreadContext *tc, BaseTLB::Tran
         if (spa->getGPUPageTable()->lookup(page_vaddr, page_paddr)) {
             DPRINTF(ShaderTLB, "Translation found for vaddr %x = paddr %x\n", vaddr, page_paddr + offset);
             req->setPaddr(page_paddr + offset);
-            translation->finish(NoFault, req, tc, mode);
+            translation->finish(NoFault, req, NULL, mode);
         } else {
             panic("ShaderTLB missing translation for vaddr %x!", vaddr);
         }

@@ -87,10 +87,8 @@ void ShaderCore::SCDataPort::recvFunctional(PacketPtr pkt)
     panic("[SC:%d] ShaderCore::SPPort::recvFunctional() not implemented!\n", proc->id);
 }
 
-void ShaderCore::initialize(ThreadContext *_tc)
+void ShaderCore::initialize()
 {
-    tc = _tc;
-
     shaderImpl = spa->getTheGPU()->get_shader(id);
 }
 
@@ -556,11 +554,11 @@ void ShaderCore::accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode
     if (req->isInstFetch()) {
         assert(busyInstCacheLineAddrs.find(addrToLine(req->getVaddr())) == busyInstCacheLineAddrs.end());
         busyInstCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
-        itb->beginTranslateTiming(req, tc, translation, mode);
+        itb->beginTranslateTiming(req, translation, mode);
     } else {
         assert(busyDataCacheLineAddrs.find(addrToLine(req->getVaddr())) == busyDataCacheLineAddrs.end());
         busyDataCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
-        dtb->beginTranslateTiming(req, tc, translation, mode);
+        dtb->beginTranslateTiming(req, translation, mode);
     }
 }
 

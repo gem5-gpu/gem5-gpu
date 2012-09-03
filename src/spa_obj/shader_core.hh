@@ -192,9 +192,6 @@ private:
     ShaderTLB *dtb;
     ShaderTLB *itb;
 
-    /// Pointer to thread context for translation
-    ThreadContext *tc;
-
     /// Point to SPA this shader core is part of
     StreamProcessorArray *spa;
 
@@ -271,7 +268,7 @@ public:
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
 
     /// Perform initialization. Called from SPA
-    void initialize(ThreadContext *_tc);
+    void initialize();
 
     /// Required for translation. Calls sendPkt with physical address
     void finishTranslation(WholeTranslationState *state);

@@ -198,7 +198,7 @@ void SPACopyEngine::tryRead()
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
-    readDTB->beginTranslateTiming(req, tc, translation, mode);
+    readDTB->beginTranslateTiming(req, translation, mode);
 
     currentReadAddr += size;
 
@@ -257,7 +257,7 @@ void SPACopyEngine::tryWrite()
     DataTranslation<SPACopyEngine*> *translation
             = new DataTranslation<SPACopyEngine*>(this, state);
 
-    writeDTB->beginTranslateTiming(req, tc, translation, mode);
+    writeDTB->beginTranslateTiming(req, translation, mode);
 
     currentWriteAddr += size;
 

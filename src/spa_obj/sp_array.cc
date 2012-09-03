@@ -348,7 +348,6 @@ void StreamProcessorArray::streamRequestTick(int ticks) {
     streamScheduled = true;
 }
 
-
 void StreamProcessorArray::start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_manager *_stream_manager)
 {
     tc = _tc;
@@ -357,15 +356,12 @@ void StreamProcessorArray::start(ThreadContext *_tc, gpgpu_sim *the_gpu, stream_
     streamManager = _stream_manager;
 
     vector<ShaderCore*>::iterator iter;
-    for (iter=shaderCores.begin(); iter!=shaderCores.end(); ++iter) {
-        (*iter)->initialize(tc);
+    for (iter = shaderCores.begin(); iter != shaderCores.end(); ++iter) {
+        (*iter)->initialize();
     }
-
-    copyEngine->initialize(tc);
 
     DPRINTF(StreamProcessorArray, "Starting this stream processor from tc\n");
 }
-
 
 bool StreamProcessorArray::setUnblock()
 {

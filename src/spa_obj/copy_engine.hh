@@ -122,8 +122,6 @@ private:
     ShaderTLB *readDTB;
     ShaderTLB *writeDTB;
 
-    ThreadContext *tc;
-
     bool needToRead;
     bool needToWrite;
     Addr currentReadAddr;
@@ -150,7 +148,6 @@ public:
 
     SPACopyEngine(const Params *p);
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
-    void initialize(ThreadContext *_tc) { tc = _tc; }
     void finishTranslation(WholeTranslationState *state);
     int memcpy(Addr src, Addr dst, size_t length, stream_operation_type type);
     int memset(Addr dst, int value, size_t length);

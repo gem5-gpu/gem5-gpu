@@ -315,6 +315,10 @@ public:
     /// Called by the copy engine when a memcpy or memset is complete
     void finishCopyOperation();
 
+    /// Called from shader TLB to be used for X86TLB lookups
+    // TODO: Remove this when we remove shader TLB access to X86TLB
+    ThreadContext *getThreadContext() { return tc; }
+
     void saveFatBinaryInfoTop(unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
         _FatBinary bin;
         bin.handle = handle;
