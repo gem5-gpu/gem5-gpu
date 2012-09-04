@@ -8,6 +8,7 @@ from m5.util.convert import *
 def addGPUOptions(parser):
     parser.add_option("--clusters", default=16, help="Number of shader core clusters in the gpu that GPGPU-sim is simulating", type="int")
     parser.add_option("--cores_per_cluster", default=1, help="Number of shader cores per cluster in the gpu that GPGPU-sim is simulating", type="int")
+    parser.add_option("--ctas_per_shader", default=8, help="Number of simultaneous CTAs that can be scheduled to a single shader", type="int")
     parser.add_option("--sc_l1_size", default="64kB", help="size of l1 cache hooked up to each sc")
     parser.add_option("--sc_l2_size", default="1MB", help="size of L2 cache divided by num L2 caches")
     parser.add_option("--sc_l1_assoc", default=4, help="associativity of l1 cache hooked up to each sc", type="int")
@@ -47,6 +48,7 @@ def parseGpgpusimConfig(options):
         print "Using template and command line options for gpgpusim.config"
         config = config.replace("%clusters%", str(options.clusters))
         config = config.replace("%cores_per_cluster%", str(options.cores_per_cluster))
+        config = config.replace("%ctas_per_shader%", str(options.ctas_per_shader))
         config = config.replace("%icnt_file%", os.path.join(os.path.dirname(__file__), "gpu_config/icnt_config_fermi_islip.txt"))
         # GPGPU-Sim config expects freq in MHz
         config = config.replace("%freq%", str(toFrequency(options.gpu_core_clock)/1.0e6))

@@ -19,7 +19,7 @@
 
 # This implies a maximum of 48 warps/SM
 -gpgpu_shader_core_pipeline 1536:32 
--gpgpu_shader_cta 8
+-gpgpu_shader_cta %ctas_per_shader%
 -gpgpu_simd_model 1 
 
 
