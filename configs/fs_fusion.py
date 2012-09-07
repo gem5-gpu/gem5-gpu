@@ -193,7 +193,7 @@ else:
     system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
     system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
-system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby, num_sc = options.num_sc)
 
 GPUOptions.setMemoryControlOptions(system, options)
 

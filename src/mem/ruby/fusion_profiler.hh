@@ -44,8 +44,25 @@ public:
     Stats::Histogram totalWarpWriteLatency;
     Stats::Histogram interWarpWriteLatency;
 
+    Stats::Vector gpuL1ReadHits;
+    Stats::Vector gpuL1ReadMisses;
+    Stats::Vector gpuL1WriteHits;
+    Stats::Vector gpuL1WriteMisses;
+    Stats::Scalar gpuL2ReadHits;
+    Stats::Scalar gpuL2ReadMisses;
+    Stats::Scalar gpuL2WriteHits;
+    Stats::Scalar gpuL2WriteMisses;
+
+    Stats::Formula gpuL1ReadHitRate;
+    Stats::Formula gpuL1WriteHitRate;
+    Stats::Formula gpuL2ReadHitRate;
+    Stats::Formula gpuL2WriteHitRate;
+    Stats::Formula gpuL1HitRate;
+    Stats::Formula gpuL2HitRate;
+
 private:
 	RubySystem* ruby_system;
+	int numSC;
 
 };
 
@@ -101,5 +118,8 @@ private:
 
 	Tick freq;
 };
+
+void profileGPUL1Access(bool isRead, bool isHit, int version);
+void profileGPUL2Access(bool isRead, bool isHit);
 
 #endif

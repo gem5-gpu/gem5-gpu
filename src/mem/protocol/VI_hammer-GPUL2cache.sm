@@ -140,6 +140,9 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   void wakeUpBuffers(Address a);
   void wakeUpAllBuffers();
 
+  // For profiling
+  void profileGPUL2Access(bool isRead, bool isHit);
+
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", L2cacheMemory.lookup(address));
   }
@@ -406,6 +409,8 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
     }
+    // profileGPUL2Access(isRead?, isHit?)
+    profileGPUL2Access(true, true);
   }
 
   action(ha_load_hit, "ha", desc="Send data to L1 for atomic") {
@@ -441,6 +446,8 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       cache_entry.DataBlk.copyPartial(in_msg.DataBlk, in_msg.Offset, in_msg.Size);
       cache_entry.Dirty := true;
     }
+    // profileGPUL2Access(isRead?, isHit?)
+    profileGPUL2Access(false, true);
     DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
   }
 
@@ -786,6 +793,16 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     }
   }
 
+  action(uu_profileWriteMiss, "uu", desc="...") {
+    // profileGPUL2Access(isRead?, isHit?)
+    profileGPUL2Access(false, false);
+  }
+
+  action(vv_profileReadMiss, "vv", desc="...") {
+    // profileGPUL2Access(isRead?, isHit?)
+    profileGPUL2Access(true, false);
+  }
+
   // TRANSITIONS
 
   transition({IM, IS, OI, MI}, {Get, Store, Replacement, Get_Atom}) {
@@ -805,7 +822,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     i_allocateTBE;
     es_recordRequestor;
     b_issueGETX;
-    //uu_profileMiss; // TODO
+    uu_profileWriteMiss;
     rq_popL1IncomingQueue;
   }
 
@@ -829,7 +846,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     es_recordRequestor;
     b_issueGETX;
     p_decrementNumberOfMessagesByOne;
-    //uu_profileMiss; // TODO
+    uu_profileWriteMiss;
     rq_popL1IncomingQueue;
   }
 
@@ -837,7 +854,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     i_allocateTBE;
     es_recordRequestor;
     b_issueGETX;
-    //uu_profileMiss; // TODO
+    uu_profileWriteMiss;
     rq_popL1IncomingQueue;
   }
 
@@ -846,6 +863,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     i_allocateTBE;
     es_recordRequestor;
     a_issueGETS;
+    vv_profileReadMiss;
     rq_popL1IncomingQueue;
   }
 

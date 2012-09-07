@@ -209,7 +209,7 @@ else:
 
 GPUOptions.setMemoryControlOptions(system, options)
 
-system.fusion_profiler = FusionProfiler(ruby_system = system.ruby)
+system.fusion_profiler = FusionProfiler(ruby_system = system.ruby, num_sc = options.num_sc)
 
 root = Root(full_system = False, system = system)
 
