@@ -44,6 +44,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     Writeback_Ack,   desc="Ack from the directory for a writeback";
   }
 
+  enumeration(RequestType, desc="Type of request for each transition") {
+    DataArrayRead,    desc="L1 Data array read";
+    DataArrayWrite,   desc="L1 Data array write";
+    TagArrayRead,     desc="L1 Tag array read";
+    TagArrayWrite,    desc="L1 Tag array write";
+  }
+
   // STRUCTURE DEFINITIONS
 
   MessageBuffer mandatoryQueue, ordered="false";
@@ -170,6 +177,34 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
       return GenericMachineType:L1Cache_wCC;
     } else {
       return ConvertMachToGenericMach(machineIDToMachineType(sender));
+    }
+  }
+
+  void recordRequestType(RequestType type, Address addr) {
+    if (type == RequestType:DataArrayRead) {
+      cacheMemory.recordRequestType(CacheRequestType:DataArrayRead);
+    } else if (type == RequestType:DataArrayWrite) {
+      cacheMemory.recordRequestType(CacheRequestType:DataArrayWrite);
+    } else if (type == RequestType:TagArrayRead) {
+      cacheMemory.recordRequestType(CacheRequestType:TagArrayRead);
+    } else if (type == RequestType:TagArrayWrite) {
+      cacheMemory.recordRequestType(CacheRequestType:TagArrayWrite);
+    } else {
+      error("Bad request type passed to recordRequestType");
+    }
+  }
+
+  bool checkResourceAvailable(RequestType type, Address addr) {
+    if (type == RequestType:DataArrayRead) {
+      return cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+    } else if (type == RequestType:DataArrayWrite) {
+      return cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+    } else if (type == RequestType:TagArrayRead) {
+      return cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+    } else if (type == RequestType:TagArrayWrite) {
+      return cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+    } else {
+      error("Bad request type passed to checkResourceAvailable");
     }
   }
 
@@ -380,35 +415,35 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // TRANSITIONS
 
-  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {
+  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {} {
     zz_stallAndWaitMandatoryQueue;
   }
 
-  transition(V_a, {Load, Ifetch, Store, Flush_line, Replacement}) {
+  transition(V_a, {Load, Ifetch, Store, Flush_line, Replacement}) {} {
     zz_stallAndWaitMandatoryQueue;
   }
 
-  transition(V, Store, I) {
+  transition(V, Store, I) {TagArrayRead, TagArrayWrite} {
     t_profileStoreValid;
     s_store_hit;
     b_issuePUT;
     m_popMandatoryQueue;
   }
 
-  transition(I, Store) {
+  transition(I, Store) {TagArrayWrite} {
     t_profileStoreInvalid;
     s_store_hit;
     b_issuePUT;
     m_popMandatoryQueue;
   }
 
-  transition(V, {Load, Ifetch}) {
+  transition(V, {Load, Ifetch}) {TagArrayRead, DataArrayRead} {
     q_profileReadHit;
     r_load_hit;
     m_popMandatoryQueue;
   }
 
-  transition(I, {Load, Ifetch}, IV) {
+  transition(I, {Load, Ifetch}, IV) {TagArrayRead, TagArrayWrite} {
     p_profileReadMiss;
     v_allocateTBE;
     i_allocateL1CacheBlock;
@@ -417,7 +452,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     m_popMandatoryQueue;
   }
 
-  transition(IV, Data, V) {
+  transition(IV, Data, V) {DataArrayWrite} {
     u_writeDataToCache;
     rx_load_hit;
     w_deallocateTBE;
@@ -425,7 +460,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     n_popResponseQueue;
   }
 
-  transition(I, Atomic, IV_a) {
+  transition(I, Atomic, IV_a) {TagArrayRead} {
     v_allocateTBE;
     i_allocateL1CacheBlock;
     a_issueAtomicRequest;
@@ -433,20 +468,20 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     m_popMandatoryQueue;
   }
 
-  transition(V, Atomic, IV_a) {
+  transition(V, Atomic, IV_a) {TagArrayRead, TagArrayWrite} {
     v_allocateTBE;
     a_issueAtomicRequest;
     m_popMandatoryQueue;
   }
 
-  transition(IV_a, Data, V_a) {
+  transition(IV_a, Data, V_a) {} {
     u_writeDataToCache;
     sx_store_hit;
     w_deallocateTBE;
     n_popResponseQueue;
   }
 
-  transition(V_a, Atomic, VI_a) {
+  transition(V_a, Atomic, VI_a) {} {
     m_popMandatoryQueue;
 
     v_allocateTBE;
@@ -454,24 +489,24 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     x_copyDataFromCacheToTBE;
   }
 
-  transition({I, V}, Replacement, I) {
+  transition({I, V}, Replacement, I) {TagArrayWrite} {
     h_deallocateL1CacheBlock;
     ka_wakeUpAllDependents;
   }
 
-  transition(VI_a, Writeback_Ack, I) {
+  transition(VI_a, Writeback_Ack, I) {} {
     sx_store_hit;
     h_deallocateL1CacheBlock;
     w_deallocateTBE;
     n_popResponseQueue;
   }
 
-  transition(V, Flush_line, I) {
+  transition(V, Flush_line, I) {TagArrayRead, TagArrayWrite} {
     h_deallocateL1CacheBlock;
     m_popMandatoryQueue;
   }
 
-  transition(I, Flush_line) {
+  transition(I, Flush_line) {TagArrayRead} {
     m_popMandatoryQueue;
   }
 

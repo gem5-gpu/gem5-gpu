@@ -76,7 +76,12 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
                             replacement_policy = "LRU",
-                            start_index_bit = block_size_bits)
+                            start_index_bit = block_size_bits,
+                            dataArrayBanks = 4,
+                            tagArrayBanks = 4,
+                            dataAccessLatency = 4,
+                            tagAccessLatency = 4,
+                            resourceStalls = True)
 
         l1_cntrl = L1CacheVI_Controller(version = i,
                                       cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
@@ -115,7 +120,12 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         l2_cache = L2Cache(size = options.sc_l2_size,
                            assoc = options.sc_l2_assoc,
                            start_index_bit = l2_index_start,
-                            replacement_policy = "LRU")
+                            replacement_policy = "LRU",
+                            dataArrayBanks = 4,
+                            tagArrayBanks = 4,
+                            dataAccessLatency = 4,
+                            tagAccessLatency = 4,
+                            resourceStalls = True)
 
         l2_cntrl = L2Cache_Controller(version = i,
                                       cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),

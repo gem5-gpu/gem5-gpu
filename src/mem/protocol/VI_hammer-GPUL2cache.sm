@@ -87,6 +87,13 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     All_acks_no_sharers, desc="Received all acks and no other processor has a shared copy";
   }
 
+  enumeration(RequestType, desc="Type of request for each transition") {
+    DataArrayRead,    desc="L2 Data array read";
+    DataArrayWrite,   desc="L2 Data array write";
+    TagArrayRead,     desc="L2 Tag array read";
+    TagArrayWrite,    desc="L2 Tag array write";
+  }
+
   // STRUCTURE DEFINITIONS
 
   // CacheEntry
@@ -205,6 +212,34 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       return Event:Put_Atom;
     }else {
       error("Invalid L1 request type");
+    }
+  }
+
+  void recordRequestType(RequestType type, Address addr) {
+    if (type == RequestType:DataArrayRead) {
+      L2cacheMemory.recordRequestType(CacheRequestType:DataArrayRead);
+    } else if (type == RequestType:DataArrayWrite) {
+      L2cacheMemory.recordRequestType(CacheRequestType:DataArrayWrite);
+    } else if (type == RequestType:TagArrayRead) {
+      L2cacheMemory.recordRequestType(CacheRequestType:TagArrayRead);
+    } else if (type == RequestType:TagArrayWrite) {
+      L2cacheMemory.recordRequestType(CacheRequestType:TagArrayWrite);
+    } else {
+      error("Bad request type passed to recordRequestType");
+    }
+  }
+
+  bool checkResourceAvailable(RequestType type, Address addr) {
+    if (type == RequestType:DataArrayRead) {
+      return L2cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+    } else if (type == RequestType:DataArrayWrite) {
+      return L2cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+    } else if (type == RequestType:TagArrayRead) {
+      return L2cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+    } else if (type == RequestType:TagArrayWrite) {
+      return L2cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+    } else {
+      error("Bad request type passed to checkResourceAvailable");
     }
   }
 
@@ -805,19 +840,19 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // TRANSITIONS
 
-  transition({IM, IS, OI, MI}, {Get, Store, Replacement, Get_Atom}) {
+  transition({IM, IS, OI, MI}, {Get, Store, Replacement, Get_Atom}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
-  transition({ISM,SM,OM,SS}, {Replacement,Store,Get_Atom}) {
+  transition({ISM,SM,OM,SS}, {Replacement,Store,Get_Atom}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
-  transition({M_W,MM_W}, {Replacement, Get_Atom}) {
+  transition({M_W,MM_W}, {Replacement, Get_Atom}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
-  transition(I, Store, IM) {
+  transition(I, Store, IM) {TagArrayRead, TagArrayWrite} {
     ii_allocateL2CacheBlock;
     i_allocateTBE;
     es_recordRequestor;
@@ -826,22 +861,32 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     rq_popL1IncomingQueue;
   }
 
-  transition({S,SS,MM,M_W,MM_W,SM,OM,ISM,O,M}, Get) {
+  transition({S,MM,O,M}, Get) {TagArrayRead, DataArrayRead} {
     h_load_hit;
     rq_popL1IncomingQueue;
   }
 
-  transition({MM,MM_W}, Store) {
+  transition({SS,M_W,MM_W,SM,OM,ISM}, Get) {DataArrayRead} {
+    h_load_hit;
+    rq_popL1IncomingQueue;
+  }
+
+  transition(MM, Store) {TagArrayRead, DataArrayWrite} {
     hh_store_hit;
     rq_popL1IncomingQueue;
   }
 
-  transition(M, Store, MM) {
+  transition(MM_W, Store) {DataArrayWrite} {
     hh_store_hit;
     rq_popL1IncomingQueue;
   }
 
-  transition(O, Store, OM) {
+  transition(M, Store, MM) {TagArrayRead, TagArrayWrite, DataArrayWrite} {
+    hh_store_hit;
+    rq_popL1IncomingQueue;
+  }
+
+  transition(O, Store, OM) {TagArrayRead} {
     i_allocateTBE;
     es_recordRequestor;
     b_issueGETX;
@@ -850,7 +895,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     rq_popL1IncomingQueue;
   }
 
-  transition(S, Store, SM) {
+  transition(S, Store, SM) {TagArrayRead} {
     i_allocateTBE;
     es_recordRequestor;
     b_issueGETX;
@@ -858,7 +903,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     rq_popL1IncomingQueue;
   }
 
-  transition(I, Get, IS) {
+  transition(I, Get, IS) {TagArrayRead} {
     ii_allocateL2CacheBlock;
     i_allocateTBE;
     es_recordRequestor;
@@ -963,38 +1008,43 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // Transistions for replacements
 
-  transition({I,S}, Replacement, I) {
+  transition(I, Replacement) {TagArrayRead} {
     rr_deallocateL2CacheBlock;
     ka_wakeUpAllDependents;
   }
 
-  transition(O, Replacement, OI) {
+  transition(S, Replacement, I) {TagArrayRead, TagArrayWrite} {
+    rr_deallocateL2CacheBlock;
+    ka_wakeUpAllDependents;
+  }
+
+  transition(O, Replacement, OI) {TagArrayRead} {
     i_allocateTBE;
     d_issuePUT;
     rr_deallocateL2CacheBlock;
     ka_wakeUpAllDependents;
   }
 
-  transition(O, Merged_GETS) {
+  transition(O, Merged_GETS) {TagArrayRead, DataArrayRead} {
     em_sendDataSharedMultiple;
     l_popForwardQueue;
   }
 
-  transition({M,MM}, Replacement, MI) {
+  transition({M,MM}, Replacement, MI) {TagArrayRead, DataArrayRead} {
     i_allocateTBE;
     d_issuePUT;
     rr_deallocateL2CacheBlock;
     ka_wakeUpAllDependents;
   }
 
-  transition(MI, Writeback_Ack, I) {
+  transition(MI, Writeback_Ack, I) {TagArrayWrite} {
     t_sendExclusiveDataFromTBEToMemory;
     s_deallocateTBE;
     l_popForwardQueue;
     kd_wakeUpDependents;
   }
 
-  transition(OI, Writeback_Ack, I) {
+  transition(OI, Writeback_Ack, I) {TagArrayWrite} {
     qq_sendDataFromTBEToMemory;
     s_deallocateTBE;
     l_popForwardQueue;
@@ -1004,7 +1054,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   // Transitions based on reponses
 
   // Transitions from IS
-  transition(IS, Data, SS) {
+  transition(IS, Data, SS) {DataArrayWrite} {
     u_writeDataToCache;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
@@ -1014,7 +1064,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     kd_wakeUpDependents;
   }
 
-  transition(IS, Exclusive_Data, M_W) {
+  transition(IS, Exclusive_Data, M_W) {DataArrayWrite} {
     u_writeDataToCache;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
@@ -1023,7 +1073,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     kd_wakeUpDependents;
   }
 
-  transition(IS, Shared_Data, SS) {
+  transition(IS, Shared_Data, SS) {DataArrayWrite} {
     u_writeDataToCache;
     r_setSharerBit;
     m_decrementNumberOfMessages;
@@ -1048,18 +1098,18 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   }
 
   // Transitions from M_W
-  transition(M_W, Store, MM_W) {
+  transition(M_W, Store, MM_W) {DataArrayWrite} {
     hh_store_hit;
     rq_popL1IncomingQueue;
   }
 
-  transition(M_W, Ack) {
+  transition(M_W, Ack)  {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
 
-  transition(M_W, All_acks_no_sharers, M) {
+  transition(M_W, All_acks_no_sharers, M) {TagArrayWrite} {
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;
@@ -1074,7 +1124,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(MM_W, All_acks_no_sharers, MM) {
+  transition(MM_W, All_acks_no_sharers, MM) {TagArrayWrite} {
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;
@@ -1103,7 +1153,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(IM, Data, ISM) {
+  transition(IM, Data, ISM) {DataArrayWrite} {
     u_writeDataToCache;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
@@ -1111,7 +1161,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(IM, Exclusive_Data, MM_W) {
+  transition(IM, Exclusive_Data, MM_W) {DataArrayWrite} {
     u_writeDataToCache;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
@@ -1127,7 +1177,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(ISM, All_acks_no_sharers, MM) {
+  transition(ISM, All_acks_no_sharers, MM) {DataArrayWrite, TagArrayWrite} {
     sx_external_store_hit; //NOTE: hope this is ok
     gm_sendUnblockM;
     s_deallocateTBE;
@@ -1149,14 +1199,14 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(SS, All_acks, S) {
+  transition(SS, All_acks, S) {TagArrayWrite} {
     gs_sendUnblockS;
     s_deallocateTBE;
     j_popTriggerQueue;
     kd_wakeUpDependents;
   }
 
-  transition(SS, All_acks_no_sharers, S) {
+  transition(SS, All_acks_no_sharers, S) {TagArrayWrite} {
     // Note: The directory might still be the owner, so that is why we go to S
     gs_sendUnblockS;
     s_deallocateTBE;
@@ -1188,7 +1238,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     n_popResponseQueue;
   }
 
-  transition(OM, {All_acks, All_acks_no_sharers}, MM) {
+  transition(OM, {All_acks, All_acks_no_sharers}, MM) {TagArrayWrite, DataArrayWrite} {
     sx_external_store_hit; //NOTE: hope this is ok
     gm_sendUnblockM;
     s_deallocateTBE;
@@ -1212,67 +1262,67 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // Transitions for other cache requests
 
-  transition(I, {Other_GETX, NC_DMA_GETS, Other_GETS, Invalidate}) {
+  transition(I, {Other_GETX, NC_DMA_GETS, Other_GETS, Invalidate}) {TagArrayRead} {
     f_sendAck;
     l_popForwardQueue;
   }
 
-  transition(S, {NC_DMA_GETS, Other_GETS}) {
+  transition(S, {NC_DMA_GETS, Other_GETS}) {TagArrayRead} {
     ff_sendAckShared;
     l_popForwardQueue;
   }
 
-  transition(S, {Other_GETX, Invalidate}, I) {
+  transition(S, {Other_GETX, Invalidate}, I) {TagArrayRead, TagArrayWrite} {
     f_sendAck;
     l_popForwardQueue;
   }
 
-  transition(O, {Other_GETX, Invalidate}, I) {
+  transition(O, {Other_GETX, Invalidate}, I) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     e_sendData;
     l_popForwardQueue;
   }
 
-  transition(O, {NC_DMA_GETS, Other_GETS}) {
+  transition(O, {NC_DMA_GETS, Other_GETS}) {TagArrayRead, DataArrayRead} {
     ee_sendDataShared;
     l_popForwardQueue;
   }
 
-  transition(MM, {Other_GETX, Invalidate}, I) {
+  transition(MM, {Other_GETX, Invalidate}, I) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     c_sendExclusiveData;
     l_popForwardQueue;
   }
 
-  transition(MM, Other_GETS, I) {
+  transition(MM, Other_GETS, I) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     c_sendExclusiveData;
     l_popForwardQueue;
   }
 
-  transition(MM, NC_DMA_GETS, O) {
+  transition(MM, NC_DMA_GETS, O) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     ee_sendDataShared;
     l_popForwardQueue;
   }
 
-  transition(MM, Merged_GETS, O) {
+  transition(MM, Merged_GETS, O) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     em_sendDataSharedMultiple;
     l_popForwardQueue;
   }
 
-  transition(M, {Other_GETX, Invalidate}, I) {
+  transition(M, {Other_GETX, Invalidate}, I) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     c_sendExclusiveData;
     l_popForwardQueue;
   }
 
-  transition(M, Other_GETS, O) {
+  transition(M, Other_GETS, O) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     ee_sendDataShared;
     l_popForwardQueue;
   }
 
-  transition(M, NC_DMA_GETS, O) {
+  transition(M, NC_DMA_GETS, O) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     ee_sendDataShared;
     l_popForwardQueue;
   }
 
-  transition(M, Merged_GETS, O) {
+  transition(M, Merged_GETS, O) {TagArrayRead, TagArrayWrite, DataArrayRead} {
     em_sendDataSharedMultiple;
     l_popForwardQueue;
   }
