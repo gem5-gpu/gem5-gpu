@@ -158,9 +158,12 @@ system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
 system.stream_proc_array.shared_mem_delay = options.shMemDelay
 system.stream_proc_array.config_path = gpgpusimconfig
 system.stream_proc_array.dump_kernel_stats = options.kernel_stats
+# Hard code the cache block width to at least 128B for now
+# TODO: Remove this if/when block size can be less than 128B
+if options.cacheline_size < 128:
+    options.cacheline_size = 128
 Ruby.create_system(options, system, system.piobus, system._dma_ports)
 system.stream_proc_array.ruby = system.ruby
-system.ruby.block_size_bytes = 128
 
 for i in xrange(options.num_sc):
     system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
