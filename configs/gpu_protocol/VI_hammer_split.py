@@ -70,9 +70,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     # If we're going to split the directories/memory controllers
     if options.num_dev_dirs > 0:
         # Add the CPU directory controllers to the cpu_cluster and update cntrl_ids
-        # @TODO: Test this with DMA controllers
         for cntrl in dir_cntrls:
-            cntrl.cntrl_id = len(cpu_cluster)
             cpu_cluster.add(cntrl)
 
     #

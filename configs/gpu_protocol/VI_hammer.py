@@ -65,7 +65,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         panic("This script requires the VI_hammer protocol to be built.")
 
     cpu_sequencers = []
-    dma_cntrl_nodes = []
 
     topology = Cluster()
 
@@ -190,8 +189,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         exec("system.dir_cntrl%d = dir_cntrl" % i)
         dir_cntrl_nodes.append(dir_cntrl)
 
-        # NOTE: These must be added to the main cluster in another file!!!
-
         cntrl_count += 1
 
     for i, dma_port in enumerate(dma_ports):
@@ -208,7 +205,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         exec("system.dma_cntrl%d = dma_cntrl" % i)
         exec("system.dma_cntrl%d.dma_sequencer.slave = dma_port" % i)
-        dma_cntrl_nodes.append(dma_cntrl)
         topology.add(dma_cntrl)
 
         if options.recycle_latency:
