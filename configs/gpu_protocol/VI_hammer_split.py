@@ -72,6 +72,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         # Add the CPU directory controllers to the cpu_cluster and update cntrl_ids
         for cntrl in dir_cntrls:
             cpu_cluster.add(cntrl)
+        cpu_cntrl_count = len(cpu_cluster)
+    else:
+        cpu_cntrl_count = len(cpu_cluster) + len(dir_cntrls)
+
 
     #
     # Create controller for the copy engine to connect to in CPU cluster
@@ -87,12 +91,13 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                ruby_system = ruby_system)
 
     cpu_ce_cntrl = L1CacheCE_Controller(version = 0,
-                                    cntrl_id = len(cpu_cluster),
+                                    cntrl_id = cpu_cntrl_count,
                                     sequencer = cpu_ce_seq,
                                     number_of_TBEs = 12,
                                     ruby_system = ruby_system)
 
     cpu_cluster.add(cpu_ce_cntrl)
+    cpu_cntrl_count += 1
 
     #
     # Build GPU cluster
@@ -115,7 +120,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             start_index_bit = block_size_bits)
 
         l1_cntrl = L1CacheVI_Controller(version = i,
-                                      cntrl_id = len(cpu_cluster)+len(gpu_cluster),
+                                      cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                       cacheMemory = cache,
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
@@ -151,7 +156,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                            replacement_policy = "LRU")
 
         l2_cntrl = L2Cache_Controller(version = i,
-                                      cntrl_id = len(cpu_cluster)+len(gpu_cluster),
+                                      cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                       L2cacheMemory = l2_cache,
                                       ruby_system = ruby_system)
 
@@ -206,7 +211,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                              start_index_bit = pf_start_bit)
     
             dev_dir_cntrl = Directory_Controller(version = dir_version,
-                                             cntrl_id = len(cpu_cluster)+len(gpu_cluster),
+                                             cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                              directory = \
                                              RubyDirectoryMemory( \
                                                         version = dir_version,
@@ -252,7 +257,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                ruby_system = ruby_system)
 
     gpu_ce_cntrl = L1CacheCE_Controller(version = 1,
-                                    cntrl_id = len(cpu_cluster)+len(gpu_cluster),
+                                    cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                     sequencer = gpu_ce_seq,
                                     number_of_TBEs = 12,
                                     ruby_system = ruby_system)
@@ -267,7 +272,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     main_cluster.add(gpu_cluster)
     if options.num_dev_dirs == 0:
         for cntrl in dir_cntrls:
-            cntrl.cntrl_id = len(main_cluster)
+#            cntrl.cntrl_id = len(main_cluster)
             main_cluster.add(cntrl)
 
     return (cpu_sequencers, dir_cntrls, main_cluster)
