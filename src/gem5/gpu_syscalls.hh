@@ -31,36 +31,6 @@
 
 #include "sim/syscall_emul.hh"
 
-typedef struct gpucall {
-    int total_bytes;
-    int num_args;
-    int* arg_lengths;
-    char* args;
-    char* ret;
-} gpusyscall_t;
-
-class GPUSyscallHelper {
-    ThreadContext* tc;
-    Addr sim_params_ptr;
-    gpusyscall_t sim_params;
-    int* arg_lengths;
-    unsigned char* args;
-    int total_bytes;
-
-    void decode_package();
-public:
-    GPUSyscallHelper(ThreadContext* _tc, gpusyscall_t* _call_params);
-    ~GPUSyscallHelper();
-    char* getParam(int index);
-    void setReturn(unsigned char* retValue, size_t size);
-    static void readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
-    static void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu, ThreadContext *tc);
-    static void writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
-    void readBlob(Addr addr, uint8_t* p, int size) {readBlob(addr, p, size, tc);}
-    void readString(Addr addr, uint8_t* p, int size, gpgpu_t* the_gpu) {readString(addr, p, size, the_gpu, tc);}
-    void writeBlob(Addr addr, uint8_t* p, int size) {writeBlob(addr, p, size, tc);}
-};
-
 /*******************************
        CUDA API MEMBERS
 ********************************/

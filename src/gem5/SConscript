@@ -1,6 +1,7 @@
 Import('*')
 
 if env['TARGET_ISA'] != 'no':
+    Source('gpu_syscall_helper.cc')
     Source('gpu_syscalls.cc', Werror=False)
 
 DebugFlag('GPUSyscalls')
