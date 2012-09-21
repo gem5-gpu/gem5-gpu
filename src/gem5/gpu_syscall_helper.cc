@@ -39,6 +39,13 @@ GPUSyscallHelper::GPUSyscallHelper(ThreadContext *_tc, gpusyscall_t* _call_param
     decode_package();
 }
 
+GPUSyscallHelper::GPUSyscallHelper(ThreadContext *_tc)
+    : tc(_tc), sim_params_ptr(0), arg_lengths(NULL),
+      args(NULL), total_bytes(0)
+{
+
+}
+
 void
 GPUSyscallHelper::readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc)
 {

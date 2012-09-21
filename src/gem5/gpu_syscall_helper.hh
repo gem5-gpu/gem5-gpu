@@ -49,14 +49,16 @@ class GPUSyscallHelper {
     int total_bytes;
 
     void decode_package();
+    void readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
+    void readString(Addr addr, uint8_t* p, int size, ThreadContext *tc);
+    void writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
   public:
     GPUSyscallHelper(ThreadContext* _tc, gpusyscall_t* _call_params);
+    GPUSyscallHelper(ThreadContext* _tc);
     ~GPUSyscallHelper();
     void* getParam(int index);
     void setReturn(unsigned char* retValue, size_t size);
-    static void readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
-    static void readString(Addr addr, uint8_t* p, int size, ThreadContext *tc);
-    static void writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc);
+    ThreadContext* getThreadContext() { return tc; }
     void readBlob(Addr addr, uint8_t* p, int size) { readBlob(addr, p, size, tc); }
     void readString(Addr addr, uint8_t* p, int size) { readString(addr, p, size, tc); }
     void writeBlob(Addr addr, uint8_t* p, int size) { writeBlob(addr, p, size, tc); }

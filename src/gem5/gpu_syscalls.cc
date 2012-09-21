@@ -165,8 +165,8 @@
 
 typedef struct CUstream_st *cudaStream_t;
 
-static int load_static_globals(symbol_table *symtab);
-static int load_constants(symbol_table *symtab);
+static int load_static_globals(GPUSyscallHelper *helper, symbol_table *symtab);
+static int load_constants(GPUSyscallHelper *helper, symbol_table *symtab);
 
 static kernel_info_t *gpgpu_cuda_ptx_sim_init_grid(gpgpu_ptx_sim_arg_list_t args,
     struct dim3 gridDim, struct dim3 blockDim, struct function_info* context);
@@ -1094,14 +1094,14 @@ finalize_global_and_constant_setup(ThreadContext *tc, Addr base_addr, symbol_tab
     }
 }
 
-void registerFatBinaryTop(ThreadContext *tc, Addr sim_fatCubin, size_t sim_binSize)
+void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t sim_binSize)
 {
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
     gpgpu_t *gpu = spa->getTheGPU();
 
     // Get primary arguments
     __cudaFatCudaBinary* fat_cubin = new __cudaFatCudaBinary;
-    GPUSyscallHelper::readBlob(sim_fatCubin, (uint8_t*)fat_cubin, sizeof(struct __cudaFatCudaBinaryRec), tc);
+    helper->readBlob(sim_fatCubin, (uint8_t*)fat_cubin, sizeof(struct __cudaFatCudaBinaryRec));
 
     if (sim_binSize < 0) {
         panic("Used wrong __cudaRegisterFatBinary call!!! Did you run the sizeHack.py?");
@@ -1116,16 +1116,16 @@ void registerFatBinaryTop(ThreadContext *tc, Addr sim_fatCubin, size_t sim_binSi
         if (ptx_entries) {
             memcpy(temp_ptx_entry_buf, ptx_entries, sizeof(__cudaFatPtxEntry) * ptx_count);
         }
-        GPUSyscallHelper::readBlob((Addr)(fat_cubin->ptx + ptx_count), temp_ptx_entry_buf + sizeof(__cudaFatPtxEntry) * ptx_count, sizeof(__cudaFatPtxEntry), tc);
+        helper->readBlob((Addr)(fat_cubin->ptx + ptx_count), temp_ptx_entry_buf + sizeof(__cudaFatPtxEntry) * ptx_count, sizeof(__cudaFatPtxEntry));
 
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if (ptx_entry_ptr->ptx != 0) {
             DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (address_type)(Addr)ptx_entry_ptr->ptx);
-            spa->registerDeviceInstText(tc, (Addr)ptx_entry_ptr->ptx, sim_binSize);
+            spa->registerDeviceInstText(helper->getThreadContext(), (Addr)ptx_entry_ptr->ptx, sim_binSize);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
-            GPUSyscallHelper::readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize, tc);
+            helper->readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];
-            GPUSyscallHelper::readString((Addr)ptx_entry_ptr->gpuProfileName, gpu_profile, MAX_STRING_LEN, tc);
+            helper->readString((Addr)ptx_entry_ptr->gpuProfileName, gpu_profile, MAX_STRING_LEN);
 
             ptx_entry_ptr->ptx = (char*)ptx_code;
             ptx_entry_ptr->gpuProfileName = (char*)gpu_profile;
@@ -1139,8 +1139,7 @@ void registerFatBinaryTop(ThreadContext *tc, Addr sim_fatCubin, size_t sim_binSi
     // Read ident member
     Addr ident_addr = (Addr)fat_cubin->ident;
     fat_cubin->ident = new char[MAX_STRING_LEN];
-    GPUSyscallHelper::readString(ident_addr, (uint8_t*)fat_cubin->ident, MAX_STRING_LEN, tc);
-
+    helper->readString(ident_addr, (uint8_t*)fat_cubin->ident, MAX_STRING_LEN);
 
     static unsigned next_fat_bin_handle = 1;
     static unsigned source_num = 1;
@@ -1210,7 +1209,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     GPGPUSim_Init();
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
     
-    registerFatBinaryTop(tc, sim_fatCubin, sim_binSize);
+    registerFatBinaryTop(&helper, sim_fatCubin, sim_binSize);
 
     spa->saveFatBinaryInfoTop(tc->threadId(), registering_fat_cubin_handle, sim_fatCubin, sim_binSize);
 
@@ -1224,7 +1223,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     }
 }
 
-unsigned int registerFatBinaryBottom(ThreadContext *tc, Addr sim_alloc_ptr)
+unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_ptr)
 {
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterFatBinaryFinalize(alloc_ptr* = 0x%x)\n", sim_alloc_ptr);
 
@@ -1234,11 +1233,11 @@ unsigned int registerFatBinaryBottom(ThreadContext *tc, Addr sim_alloc_ptr)
     assert(sim_alloc_ptr || registering_allocation_size == 0);
 
     if (registering_allocation_size > 0) {
-        finalize_global_and_constant_setup(tc, sim_alloc_ptr, registering_symtab);
+        finalize_global_and_constant_setup(helper->getThreadContext(), sim_alloc_ptr, registering_symtab);
     }
 
-    load_static_globals(registering_symtab);
-    load_constants(registering_symtab);
+    load_static_globals(helper, registering_symtab);
+    load_constants(helper, registering_symtab);
 
     unsigned int handle = registering_fat_cubin_handle;
 
@@ -1265,12 +1264,12 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
     unsigned int handle;
     if (!spa->isManagingGPUMemory()) {
         spa->saveFatBinaryInfoBottom(sim_alloc_ptr);
-        handle = registerFatBinaryBottom(tc, sim_alloc_ptr);
+        handle = registerFatBinaryBottom(&helper, sim_alloc_ptr);
     } else {
         assert(!sim_alloc_ptr);
         assert(registering_allocation_ptr || registering_allocation_size == 0);
         spa->saveFatBinaryInfoBottom(registering_allocation_ptr);
-        handle = registerFatBinaryBottom(tc, registering_allocation_ptr);
+        handle = registerFatBinaryBottom(&helper, registering_allocation_ptr);
     }
 
     helper.setReturn((uint8_t*)&handle, sizeof(void**));
@@ -1523,7 +1522,7 @@ extern "C" FILE *ptxinfo_in;
 
 /// static functions
 
-static int load_static_globals(symbol_table *symtab)
+static int load_static_globals(GPUSyscallHelper *helper, symbol_table *symtab)
 {
     DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: loading globals with explicit initializers\n");
     int ng_bytes = 0;
@@ -1540,13 +1539,15 @@ static int load_static_globals(symbol_table *symtab)
             int t;
             ti.type_decode(size, t);
             int nbytes = size/8;
-            int offset = 0;
+            Addr offset = 0;
             std::list<operand_info> init_list = global->get_initializer();
             for (std::list<operand_info>::iterator i = init_list.begin(); i != init_list.end(); i++) {
                 operand_info op = *i;
                 ptx_reg_t value = op.get_literal_value();
-                panic("Global statics load untested!!");
-                //  gpu->gem5_spa->writeFunctional(addr+offset, nbytes, (uint8_t*)&value);
+
+                Addr addr = global->get_address();
+                helper->writeBlob(addr + offset, (uint8_t*)&value, nbytes);
+
                 offset += nbytes;
                 ng_bytes += nbytes;
             }
@@ -1557,7 +1558,7 @@ static int load_static_globals(symbol_table *symtab)
     return ng_bytes;
 }
 
-static int load_constants(symbol_table *symtab)
+static int load_constants(GPUSyscallHelper *helper, symbol_table *symtab)
 {
    DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: loading constants with explicit initializers\n");
    int nc_bytes = 0;
@@ -1586,10 +1587,9 @@ static int load_constants(symbol_table *symtab)
                panic("Op type not recognized in load_constants"); break;
             }
 
-            panic("Constants load untested!!");
+            Addr addr = constant->get_address() + nbytes_written;
+            helper->writeBlob(addr, (uint8_t*)&value, nbytes);
 
-            // unsigned addr = constant->get_address() + nbytes_written;
-            // gpu->gem5_spa->writeFunctional(addr, nbytes, (uint8_t*)&value);
             DPRINTF(GPUSyscalls, " wrote %u bytes to \'%s\'\n", nbytes, constant->name());
             nc_bytes += nbytes;
             nbytes_written += nbytes;

@@ -44,6 +44,7 @@
 #include "debug/StreamProcessorArrayAccess.hh"
 #include "debug/StreamProcessorArrayPageTable.hh"
 #include "debug/StreamProcessorArrayTick.hh"
+#include "gem5/gpu_syscall_helper.hh"
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
@@ -57,8 +58,8 @@ using namespace TheISA;
 using namespace std;
 
 // From GPU syscalls
-void registerFatBinaryTop(ThreadContext *tc, Addr sim_fatCubin, size_t sim_binSize);
-unsigned int registerFatBinaryBottom(ThreadContext *tc, Addr sim_alloc_ptr);
+void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t sim_binSize);
+unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_ptr);
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 class _cuda_device_id *GPGPUSim_Init();
 
@@ -220,10 +221,10 @@ void StreamProcessorArray::startup()
     std::vector<_FatBinary>::iterator binaries;
     for (binaries = fatBinaries.begin(); binaries != fatBinaries.end(); ++binaries) {
         _FatBinary bin = *binaries;
-        ThreadContext *bin_tc = system->getThreadContext(bin.tid);
-        assert(bin_tc);
-        registerFatBinaryTop(bin_tc, bin.sim_fatCubin, bin.sim_binSize);
-        registerFatBinaryBottom(bin_tc, bin.sim_alloc_ptr);
+        GPUSyscallHelper helper(system->getThreadContext(bin.tid));
+        assert(helper.getThreadContext());
+        registerFatBinaryTop(&helper, bin.sim_fatCubin, bin.sim_binSize);
+        registerFatBinaryBottom(&helper, bin.sim_alloc_ptr);
 
         std::map<const void*, string>::iterator functions;
         for (functions = bin.funcMap.begin(); functions != bin.funcMap.end(); ++functions) {
