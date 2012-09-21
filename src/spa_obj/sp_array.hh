@@ -300,10 +300,6 @@ public:
     /// Reset statistics for the SPA and for all of Ruby
     void clearStats();
 
-    /// used for GPGPU-Sim's functional simulation portion. (decode)
-    void writeFunctional(Addr addr, size_t length, const uint8_t* data);
-    void readFunctional(Addr addr, size_t length, uint8_t* data);
-
     /// Returns shader core with id coreId
     ShaderCore *getShaderCore(int coreId);
 

@@ -403,25 +403,11 @@ void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_st
     schedule(gpuTickEvent, curTick() + delay);
 }
 
-
-void StreamProcessorArray::writeFunctional(Addr addr, size_t length, const uint8_t* data)
-{
-    DPRINTF(StreamProcessorArrayAccess, "Writing to addr 0x%x\n", addr);
-    runningTC->getMemProxy().writeBlob(addr, const_cast<uint8_t*>(data), length);
-}
-
-void StreamProcessorArray::readFunctional(Addr addr, size_t length, uint8_t* data)
-{
-    DPRINTF(StreamProcessorArrayAccess, "Reading from addr 0x%x\n", addr);
-    runningTC->getMemProxy().readBlob(addr, data, length);
-}
-
 ShaderCore *StreamProcessorArray::getShaderCore(int coreId)
 {
     assert(coreId < shaderCores.size());
     return shaderCores[coreId];
 }
-
 
 StreamProcessorArray *StreamProcessorArrayParams::create() {
     return new StreamProcessorArray(this);
