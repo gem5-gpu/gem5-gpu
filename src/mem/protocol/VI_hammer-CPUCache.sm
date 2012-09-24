@@ -274,10 +274,11 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   GenericMachineType getNondirectHitMachType(Address addr, MachineID sender) {
-    if (machineIDToMachineType(sender) == MachineType:L1Cache) {
+    if (machineIDToMachineType(sender) == MachineType:L2Cache) {
       //
       // NOTE direct local hits should not call this
       //
+      // return L1 with cache coherence if GPU had the data
       return GenericMachineType:L1Cache_wCC;
     } else {
       return ConvertMachToGenericMach(machineIDToMachineType(sender));

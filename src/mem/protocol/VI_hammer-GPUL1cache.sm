@@ -170,10 +170,11 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   GenericMachineType getNondirectHitMachType(MachineID sender) {
-    if (machineIDToMachineType(sender) == MachineType:L1CacheVI) {
+    if (machineIDToMachineType(sender) == MachineType:L1Cache) {
       //
       // NOTE direct local hits should not call this
       //
+      // return L1 with cache coherence if CPU had the data
       return GenericMachineType:L1Cache_wCC;
     } else {
       return ConvertMachToGenericMach(machineIDToMachineType(sender));
