@@ -51,6 +51,7 @@ DebugFlag('ShaderCore')
 DebugFlag('ShaderCoreAccess')
 DebugFlag('ShaderCoreFetch')
 DebugFlag('ShaderCoreTick')
+DebugFlag('ShaderMemTrace')
 
 DebugFlag('ShaderTLB')
 

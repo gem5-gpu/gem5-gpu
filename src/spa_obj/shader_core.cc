@@ -40,6 +40,7 @@
 #include "debug/ShaderCoreAccess.hh"
 #include "debug/ShaderCoreFetch.hh"
 #include "debug/ShaderCoreTick.hh"
+#include "debug/ShaderMemTrace.hh"
 #include "mem/page_table.hh"
 #include "mem/ruby/fusion_profiler.hh"
 #include "params/ShaderCore.hh"
@@ -105,7 +106,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
     // profile the warp memory latency
     mem_fetch *mf = iter->second;
     DPRINTF(ShaderCoreAccess, "Looking for (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
-    map<pair<uint64_t, unsigned>, WarpMemRequest>::iterator wIter = 
+    map<pair<uint64_t, unsigned>, WarpMemRequest>::iterator wIter =
         proc->warpMemRequests.find(make_pair((uint64_t)mf->get_pc(), mf->get_wid()));
     assert(wIter != proc->warpMemRequests.end());
     bool done = wIter->second.requestFinish(curTick(), pkt->isRead());
@@ -172,7 +173,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             if (!vector_spec) {
                 thread->set_operand_value(dst, register_data, type, thread, pI);
             } else {
-                // NOTE: The code below may be buggy. Does std::map[] always initialize int to 0? 
+                // NOTE: The code below may be buggy. Does std::map[] always initialize int to 0?
                 thread->set_reg(dst.vec_symbol(vectorReg[curr_hint->getTID()]), register_data);
                 vectorReg[curr_hint->getTID()]++;
             }
@@ -452,7 +453,7 @@ int ShaderCore::writeTiming(Addr addr, size_t size, mem_fetch *mf)
                         write_start_addr = base_addr + offset;
                         write_end_addr = base_addr - 1;
                         chunks_to_write++;
-                        
+
                         DPRINTF(ShaderCoreAccess, "Adding (%llu, %u)\n", (uint64_t)mf->get_pc(), mf->get_wid());
                         WarpMemRequest& warpReq = warpMemRequests[make_pair(mf->get_pc(), mf->get_wid())];
                         warpReq.addRequest(curTick());
@@ -590,6 +591,7 @@ void
 ShaderCore::addWriteHint(Addr addr, size_t size, const void* data)
 {
     DPRINTF(ShaderCoreAccess, "[SC:%d] Received write hint, addr: 0x%x, size: %d\n", id, addr, size);
+    DPRINTFR(ShaderMemTrace, ">>%llu [%d] W 0x%x %d\n", curTick(), id, addr, size);
     std::list<MemRequestHint*>::iterator it = memWriteHints[addr].begin();
     if (it == memWriteHints[addr].end()) {
         MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Write);
@@ -613,6 +615,7 @@ void
 ShaderCore::addReadHint(Addr addr, size_t size, const void* data, ptx_thread_info *thd, const ptx_instruction *pI)
 {
     DPRINTF(ShaderCoreAccess, "[SC:%d] Received read hint, src_line: %d, pc: %d, addr: 0x%x, size: %d, ID:%d:%d\n", id, pI->source_line(), pI->get_PC(), addr, size, thd->get_hw_wid(), thd->get_hw_tid());
+    DPRINTFR(ShaderMemTrace, ">>%llu [%d] R 0x%x %d\n", curTick(), id, addr, size);
     MemRequestHint* hint = new MemRequestHint(addr, size, BaseTLB::Read, thd->get_hw_wid(), thd->get_hw_tid());
     hint->tick = curTick();
     hint->setThread(thd);
