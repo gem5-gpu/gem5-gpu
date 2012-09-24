@@ -469,9 +469,10 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpy(dst = %x, src = %x, count = %d, kind = %s)\n",
             sim_dst, sim_src, sim_count, cudaMemcpyKindStrings[sim_kind]);
 
+    bool suspend = false;
     if (sim_count == 0) {
         g_last_cudaError = cudaSuccess;
-        helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+        helper.setReturn((uint8_t*)&suspend, sizeof(bool));
         return;
     }
 
@@ -491,14 +492,10 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
         panic("GPGPU-Sim PTX: cudaMemcpy - ERROR : unsupported cudaMemcpyKind\n");
     }
 
-    bool suspend = gpu->gem5_spa->setUnblock();
+    suspend = gpu->gem5_spa->needsToBlock();
     assert(suspend);
-    if (suspend) {
-        tc->suspend();
-    }
-
     g_last_cudaError = cudaSuccess;
-    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
 
 //__host__ cudaError_t CUDARTAPI cudaMemcpyToArray(struct cudaArray *dst, size_t wOffset, size_t hOffset, const void *src, size_t count, enum cudaMemcpyKind kind) {
@@ -556,7 +553,6 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
     GPGPUSim_Init();
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
 
-
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpyToSymbol(symbol = %x, src = %x, count = %d, offset = %d, kind = %s)\n",
             sim_symbol, sim_src, sim_count, sim_offset, cudaMemcpyKindStrings[sim_kind]);
 
@@ -568,14 +564,10 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
     mem_op.setThreadContext(tc);
     g_stream_manager->push(mem_op);
 
-    bool suspend = gpu->gem5_spa->setUnblock();
+    bool suspend = gpu->gem5_spa->needsToBlock();
     assert(suspend);
-    if (suspend) {
-        tc->suspend();
-    }
-
     g_last_cudaError = cudaSuccess;
-    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+    helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
 
 //__host__ cudaError_t CUDARTAPI cudaMemcpyFromSymbol(void *dst, const char *symbol, size_t count, size_t offset __dv(0), enum cudaMemcpyKind kind __dv(cudaMemcpyDeviceToHost)) {
@@ -628,6 +620,20 @@ void
 cudaMemcpy2DFromArrayAsync(ThreadContext *tc, gpusyscall_t *call_params)
 {
     cuda_not_implemented(__my_func__,__LINE__);
+}
+
+void
+cudaBlockThread(ThreadContext *tc, gpusyscall_t *call_params)
+{
+    // Similar to futex in syscalls, except we need to track the variable to
+    // be set
+    GPUSyscallHelper helper(tc, call_params);
+    Addr sim_is_free_ptr = *((Addr*)helper.getParam(0));
+
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaBlockThread(tc = %x, is_free_ptr = %x)\n", tc, sim_is_free_ptr);
+
+    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
+    spa->blockThread(tc, sim_is_free_ptr);
 }
 
 /*******************************************************************************
@@ -996,25 +1002,20 @@ cudaEventElapsedTime(ThreadContext *tc, gpusyscall_t *call_params)
 void
 cudaThreadExit(ThreadContext *tc, gpusyscall_t *call_params)
 {
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
-    bool suspend = spa->setUnblock();
-    if (suspend) {
-        tc->suspend();
-        DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaThreadExit(), tc = %x\n", tc);
-    }
-    g_last_cudaError = cudaSuccess;
+    // This function should clean-up any/all resources associated with the
+    // current device in the passed thread context
+    cuda_not_implemented(__my_func__,__LINE__);
 }
 
 void
 cudaThreadSynchronize(ThreadContext *tc, gpusyscall_t *call_params)
 {
+    GPUSyscallHelper helper(tc, call_params);
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaThreadSynchronize(), tc = %x\n", tc);
     StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray();
-    bool suspend = spa->setUnblock();
-    if (suspend) {
-        tc->suspend();
-        DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaThreadSynchronize(), tc = %x\n", tc);
-    }
+    bool suspend = spa->needsToBlock();
     g_last_cudaError = cudaSuccess;
+    helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
 
 void

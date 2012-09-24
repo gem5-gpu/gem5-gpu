@@ -280,7 +280,6 @@ void StreamProcessorArray::gpuTick()
     while(!finishedKernels.empty() && finishedKernels.front().time < curTick()) {
         DPRINTF(StreamProcessorArrayTick, "GPU finished a kernel id %d\n", finishedKernels.front().grid_uid);
 
-        DPRINTF(StreamProcessorArray, "GPGPU-sim done! Activating original thread context at %llu.\n", getCurTick());
         streamManager->register_finished_kernel(finishedKernels.front().grid_uid);
         finishedKernels.pop();
 
@@ -291,7 +290,7 @@ void StreamProcessorArray::gpuTick()
 
         if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
-            runningTC->activate();
+            unblockThread(runningTC);
             unblockNeeded = false;
         }
 
@@ -334,7 +333,7 @@ void StreamProcessorArray::unblock()
 {
     DPRINTF(StreamProcessorArray, "Unblocking for an event\n");
     assert(runningTC->status() == ThreadContext::Suspended);
-    runningTC->activate();
+    unblockThread(runningTC);
 }
 
 void StreamProcessorArray::gpuRequestTick(float gpuTicks) {
@@ -365,20 +364,6 @@ void StreamProcessorArray::start(gpgpu_sim *the_gpu, stream_manager *_stream_man
     }
 
     DPRINTF(StreamProcessorArray, "Starting this stream processor from tc\n");
-}
-
-bool StreamProcessorArray::setUnblock()
-{
-    if (!streamManager->empty()) {
-        DPRINTF(StreamProcessorArray, "Suspend request: Need to activate CPU later\n");
-        unblockNeeded = true;
-        streamManager->print(stdout);
-        return true;
-    }
-    else {
-        DPRINTF(StreamProcessorArray, "Suspend request: Already done.\n");
-        return false;
-    }
 }
 
 void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_stream)
@@ -485,8 +470,71 @@ void StreamProcessorArray::finishCopyOperation()
 {
     runningStream->record_next_done();
     streamRequestTick(1);
-    runningTC->activate();
+    unblockThread(runningTC);
     endStreamOperation();
+}
+
+// TODO: When we move the stream manager into libcuda, this will need to be
+// eliminated, and libcuda will have to decide when to block the calling thread
+bool StreamProcessorArray::needsToBlock()
+{
+    if (!streamManager->empty()) {
+        DPRINTF(StreamProcessorArray, "Suspend request: Need to activate CPU later\n");
+        unblockNeeded = true;
+        streamManager->print(stdout);
+        return true;
+    } else {
+        DPRINTF(StreamProcessorArray, "Suspend request: Already done.\n");
+        return false;
+    }
+}
+
+void StreamProcessorArray::blockThread(ThreadContext *tc, Addr signal_ptr)
+{
+    if (streamManager->empty()) {
+        // It is common in small memcpys for the stream operation to be complete
+        // by the time cudaMemcpy calls blockThread. In this case, just signal
+        signalThread(tc, signal_ptr);
+        blockedThreads.erase(tc);
+    } else {
+        DPRINTF(StreamProcessorArray, "Blocking thread %p for GPU syscall\n", tc);
+        blockedThreads[tc] = signal_ptr;
+        tc->suspend();
+    }
+}
+
+void StreamProcessorArray::signalThread(ThreadContext *tc, Addr signal_ptr)
+{
+    GPUSyscallHelper helper(tc);
+    bool signal_val = true;
+
+    // Read signal value and ensure that it is currently false
+    // (i.e. thread should be currently blocked)
+    helper.readBlob(signal_ptr, (uint8_t*)&signal_val, sizeof(bool));
+    if (signal_val) {
+        panic("Thread doesn't appear to be blocked!\n");
+    }
+
+    signal_val = true;
+    helper.writeBlob(signal_ptr, (uint8_t*)&signal_val, sizeof(bool));
+}
+
+void StreamProcessorArray::unblockThread(ThreadContext *tc)
+{
+    if (!tc) tc = runningTC;
+    if (tc->status() != ThreadContext::Suspended) return;
+
+    DPRINTF(StreamProcessorArray, "Unblocking thread %p for GPU syscall\n", tc);
+    std::map<ThreadContext*, Addr>::iterator tc_iter = blockedThreads.find(tc);
+    if (tc_iter == blockedThreads.end()) {
+        panic("Cannot find blocked thread!\n");
+    }
+
+    Addr signal_ptr = blockedThreads[tc];
+    signalThread(tc, signal_ptr);
+
+    blockedThreads.erase(tc);
+    tc->activate();
 }
 
 void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )

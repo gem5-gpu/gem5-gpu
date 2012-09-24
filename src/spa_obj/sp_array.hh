@@ -280,10 +280,6 @@ public:
     RubySystem* getRubySystem() { return ruby; }
     gpgpu_sim* getTheGPU() { return theGPU; }
 
-    /// called if the gpu is going to block the processor and should unblock it
-    /// when it's done. Returns true if you should suspend the thread
-    bool setUnblock();
-
     /// Used to unblock the thread when an event completes
     void unblock();
 
@@ -326,6 +322,13 @@ public:
     /// Called from shader TLB to be used for X86TLB lookups
     // TODO: Remove this when we remove shader TLB access to X86TLB
     ThreadContext *getThreadContext() { return runningTC; }
+
+    /// Used when blocking and signaling threads
+    std::map<ThreadContext*, Addr> blockedThreads;
+    bool needsToBlock();
+    void blockThread(ThreadContext *tc, Addr signal_ptr);
+    void signalThread(ThreadContext *tc, Addr signal_ptr);
+    void unblockThread(ThreadContext *tc);
 
     void saveFatBinaryInfoTop(int tid, unsigned int handle, Addr sim_fatCubin, size_t sim_binSize) {
         _FatBinary bin;

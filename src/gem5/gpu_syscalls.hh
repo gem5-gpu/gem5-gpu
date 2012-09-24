@@ -228,6 +228,7 @@ void cudaMemcpyFromArrayAsync(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMemcpy2DAsync(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMemcpy2DToArrayAsync(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMemcpy2DFromArrayAsync(ThreadContext *tc, gpusyscall_t *call_params);
+void cudaBlockThread(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMemset(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaMemset2D(ThreadContext *tc, gpusyscall_t *call_params);
 void cudaGetSymbolAddress(ThreadContext *tc, gpusyscall_t *call_params);
@@ -386,7 +387,8 @@ cudaFunc_t gpgpu_funcs[] = {
         __cudaTextureFetch,        /* 79 */
         __cudaSynchronizeThreads,        /* 80 */
         __cudaRegisterFatBinaryFinalize,    /* 81 */
-        cudaRegisterDeviceMemory    /* 82 */
+        cudaRegisterDeviceMemory,    /* 82 */
+        cudaBlockThread    /* 83 */
 };
 
 #endif
