@@ -280,9 +280,6 @@ public:
     RubySystem* getRubySystem() { return ruby; }
     gpgpu_sim* getTheGPU() { return theGPU; }
 
-    /// Used to unblock the thread when an event completes
-    void unblock();
-
     /// Called at the beginning of each kernel launch to start the statistics
     void beginRunning(Tick launchTime, struct CUstream_st *_stream);
 

@@ -329,13 +329,6 @@ void StreamProcessorArray::streamTick() {
     }
 }
 
-void StreamProcessorArray::unblock()
-{
-    DPRINTF(StreamProcessorArray, "Unblocking for an event\n");
-    assert(runningTC->status() == ThreadContext::Suspended);
-    unblockThread(runningTC);
-}
-
 void StreamProcessorArray::gpuRequestTick(float gpuTicks) {
     Tick gpuWakeupTick = (int)(gpuTicks * SimClock::Frequency) + curTick();
 
