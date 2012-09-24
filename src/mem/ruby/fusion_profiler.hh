@@ -9,7 +9,6 @@
 #include "mem/ruby/common/TypeDefines.hh"
 #include "params/FusionProfiler.hh"
 #include "sim/sim_object.hh"
-#include "spa_obj/sp_array.hh"
 
 class RubySystem;
 
@@ -69,13 +68,7 @@ private:
 class WarpMemRequest
 {
 public:
-	WarpMemRequest() {
-		start = 0;
-		outstandingRequests = 0;
-		firstFinish = 0;
-		lastFinish = 0;
-		freq = StreamProcessorArray::getStreamProcessorArray()->getFrequency();
-	}
+	WarpMemRequest();
 
 	void addRequest(Tick time) {
 		if (start == 0) {

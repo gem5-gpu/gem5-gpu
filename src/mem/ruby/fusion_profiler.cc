@@ -2,6 +2,7 @@
 
 #include "mem/ruby/fusion_profiler.hh"
 #include "mem/ruby/system/System.hh"
+#include "spa_obj/sp_array.hh"
 
 FusionProfiler* FusionProfiler::singletonProfiler = NULL;
 
@@ -191,6 +192,16 @@ FusionProfiler*
 FusionProfilerParams::create() 
 {
     return new FusionProfiler(this);
+}
+
+
+WarpMemRequest::WarpMemRequest() 
+{
+    start = 0;
+    outstandingRequests = 0;
+    firstFinish = 0;
+    lastFinish = 0;
+    freq = StreamProcessorArray::getStreamProcessorArray()->getFrequency();
 }
 
 void
