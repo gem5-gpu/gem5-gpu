@@ -291,7 +291,6 @@ void StreamProcessorArray::gpuTick()
         if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
             DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
             unblockThread(runningTC);
-            unblockNeeded = false;
         }
 
         endStreamOperation();
@@ -516,6 +515,7 @@ void StreamProcessorArray::unblockThread(ThreadContext *tc)
 {
     if (!tc) tc = runningTC;
     if (tc->status() != ThreadContext::Suspended) return;
+    assert(unblockNeeded);
 
     DPRINTF(StreamProcessorArray, "Unblocking thread %p for GPU syscall\n", tc);
     std::map<ThreadContext*, Addr>::iterator tc_iter = blockedThreads.find(tc);
@@ -527,6 +527,7 @@ void StreamProcessorArray::unblockThread(ThreadContext *tc)
     signalThread(tc, signal_ptr);
 
     blockedThreads.erase(tc);
+    unblockNeeded = false;
     tc->activate();
 }
 
