@@ -35,6 +35,14 @@ ShaderTLB::ShaderTLB(const Params *p) :
 }
 
 void
+ShaderTLB::unserialize(Checkpoint *cp, const std::string &section)
+{
+    // Intentionally left blank to keep from trying to read shader header from
+    // checkpoint files. Allows for restore into any number of shader cores.
+    // NOTE: Cannot checkpoint during kernels
+}
+
+void
 ShaderTLB::beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode)
 {
     if (accessHostPageTable) {

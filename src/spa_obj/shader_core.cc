@@ -77,6 +77,14 @@ ShaderCore::getMasterPort(const std::string &if_name, int idx)
     }
 }
 
+void
+ShaderCore::unserialize(Checkpoint *cp, const std::string &section)
+{
+    // Intentionally left blank to keep from trying to read shader header from
+    // checkpoint files. Allows for restore into any number of shader cores.
+    // NOTE: Cannot checkpoint during kernels
+}
+
 Tick ShaderCore::SCDataPort::recvAtomic(PacketPtr pkt)
 {
     panic("[SC:%d] ShaderCore::SPPort::recvAtomic() not implemented!\n", proc->id);
