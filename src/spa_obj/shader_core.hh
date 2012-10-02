@@ -267,6 +267,9 @@ public:
     /// Required for implementing MemObject
     virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
 
+    /// For checkpoint restore (empty unserialize)
+    virtual void unserialize(Checkpoint *cp, const std::string &section);
+
     /// Perform initialization. Called from SPA
     void initialize();
 

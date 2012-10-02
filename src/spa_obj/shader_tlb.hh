@@ -45,6 +45,9 @@ class ShaderTLB : public X86ISA::TLB
     typedef ShaderTLBParams Params;
     ShaderTLB(const Params *p);
 
+    // For checkpoint restore (empty unserialize)
+    virtual void unserialize(Checkpoint *cp, const std::string &section);
+
     void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode);
 };
 
