@@ -173,7 +173,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
     bool isPresent(Address);
   }
 
-  TBETable TBEs, template_hack="<L1Cache_TBE>";
+  TBETable TBEs, template="<L1Cache_TBE>";
 
   void set_cache_entry(AbstractCacheEntry b);
   void unset_cache_entry();
@@ -1230,7 +1230,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   action(zz_stallAndWaitMandatoryQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {
-    stall_and_wait(mandatoryQueue_in, address);    
+    stall_and_wait(mandatoryQueue_in, address);
   }
 
   action(z_stall, "z", desc="stall") {
@@ -1628,22 +1628,22 @@ machine(L1Cache, "AMD Hammer-like protocol")
     forward_eviction_to_cpu;
     l_popForwardQueue;
   }
-  
+
   transition(MM, NC_DMA_GETS, O) {
     ee_sendDataShared;
     l_popForwardQueue;
   }
-  
+
   transition(MM, Other_GETS_No_Mig, O) {
     ee_sendDataShared;
     l_popForwardQueue;
   }
-  
+
   transition(MM, Merged_GETS, O) {
     em_sendDataSharedMultiple;
     l_popForwardQueue;
   }
- 
+
   // Transitions from Dirty Exclusive
   transition(M, Store, MM) {
     hh_store_hit;
@@ -1706,7 +1706,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   transition(IM, Data, ISM) {
     u_writeDataToCache;
-    m_decrementNumberOfMessages; 
+    m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
@@ -1720,7 +1720,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   transition(IM, Exclusive_Data, MM_W) {
     u_writeDataToCache;
-    m_decrementNumberOfMessages; 
+    m_decrementNumberOfMessages;
     o_checkForCompletion;
     sx_external_store_hit;
     n_popResponseQueue;
@@ -1760,7 +1760,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   transition(SM, {Data, Exclusive_Data}, ISM) {
     v_writeDataToCacheVerify;
-    m_decrementNumberOfMessages; 
+    m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
@@ -1855,13 +1855,13 @@ machine(L1Cache, "AMD Hammer-like protocol")
     l_popForwardQueue;
   }
 
-  transition(IS, Ack) {  
+  transition(IS, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
 
-  transition(IS, Shared_Ack) {  
+  transition(IS, Shared_Ack) {
     m_decrementNumberOfMessages;
     r_setSharerBit;
     o_checkForCompletion;
@@ -1900,13 +1900,13 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   // Transitions from SS
 
-  transition(SS, Ack) {  
+  transition(SS, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
 
-  transition(SS, Shared_Ack) {  
+  transition(SS, Shared_Ack) {
     m_decrementNumberOfMessages;
     r_setSharerBit;
     o_checkForCompletion;
@@ -1935,7 +1935,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
     k_popMandatoryQueue;
   }
 
-  transition({MM_W, MM_WF}, Ack) {  
+  transition({MM_W, MM_WF}, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
@@ -1960,7 +1960,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
     k_popMandatoryQueue;
   }
 
-  transition(M_W, Ack) {  
+  transition(M_W, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;

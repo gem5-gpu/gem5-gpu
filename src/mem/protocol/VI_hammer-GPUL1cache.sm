@@ -79,7 +79,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // STRUCTURES
 
-  TBETable TBEs, template_hack="<L1CacheVI_TBE>";
+  TBETable TBEs, template="<L1CacheVI_TBE>";
 
   // PROTOTYPES
   void set_cache_entry(AbstractCacheEntry a);
@@ -337,12 +337,12 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   action(t_profileStoreValid, "tv", desc="..." ) {
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(false, true, machineIDToNodeID(machineID)); 
+    profileGPUL1Access(false, true, machineIDToNodeID(machineID));
   }
 
   action(t_profileStoreInvalid, "ti", desc="..." ) {
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(false, false, machineIDToNodeID(machineID)); 
+    profileGPUL1Access(false, false, machineIDToNodeID(machineID));
   }
 
   action(r_load_hit, "h", desc="Notify sequencer the load completed.") {
