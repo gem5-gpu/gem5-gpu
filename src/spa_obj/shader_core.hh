@@ -273,6 +273,14 @@ public:
     /// Required for translation. Calls sendPkt with physical address
     void finishTranslation(WholeTranslationState *state);
 
+    /** This function is used by the page table walker to determine if it could
+    * translate the a pending request or if the underlying request has been
+    * squashed. This always returns false for the GPU as it never
+    * executes any instructions speculatively.
+    * @ return Is the current instruction squashed?
+    */
+    bool isSquashed() const { return false; }
+
     /// Wrapper functions for GPGPU-Sim to call on reads, writes, and atomics
     int readTiming (Addr a, size_t size, mem_fetch *mf);
     int writeTiming(Addr a, size_t size, mem_fetch *mf);

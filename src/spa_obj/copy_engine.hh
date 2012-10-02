@@ -153,6 +153,14 @@ public:
     int memset(Addr dst, int value, size_t length);
     void recvPacket(PacketPtr pkt);
 
+    /** This function is used by the page table walker to determine if it could
+    * translate the a pending request or if the underlying request has been
+    * squashed. This always returns false for the GPU as it never
+    * executes any instructions speculatively.
+    * @ return Is the current instruction squashed?
+    */
+    bool isSquashed() const { return false; }
+
     void cePrintStats(std::ostream& out);
 };
 
