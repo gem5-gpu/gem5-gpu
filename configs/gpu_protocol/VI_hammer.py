@@ -125,8 +125,8 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         cntrl_count += 1
 
-    phys_mem_size = long(system.physmem.range.second) - \
-                      long(system.physmem.range.first) + 1
+    phys_mem_size = sum(map(lambda mem: mem.range.size(),
+                            system.memories.unproxy(system)))
     mem_module_size = phys_mem_size / options.num_dirs
 
     #
