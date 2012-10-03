@@ -5,6 +5,7 @@
 
 
 #include "base/statistics.hh"
+#include "mem/protocol/GenericMachineType.hh"
 #include "mem/protocol/RubyRequestType.hh"
 #include "mem/ruby/common/TypeDefines.hh"
 #include "params/FusionProfiler.hh"
@@ -24,7 +25,9 @@ public:
     	return singletonProfiler;
     }
 
-    void rubyCallback(Time issued, Time initResp, Time fwdResp, Time firstResp, Time now, RubyRequestType type, bool isGPU);
+    void rubyCallback(Time issued, Time initResp, Time fwdResp, Time firstResp,
+    				  Time now, RubyRequestType type, GenericMachineType mach, 
+    				  bool isGPU);
 
     void regStats();
 
@@ -114,5 +117,6 @@ private:
 
 void profileGPUL1Access(bool isRead, bool isHit, int version);
 void profileGPUL2Access(bool isRead, bool isHit);
+void profileGPUL2WriteMiss(GenericMachineType mach);
 
 #endif

@@ -350,7 +350,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
     sequencer.readCallback(address,
                            GenericMachineType:L1Cache,
-                           cache_entry.DataBlk, true);
+                           cache_entry.DataBlk);
   }
 
   action(rx_load_hit, "rx", desc="External load completed.") {
@@ -359,19 +359,20 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
       DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
       sequencer.readCallback(address,
                              getNondirectHitMachType(in_msg.Sender),
-                             cache_entry.DataBlk, true);
+                             cache_entry.DataBlk);
     }
   }
 
   action(s_store_hit, "i", desc="Notify sequencer that store completed.") {
     sequencer.writeCallback(address,
                             GenericMachineType:L1Cache,
-                            temp_store_data, true);
+                            temp_store_data);
     DPRINTF(RubySlicc,"%s %s\n", address, temp_store_data);
   }
 
    action(sx_store_hit, "sx", desc="External store completed.") {
       assert(is_valid(tbe));
+      error("External store hits not supported");
       DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
       sequencer.writeCallback(address,
                               GenericMachineType:Directory,

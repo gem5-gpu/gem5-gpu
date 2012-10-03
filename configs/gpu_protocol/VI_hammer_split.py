@@ -94,7 +94,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                     cntrl_id = cpu_cntrl_count,
                                     sequencer = cpu_ce_seq,
                                     number_of_TBEs = 12,
-                                    ruby_system = ruby_system)
+                                    ruby_system = ruby_system,
+                                    is_gpu = True)
 
     cpu_cluster.add(cpu_ce_cntrl)
     cpu_cntrl_count += 1

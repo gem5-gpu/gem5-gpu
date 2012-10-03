@@ -101,7 +101,8 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
                                 icache = l1i_cache,
                                 dcache = l1d_cache,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
-                                ruby_system = ruby_system)
+                                ruby_system = ruby_system,
+                                is_gpu = True)
 
         l1_cntrl.sequencer = cpu_seq
 

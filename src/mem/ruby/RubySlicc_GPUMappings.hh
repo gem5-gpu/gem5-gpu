@@ -30,6 +30,7 @@
 #define __MEM_RUBY_SLICC_GPUMAPPINGS_HH__
 
 #include "mem/protocol/MachineType.hh"
+#include "mem/protocol/GenericMachineType.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/Global.hh"
 #include "mem/ruby/common/NetDest.hh"
@@ -39,6 +40,7 @@
 // In fusion_profiler
 void profileGPUL1Access(bool isRead, bool isHit, int version);
 void profileGPUL2Access(bool isRead, bool isHit);
+void profileGPUL2WriteMiss(GenericMachineType mach);
 
 inline MachineID
 getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)

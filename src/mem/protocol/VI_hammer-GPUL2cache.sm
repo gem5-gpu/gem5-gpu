@@ -149,6 +149,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // For profiling
   void profileGPUL2Access(bool isRead, bool isHit);
+  void profileGPUL2WriteMiss(GenericMachineType mach);
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", L2cacheMemory.lookup(address));
@@ -491,6 +492,28 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     assert(is_valid(tbe));
     cache_entry.DataBlk.copyPartial(tbe.DirtyDataBlk, tbe.Offset, tbe.Size);
     cache_entry.Dirty := true;
+    peek(responseToCache_in, ResponseMsg) {
+      if (machineIDToMachineType(in_msg.Sender) == MachineType:Directory) {
+        profileGPUL2WriteMiss(GenericMachineType:Directory);
+      }
+    }
+    DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
+    DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, tbe.Offset, tbe.Size);
+    DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
+  }
+
+  action(sxt_trig_ext_store_hit, "sxt", desc="store required external msgs, Notify L1 that store completed.") {
+    assert(is_valid(cache_entry));
+    assert(is_valid(tbe));
+    cache_entry.DataBlk.copyPartial(tbe.DirtyDataBlk, tbe.Offset, tbe.Size);
+    cache_entry.Dirty := true;
+    if (machineIDToMachineType(tbe.LastResponder) == MachineType:Directory) {
+      profileGPUL2WriteMiss(GenericMachineType:Directory);
+    } else if (machineIDToMachineType(tbe.LastResponder) == MachineType:L1Cache) {
+      profileGPUL2WriteMiss(GenericMachineType:L1Cache_wCC);
+    } else {
+      error("Only expect responses from Directory or L1Cache");
+    }
     DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
     DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, tbe.Offset, tbe.Size);
     DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
@@ -1178,7 +1201,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   }
 
   transition(ISM, All_acks_no_sharers, MM) {DataArrayWrite, TagArrayWrite} {
-    sx_external_store_hit; //NOTE: hope this is ok
+    sxt_trig_ext_store_hit;
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;
@@ -1239,7 +1262,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   }
 
   transition(OM, {All_acks, All_acks_no_sharers}, MM) {TagArrayWrite, DataArrayWrite} {
-    sx_external_store_hit; //NOTE: hope this is ok
+    sxt_trig_ext_store_hit;
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;

@@ -15,7 +15,10 @@ FusionProfiler::FusionProfiler(const Params *p)
 }
 
 void 
-FusionProfiler::rubyCallback(Time issued, Time initResp, Time fwdResp, Time firstResp, Time now, RubyRequestType type, bool isGPU) {
+FusionProfiler::rubyCallback(Time issued, Time initResp, Time fwdResp, 
+                             Time firstResp, Time now, RubyRequestType type, 
+                             GenericMachineType mach, bool isGPU)
+{
 	if (type == RubyRequestType_LD) {
 		if (isGPU) {
 			gpuReadLatency.sample(now - issued);
@@ -239,4 +242,10 @@ profileGPUL2Access(bool isRead, bool isHit)
 		}
 	}
 
+}
+
+void
+profileGPUL2WriteMiss(GenericMachineType mach)
+{
+    
 }
