@@ -7,7 +7,8 @@
 FusionProfiler* FusionProfiler::singletonProfiler = NULL;
 
 FusionProfiler::FusionProfiler(const Params *p)
-    : SimObject(p), ruby_system(p->ruby_system), numSC(p->num_sc)
+    : SimObject(p), ruby_system(p->ruby_system), numSC(p->num_sc),
+      bandwidthInterval(p->bandwidth_interval)
 {
 	assert(singletonProfiler == NULL);
 	singletonProfiler = this;
@@ -46,7 +47,7 @@ FusionProfiler::rubyCallback(Time issued, Time initResp, Time fwdResp,
 	}
 }
 
-void 
+void
 FusionProfiler::regStats()
 {
 	gpuReadLatency
@@ -225,7 +226,7 @@ profileGPUL1Access(bool isRead, bool isHit, int version)
 	}
 }
 
-void 
+void
 profileGPUL2Access(bool isRead, bool isHit)
 {
 	if (isRead) {

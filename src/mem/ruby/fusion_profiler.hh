@@ -8,6 +8,7 @@
 #include "mem/protocol/GenericMachineType.hh"
 #include "mem/protocol/RubyRequestType.hh"
 #include "mem/ruby/common/TypeDefines.hh"
+#include "mem/ruby/system/CacheMemory.hh"
 #include "params/FusionProfiler.hh"
 #include "sim/sim_object.hh"
 
@@ -30,6 +31,8 @@ public:
     				  bool isGPU);
 
     void regStats();
+
+    Tick getBandwithInterval() { return bandwidthInterval; }
 
 	Stats::Histogram gpuReadLatency;
 	Stats::Histogram gpuWriteLatency;
@@ -62,9 +65,12 @@ public:
     Stats::Formula gpuL1HitRate;
     Stats::Formula gpuL2HitRate;
 
+
 private:
 	RubySystem* ruby_system;
 	int numSC;
+
+  Tick bandwidthInterval;
 
 };
 
