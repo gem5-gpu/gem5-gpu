@@ -32,7 +32,7 @@ public:
 
     void regStats();
 
-    Tick getBandwithInterval() { return bandwidthInterval; }
+    Tick getBandwithInterval();
 
 	Stats::Histogram gpuReadLatency;
 	Stats::Histogram gpuWriteLatency;

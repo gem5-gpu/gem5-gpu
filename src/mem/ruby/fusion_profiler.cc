@@ -47,6 +47,13 @@ FusionProfiler::rubyCallback(Time issued, Time initResp, Time fwdResp,
 	}
 }
 
+
+Tick
+FusionProfiler::getBandwithInterval()
+{
+    return bandwidthInterval;
+}
+
 void
 FusionProfiler::regStats()
 {
