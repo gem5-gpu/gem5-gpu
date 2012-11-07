@@ -84,6 +84,13 @@ enumeration(TriggerType, desc="...") {
 structure(TriggerMsg, desc="...", interface="Message") {
   Address Address,             desc="Physical address for this request";
   TriggerType Type,            desc="Type of trigger";
+  bool functionalRead(Packet *pkt) {
+    return false;
+  }
+
+  bool functionalWrite(Packet *pkt) {
+    return false;
+  }
 }
 
 // RequestMsg (and also forwarded requests)
@@ -98,6 +105,14 @@ structure(RequestMsg, desc="...", interface="NetworkMessage") {
   Time InitialRequestTime, default="0", desc="time the initial requests was sent from the L1Cache";
   Time ForwardRequestTime, default="0", desc="time the dir forwarded the request";
   int SilentAcks, default="0", desc="silent acks from the full-bit directory";
+
+  bool functionalRead(Packet *pkt) {
+    return false;
+  }
+
+  bool functionalWrite(Packet *pkt) {
+    return false;
+  }
 }
 structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
     Address Address,             desc="Physical address for this request";
@@ -108,6 +123,14 @@ structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
     MessageSizeType MessageSize, desc="size category of the message";
     int Offset, desc="Offset of write into line";
     int Size, desc="Size of the write request";
+
+    bool functionalRead(Packet *pkt) {
+        return false;
+    }
+
+    bool functionalWrite(Packet *pkt) {
+        return false;
+    }
 }
 
 // ResponseMsg (and also unblock requests)
@@ -124,6 +147,14 @@ structure(ResponseMsg, desc="...", interface="NetworkMessage") {
   Time InitialRequestTime, default="0", desc="time the initial requests was sent from the L1Cache";
   Time ForwardRequestTime, default="0", desc="time the dir forwarded the request";
   int SilentAcks, default="0", desc="silent acks from the full-bit directory";
+
+  bool functionalRead(Packet *pkt) {
+    return false;
+  }
+
+  bool functionalWrite(Packet *pkt) {
+    return false;
+  }
 }
 structure(ResponseMsgVI, desc="...", interface="NetworkMessage") {
     Address Address,             desc="Physical address for this request";
@@ -132,6 +163,14 @@ structure(ResponseMsgVI, desc="...", interface="NetworkMessage") {
     NetDest Destination,             desc="Node to whom the data is sent";
     DataBlock DataBlk,           desc="data for the cache line";
     MessageSizeType MessageSize, desc="size category of the message";
+
+    bool functionalRead(Packet *pkt) {
+        return false;
+    }
+
+    bool functionalWrite(Packet *pkt) {
+        return false;
+    }
 }
 
 enumeration(DMARequestType, desc="...", default="DMARequestType_NULL") {
@@ -155,6 +194,14 @@ structure(DMARequestMsg, desc="...", interface="NetworkMessage") {
   DataBlock DataBlk,         desc="DataBlk attached to this request";
   int Len,                   desc="The length of the request";
   MessageSizeType MessageSize, desc="size category of the message";
+
+  bool functionalRead(Packet *pkt) {
+    return false;
+  }
+
+  bool functionalWrite(Packet *pkt) {
+    return false;
+  }
 }
 
 structure(DMAResponseMsg, desc="...", interface="NetworkMessage") {
@@ -164,4 +211,12 @@ structure(DMAResponseMsg, desc="...", interface="NetworkMessage") {
   NetDest Destination,       desc="Destination";
   DataBlock DataBlk,         desc="DataBlk attached to this request";
   MessageSizeType MessageSize, desc="size category of the message";
+
+  bool functionalRead(Packet *pkt) {
+    return false;
+  }
+
+  bool functionalWrite(Packet *pkt) {
+    return false;
+  }
 }

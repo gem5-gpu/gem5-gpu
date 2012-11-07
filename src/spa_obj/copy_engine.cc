@@ -410,8 +410,8 @@ void SPACopyEngine::finishTranslation(WholeTranslationState *state)
     delete state;
 }
 
-MasterPort&
-SPACopyEngine::getMasterPort(const std::string &if_name, int idx)
+BaseMasterPort&
+SPACopyEngine::getMasterPort(const std::string &if_name, PortID idx)
 {
     if (if_name == "host_port")
         return hostPort;

@@ -243,7 +243,7 @@ void StreamProcessorArray::startup()
 
 void StreamProcessorArray::clearStats()
 {
-    ruby->clearStats();
+    ruby->resetStats();
     clearTick = curTick();
 }
 
