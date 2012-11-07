@@ -265,7 +265,7 @@ public:
     ShaderCore(const Params *p);
 
     /// Required for implementing MemObject
-    virtual MasterPort& getMasterPort(const std::string &if_name, int idx = -1);
+    virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);
 
     /// For checkpoint restore (empty unserialize)
     virtual void unserialize(Checkpoint *cp, const std::string &section);

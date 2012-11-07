@@ -65,8 +65,8 @@ ShaderCore::ShaderCore(const Params *p) :
     DPRINTF(ShaderCore, "[SC:%d] Created shader core\n", id);
 }
 
-MasterPort&
-ShaderCore::getMasterPort(const std::string &if_name, int idx)
+BaseMasterPort&
+ShaderCore::getMasterPort(const std::string &if_name, PortID idx)
 {
     if (if_name == "data_port") {
         return dataPort;
