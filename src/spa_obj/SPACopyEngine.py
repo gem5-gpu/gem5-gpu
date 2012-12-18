@@ -33,6 +33,9 @@ from m5.proxy import *
 
 class SPACopyEngine(MemObject):
     type = 'SPACopyEngine'
+    cxx_class = 'SPACopyEngine'
+    cxx_header = "gem5-fusion/src/spa_obj/copy_engine.hh"
+
     host_port = MasterPort("The copy engine port to host coherence domain")
     device_port = MasterPort("The copy engine port to device coherence domain")
     driver_delay = Param.Int(0, "memcpy launch delay in ticks");

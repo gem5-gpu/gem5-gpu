@@ -31,5 +31,8 @@ from X86TLB import X86TLB
 
 class ShaderTLB(X86TLB):
     type = 'ShaderTLB'
+    cxx_class = 'ShaderTLB'
+    cxx_header = "gem5-fusion/src/spa_obj/shader_tlb.hh"
+
     access_host_pagetable = Param.Bool(False, "Whether to allow accesses to host page table")
     spa = Param.StreamProcessorArray(Parent.any, "The GPU core")

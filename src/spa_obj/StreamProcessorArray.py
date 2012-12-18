@@ -33,6 +33,9 @@ from m5.proxy import *
 
 class StreamProcessorArray(SimObject):
    type = 'StreamProcessorArray'
+   cxx_class = 'StreamProcessorArray'
+   cxx_header = "gem5-fusion/src/spa_obj/sp_array.hh"
+
    sys = Param.System(Parent.any, "system sp will run on")
    shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks");
    kernel_launch_delay = Param.Float(0.00000025, "Kernel launch delay in seconds");

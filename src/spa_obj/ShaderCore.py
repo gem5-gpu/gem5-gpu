@@ -33,6 +33,9 @@ from m5.proxy import *
 
 class ShaderCore(MemObject):
     type = 'ShaderCore'
+    cxx_class = 'ShaderCore'
+    cxx_header = "gem5-fusion/src/spa_obj/shader_core.hh"
+
     data_port = MasterPort("The data cache port for this SC")
     inst_port = MasterPort("The instruction cache port for this SC")
     sys = Param.System(Parent.any, "system sc will run on")
