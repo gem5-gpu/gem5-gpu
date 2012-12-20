@@ -89,6 +89,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
                                       issue_latency = 30,
+                                      number_of_TBEs = options.gpu_l1_buf_depth,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,
@@ -97,7 +98,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
                                 ruby_system = ruby_system,
-                                is_gpu = True)
+                                is_gpu = True,
+                                deadlock_threshold = 2000000)
 
         l1_cntrl.sequencer = cpu_seq
 
