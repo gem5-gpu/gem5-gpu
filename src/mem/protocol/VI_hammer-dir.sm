@@ -204,7 +204,17 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   DataBlock getDataBlock(Address addr), return_by_ref="yes" {
-    return getDirectoryEntry(addr).DataBlk;
+    Entry dir_entry := getDirectoryEntry(addr);
+    if(is_valid(dir_entry)) {
+        return dir_entry.DataBlk;
+    }
+
+    TBE tbe := TBEs[addr];
+    if(is_valid(tbe)) {
+      return tbe.DataBlk;
+    }
+
+    error("Data block missing!");
   }
 
   PfEntry getProbeFilterEntry(Address addr), return_by_pointer="yes" {
@@ -1211,9 +1221,7 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   action(l_writeDataToMemory, "l", desc="Write PUTX/PUTO data to memory") {
-    peek(unblockNetwork_in, ResponseMsg) {
-      assert(in_msg.Dirty);
-      assert(in_msg.MessageSize == MessageSizeType:Writeback_Data);
+    peek(memQueue_in, MemoryMsg) {
       getDirectoryEntry(address).DataBlk := in_msg.DataBlk;
       DPRINTF(RubySlicc, "Address: %s, Data Block: %s\n",
               in_msg.Address, in_msg.DataBlk);
@@ -1895,26 +1903,26 @@ machine(Directory, "AMD Hammer-like protocol")
 
   // WB State Transistions
   transition(WB, Writeback_Dirty, WB_O_W) {
-    l_writeDataToMemory;
     rs_removeSharer;
     l_queueMemoryWBRequest;
     j_popIncomingUnblockQueue;
   }
 
   transition(WB, Writeback_Exclusive_Dirty, WB_E_W) {
-    l_writeDataToMemory;
     rs_removeSharer;
     l_queueMemoryWBRequest;
     j_popIncomingUnblockQueue;
   }
 
   transition(WB_E_W, Memory_Ack, E) {PfWrite} {
+    l_writeDataToMemory;
     pfd_probeFilterDeallocate;
     k_wakeUpDependents;
     l_popMemQueue;
   }
 
   transition(WB_O_W, Memory_Ack, O) {
+    l_writeDataToMemory;
     k_wakeUpDependents;
     l_popMemQueue;
   }
