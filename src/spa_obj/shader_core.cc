@@ -57,10 +57,23 @@ ShaderCore::ShaderCore(const Params *p) :
     scheduledTickEvent(false), masterId(p->sys->getMasterId(name())), id(p->id),
     dtb(p->dtb), itb(p->itb), spa(p->spa)
 {
+    writebackBlocked = -1; // Writeback is not blocked
     stallOnDCacheRetry = false;
     stallOnICacheRetry = false;
 
     spa->registerShaderCore(this);
+
+    warpSize = spa->getWarpSize();
+
+    if (p->port_lsq_port_connection_count != warpSize) {
+        panic("Shader core lsq_port size != to warp size\n");
+    }
+
+    // create the ports
+    for (int i = 0; i < p->port_lsq_port_connection_count; ++i) {
+        lsqPorts.push_back(new LSQPort(csprintf("%s-lsqPort%d", name(), i),
+                                    this, i));
+    }
 
     DPRINTF(ShaderCore, "[SC:%d] Created shader core\n", id);
 }
@@ -72,6 +85,11 @@ ShaderCore::getMasterPort(const std::string &if_name, PortID idx)
         return dataPort;
     } else if (if_name == "inst_port") {
         return instPort;
+    } else if (if_name == "lsq_port") {
+        if (idx >= static_cast<PortID>(lsqPorts.size())) {
+            panic("ShaderCore::getMasterPort: unknown index %d\n", idx);
+        }
+        return *lsqPorts[idx];
     } else {
         return MemObject::getMasterPort(if_name, idx);
     }
@@ -351,6 +369,7 @@ void ShaderCore::finishTranslation(WholeTranslationState *state)
 int ShaderCore::readTiming (Addr addr, size_t size, mem_fetch *mf)
 {
     if (!dataCacheResourceAvailable(addr)) {
+        DPRINTF(ShaderCoreAccess, "Access of %lld bytes failed for addr 0x%llx\n", size, addr);
         return 1;
     }
 
@@ -724,6 +743,109 @@ ShaderCore::SCInstPort::recvRetry()
     }
 }
 
+
+bool
+ShaderCore::executeMemOp(const warp_inst_t &inst)
+{
+    assert(inst.space.get_type() == global_space ||
+           inst.space.get_type() == const_space);
+    assert(inst.valid());
+
+    // for debugging
+    bool completed = false;
+
+    for (int lane=0; lane<warpSize; lane++) {
+        if (inst.active(lane)) {
+            Addr addr = inst.get_addr(lane);
+            Addr pc = (Addr)inst.pc;
+            int size = inst.data_size;
+            assert(size >= 1 && size <= 8);
+            size *= inst.vectorLength;
+            assert(size <= 16);
+
+
+            DPRINTF(ShaderCoreAccess, "Got addr 0x%llx\n", addr);
+            if (inst.space.get_type() == const_space) {
+                DPRINTF(ShaderCoreAccess, "Is const!!\n");
+            }
+
+            Request::Flags flags;
+            const int asid = 0;
+            RequestPtr req = new Request(asid, addr, size, flags, masterId, pc,
+                                         id, inst.warp_id());
+
+            PacketPtr pkt;
+            if (inst.is_load()) {
+                pkt = new Packet(req, MemCmd::ReadReq);
+                pkt->allocate();
+                // Since only loads return to the ShaderCore
+                pkt->senderState = new SenderState(inst);
+            } else if (inst.is_store()) {
+                pkt = new Packet(req, MemCmd::WriteReq);
+                pkt->allocate();
+                uint8_t data[16]; // Can't have more than 16 bytes
+                shaderImpl->readRegister(inst, warpSize, lane, (char*)data);
+                // assert(inst.vectorLength == regs);
+                DPRINTF(ShaderCoreAccess, "Storing %d\n", *(int*)data);
+                pkt->setData((uint8_t*)data);
+            } else {
+                panic("Unsupported instruction type\n");
+            }
+
+            if (!lsqPorts[lane]->sendTimingReq(pkt)) {
+                // NOTE: This should fail early. If executeMemOp fails after
+                // some, but not all, of the requests have been sent the
+                // behavior is undefined.
+                assert(!completed);
+                return true;
+            } else {
+                completed = true;
+            }
+        }
+    }
+
+    // Return that there should not be a pipeline stall
+    return false;
+}
+
+bool
+ShaderCore::LSQPort::recvTimingResp(PacketPtr pkt)
+{
+    DPRINTF(ShaderCoreAccess, "Got a response for lane %d address 0x%llx\n",
+            idx, pkt->req->getVaddr());
+
+    assert(pkt->isRead());
+
+    uint8_t data[16];
+    assert(pkt->getSize() <= sizeof(data));
+
+    ShaderCore &sc = dynamic_cast<ShaderCore&>(owner);
+    warp_inst_t &inst = ((SenderState*)pkt->senderState)->inst;
+
+    if (!sc.shaderImpl->ldst_unit_wb_inst(inst)) {
+        // Writeback register is occupied, stall
+        assert(sc.writebackBlocked < 0);
+        sc.writebackBlocked = idx;
+        return false;
+    }
+
+    pkt->writeData(data);
+    DPRINTF(ShaderCoreAccess, "Loaded data %d\n", *(int*)data);
+    sc.shaderImpl->writeRegister(inst, sc.warpSize, idx, (char*)data);
+
+    delete pkt->senderState;
+    delete pkt->req;
+    delete pkt;
+
+    return true;
+}
+
+void
+ShaderCore::LSQPort::recvRetry()
+{
+    panic("Not sure how to respond to a recvRetry...");
+}
+
 Tick
 ShaderCore::SCInstPort::recvAtomic(PacketPtr pkt)
 {
@@ -735,6 +857,13 @@ void
 ShaderCore::SCInstPort::recvFunctional(PacketPtr pkt)
 {
     panic("Not sure how to recvFunctional");
+}
+
+void
+ShaderCore::writebackClear()
+{
+    if (writebackBlocked >= 0) lsqPorts[writebackBlocked]->sendRetry();
+    writebackBlocked = -1;
 }
 
 ShaderCore *ShaderCoreParams::create() {

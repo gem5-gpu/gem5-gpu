@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Mark D. Hill and David A. Wood
+# Copyright (c) 2012 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,26 +25,23 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+
 from MemObject import MemObject
 from ShaderTLB import ShaderTLB
-from m5.defines import buildEnv
 from m5.params import *
-from m5.proxy import *
 
-class ShaderCore(MemObject):
-    type = 'ShaderCore'
-    cxx_class = 'ShaderCore'
-    cxx_header = "gem5-fusion/src/spa_obj/shader_core.hh"
+class ShaderLSQ(MemObject):
+    type = 'ShaderLSQ'
+    cxx_class = 'ShaderLSQ'
+    cxx_header = "gem5-fusion/src/spa_obj/shader_lsq.hh"
 
-    data_port = MasterPort("The data cache port for this SC")
-    inst_port = MasterPort("The instruction cache port for this SC")
+    cache_port = MasterPort("The data cache port for this LSQ")
 
-    lsq_port = VectorMasterPort("the load/store queue coalescer ports")
+    lane_port = VectorSlavePort("the ports back to the shader core")
 
-    sys = Param.System(Parent.any, "system sc will run on")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
 
-    dtb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
-    itb = Param.ShaderTLB(ShaderTLB(), "Instruction TLB")
+    request_buffers = Param.Int(16, "Number of buffers to put ld/st request after coalescing")
+    request_buffer_depth = Param.Int(1024, "Max number of outstanding requests per buffer")
 
-    id = Param.Int(-1, "ID of the SP")
+    warp_size = Param.Int("Size of the warp")

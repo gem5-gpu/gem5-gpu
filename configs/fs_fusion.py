@@ -155,6 +155,7 @@ if options.split:
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
 system.stream_proc_array.frequency = options.gpu_core_clock
 system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
+system.stream_proc_array.warp_size = options.gpu_warp_size
 system.stream_proc_array.shared_mem_delay = options.shMemDelay
 system.stream_proc_array.config_path = gpgpusimconfig
 system.stream_proc_array.dump_kernel_stats = options.kernel_stats

@@ -160,12 +160,18 @@ if options.split:
 system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
 system.stream_proc_array.frequency = options.gpu_core_clock
 system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
+system.stream_proc_array.warp_size = options.gpu_warp_size
+
+for sc in system.stream_proc_array.shader_cores:
+    sc.lsq = ShaderLSQ()
+    sc.lsq.warp_size = options.gpu_warp_size
 
 # This is a stop-gap solution until we implement a better way to register device memory
 if options.access_host_pagetable:
     for sc in system.stream_proc_array.shader_cores:
         sc.itb.access_host_pagetable = True
         sc.dtb.access_host_pagetable = True
+        sc.lsq.data_tlb.access_host_pagetable = True
     system.stream_proc_array.ce.device_dtb.access_host_pagetable = True
     system.stream_proc_array.ce.host_dtb.access_host_pagetable = True
 
@@ -179,9 +185,12 @@ if options.cacheline_size < 128:
 Ruby.create_system(options, system)
 system.stream_proc_array.ruby = system.ruby
 
-for i in xrange(options.num_sc):
-   system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-   system.stream_proc_array.shader_cores[i].inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+for i,sc in enumerate(system.stream_proc_array.shader_cores):
+    sc.data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    sc.inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+    for j in xrange(options.gpu_warp_size):
+        sc.lsq_port[j] = sc.lsq.lane_port[j]
+    sc.lsq.cache_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
 for (i, cpu) in enumerate(system.cpu):
     ruby_port = system.ruby._cpu_ruby_ports[i]

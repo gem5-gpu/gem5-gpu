@@ -16,7 +16,7 @@ def addGPUOptions(parser):
     parser.add_option("--shMemDelay", default=1, help="delay to access shared memory in gpgpu-sim ticks", type="int")
     parser.add_option("--kernel_stats", default=False, action="store_true", help="Dump statistics on GPU kernel boundaries")
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")
-    parser.add_option("--gpu_l1_buf_depth", type="int", default=16, help="Number of buffered L1 requests per shader")
+    parser.add_option("--gpu_l1_buf_depth", type="int", default=1024, help="Number of buffered L1 requests per shader")
     parser.add_option("--gpu-core-clock", default='700MHz', help="The frequency of GPU clusters (note: shaders operate at double this frequency when modeling Fermi)")
     parser.add_option("--access-host-pagetable", action="store_true", default=False)
     parser.add_option("--split", default=False, action="store_true", help="Use split CPU and GPU cache hierarchies instead of fusion")
@@ -27,6 +27,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_mem_freq", type="string", default=None, help="GPU memory controller frequency")
     parser.add_option("--gpu_membus_busy_cycles", type="int", default=-1, help="GPU memory bus busy cycles per data transfer")
     parser.add_option("--gpu_membank_busy_time", type="string", default=None, help="GPU memory bank busy time in ns (CL+tRP+tRCD+CAS)")
+    parser.add_option("--gpu_warp_size", type="int", default=32, help="Number of threads per warp, also functional units per shader core/SM")
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
@@ -51,6 +52,7 @@ def parseGpgpusimConfig(options):
         config = config.replace("%cores_per_cluster%", str(options.cores_per_cluster))
         config = config.replace("%ctas_per_shader%", str(options.ctas_per_shader))
         config = config.replace("%icnt_file%", os.path.join(os.path.dirname(__file__), "gpu_config/icnt_config_fermi_islip.txt"))
+        config = config.replace("%warp_size%", str(options.gpu_warp_size))
         # GPGPU-Sim config expects freq in MHz
         config = config.replace("%freq%", str(toFrequency(options.gpu_core_clock)/1.0e6))
         options.num_sc = options.clusters*options.cores_per_cluster
@@ -59,7 +61,7 @@ def parseGpgpusimConfig(options):
         f.close()
         gpgpusimconfig = m5.options.outdir+'/gpgpusim.config'
     else:
-        print "Using gpgpusim.config for clusters, cores_per_cluster, Frequency"
+        print "Using gpgpusim.config for clusters, cores_per_cluster, Frequency, warp size"
         start = config.find("-gpgpu_n_clusters ")+len("-gpgpu_n_clusters ")
         end = config.find('-', start)
         gpgpu_n_clusters = int(config[start:end])
@@ -71,6 +73,10 @@ def parseGpgpusimConfig(options):
         start = config.find("-gpgpu_clock_domains ") + len("-gpgpu_clock_domains ")
         end = config.find(':', start)
         options.gpu_core_clock = config[start:end]+"MHz"
+        start = config.find('-gpgpu_shader_core_pipeline ') + len('-gpgpu_shader_core_pipeline ')
+        start = config.find(':', start) + 1
+        end = config.find('\n', start)
+        options.gpu_warp_size = int(config[start:end])
 
     return gpgpusimconfig
 

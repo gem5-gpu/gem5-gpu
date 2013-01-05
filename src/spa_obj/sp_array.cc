@@ -67,7 +67,7 @@ StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-    system(p->sys), frequency(p->frequency), sharedMemDelay(p->shared_mem_delay),
+    system(p->sys), frequency(p->frequency), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
     returnDelay(p->kernel_return_delay), ruby(p->ruby), runningTC(NULL),
     runningStream(NULL), runningTID(-1), clearTick(0),

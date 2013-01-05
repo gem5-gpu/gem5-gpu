@@ -124,6 +124,9 @@ private:
     /// Frequency of GPU in Hz
     Tick frequency;
 
+    /// Number of threads in each warp, also number of "cores" per shader core/SM
+    int warpSize;
+
     /// Are we restoring from a checkpoint?
     bool restoring;
 
@@ -295,6 +298,9 @@ public:
 
     /// Returns shader core with id coreId
     ShaderCore *getShaderCore(int coreId);
+
+    /// Returns size of warp (same for all shader cores)
+    int getWarpSize() { return warpSize; }
 
     /// Callback for GPGPU-Sim to get the current simulation time
     unsigned long long getCurTick(){ return curTick(); }

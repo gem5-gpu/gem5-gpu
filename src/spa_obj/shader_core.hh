@@ -123,6 +123,37 @@ protected:
     SCInstPort instPort;
 
     /**
+    * Port to send packets to the load/store queue and coalescer
+    */
+    class LSQPort : public MasterPort
+    {
+        friend class ShaderCore;
+
+    private:
+        ShaderCore *proc;
+        int idx;
+
+    public:
+        LSQPort(const std::string &_name, ShaderCore *_proc, int _idx)
+        : MasterPort(_name, _proc), proc(_proc), idx(_idx) {}
+
+    protected:
+        virtual bool recvTimingResp(PacketPtr pkt);
+        virtual void recvRetry();
+    };
+    /// Instantiation of above port
+    std::vector<LSQPort*> lsqPorts;
+
+    /// Port that is blocked. If -1 then no port is blocked.
+    int writebackBlocked;
+
+    class SenderState : public Packet::SenderState {
+    public:
+        SenderState(warp_inst_t _inst) : inst(_inst) {}
+        warp_inst_t inst;
+    };
+
+    /**
      *  Helper class for tick events
      */
     class TickEvent : public Event
@@ -155,6 +186,9 @@ private:
     /// Id for this shader core, should match the id in GPGPU-Sim
     /// To convert gem5Id = cluster_num*shader_per_cluster+num_in_cluster
     int id;
+
+    /// Number of threads in the warp, also the number of "cores" per shader/SM
+    int warpSize;
 
     /// Stalled because a memory request called recvRetry, usually because a queue
     /// filled up
@@ -290,6 +324,20 @@ public:
     int atomicRMW(Addr a, size_t size, mem_fetch *mf);
     void addWriteHint(Addr addr, size_t size, const void* data);
     void addReadHint(Addr addr, size_t size, const void* data, ptx_thread_info *thd, const ptx_instruction *pI);
+
+    /**
+    * This function is the main entrypoint from GPGPU-Sim
+    * This function parses the instruction from GPGPU-Sim and issues the
+    * memory request to the LSQ on a per-lane basis.
+    * @return true if stall
+    */
+    bool executeMemOp(const warp_inst_t &inst);
+
+    /**
+     * GPGPU-Sim calls this function when the writeback register in its ld/st
+     * unit is cleared. If there is a lsqPort blocked, it may now try again
+     */
+    void writebackClear();
 
     // Wrapper functions for GPGPU-Sim instruction cache accesses
     void icacheFetch(Addr a, mem_fetch *mf);
