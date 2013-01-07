@@ -479,7 +479,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       enqueue(responseNetworkL1_out, ResponseMsgVI, latency=l2_response_latency) {
         out_msg.Address := address;
         out_msg.Type := CoherenceResponseTypeVI:DATA;
-        out_msg.Sender := machineID;
+        out_msg.Sender := in_msg.Sender;
         out_msg.Destination.add(tbe.Requestor);
         out_msg.DataBlk := in_msg.DataBlk;
         out_msg.MessageSize := MessageSizeType:Response_Data;
@@ -543,6 +543,32 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     }
   }
 
+  action(as_ackStore, "as", desc="Ack the requestor that the store is complete") {
+    peek(requestQueue_in, RequestMsgVI) {
+      enqueue(responseNetworkL1_out, ResponseMsgVI, latency=l2_response_latency) {
+        out_msg.Address := address;
+        out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
+        out_msg.Sender := machineID;
+        out_msg.Destination.add(in_msg.Requestor);
+        out_msg.MessageSize := MessageSizeType:Writeback_Control;
+        DPRINTF(RubySlicc, "%s\n", out_msg);
+      }
+    }
+  }
+
+  action(aes_ackExternalStore, "aes", desc="Ack the requestor that the store is complete") {
+    assert(is_valid(tbe));
+    enqueue(responseNetworkL1_out, ResponseMsgVI, latency=l2_response_latency) {
+      out_msg.Address := address;
+      out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
+      out_msg.Sender := machineID;
+      out_msg.Destination.add(tbe.Requestor);
+      out_msg.MessageSize := MessageSizeType:Writeback_Control;
+      DPRINTF(RubySlicc, "%s\n", out_msg);
+      DPRINTF(RubySlicc, "%s %s\n", address, tbe.Requestor);
+    }
+  }
+
   action(es_recordRequestor, "es", desc="record the requestor ID in the TBE") {
     assert(is_valid(tbe));
     peek(requestQueue_in, RequestMsgVI) {
@@ -550,6 +576,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       tbe.DirtyDataBlk := in_msg.DataBlk;
       tbe.Offset := in_msg.Offset;
       tbe.Size := in_msg.Size;
+      DPRINTF(RubySlicc, "Recording requestor %s %s\n", address, in_msg.Requestor);
     }
   }
 
@@ -987,16 +1014,19 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   transition(MM, Store) {TagArrayRead, DataArrayWrite} {
     hh_store_hit;
+    as_ackStore;
     rq_popL1IncomingQueue;
   }
 
   transition(MM_W, Store) {DataArrayWrite} {
     hh_store_hit;
+    as_ackStore;
     rq_popL1IncomingQueue;
   }
 
   transition(M, Store, MM) {TagArrayRead, TagArrayWrite, DataArrayWrite} {
     hh_store_hit;
+    as_ackStore;
     rq_popL1IncomingQueue;
   }
 
@@ -1183,6 +1213,12 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   // Transitions based on reponses
 
   // Transitions from IS
+
+  transition(IS, {Other_GETX, NC_DMA_GETS, Other_GETS, Invalidate}) {
+    f_sendAck;
+    l_popForwardQueue;
+  }
+
   transition(IS, Data, SS) {DataArrayWrite} {
     u_writeDataToCache;
     m_decrementNumberOfMessages;
@@ -1229,6 +1265,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   // Transitions from M_W
   transition(M_W, Store, MM_W) {DataArrayWrite} {
     hh_store_hit;
+    as_ackStore;
     rq_popL1IncomingQueue;
   }
 
@@ -1295,6 +1332,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     sx_external_store_hit;
+    aes_ackExternalStore;
     n_popResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1308,6 +1346,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   transition(ISM, All_acks_no_sharers, MM) {DataArrayWrite, TagArrayWrite} {
     sxt_trig_ext_store_hit;
+    aes_ackExternalStore;
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;
@@ -1369,6 +1408,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   transition(OM, {All_acks, All_acks_no_sharers}, MM) {TagArrayWrite, DataArrayWrite} {
     sxt_trig_ext_store_hit;
+    aes_ackExternalStore;
     gm_sendUnblockM;
     s_deallocateTBE;
     j_popTriggerQueue;

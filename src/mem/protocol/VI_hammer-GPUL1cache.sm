@@ -18,6 +18,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     I, AccessPermission:Invalid, desc="Not Present/Invalid";
     V, AccessPermission:Read_Only, desc="Valid";
 
+    IA, AccessPermission:Busy, desc="Invalid, but waiting for ack from L2";
+
     V_a, AccessPermission:Read_Only, desc="Valid waiting for other atomic (locked & blocking)";
     VI_a, AccessPermission:Busy, desc="Modified by atomic, issued PUT";
 
@@ -81,6 +83,9 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   TBETable TBEs, template="<L1CacheVI_TBE>";
 
+  // needed for writeCallback to work. The data stored here is ignored
+  DataBlock temp_store_data;
+
   // PROTOTYPES
   void set_cache_entry(AbstractCacheEntry a);
   void unset_cache_entry();
@@ -98,8 +103,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
 
   int l2_select_low_bit, default="RubySystem::getBlockSizeBits()";
-
-  DataBlock temp_store_data;
 
   // External functions
   MachineID getL2ID(Address num, int num_l2, int select_bits, int select_start_bit);
@@ -233,8 +236,9 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
         if (in_msg.Type == CoherenceResponseTypeVI:DATA) {
           trigger(Event:Data, in_msg.Address, cache_entry, tbe);
-        }
-        else {
+        } else if (in_msg.Type == CoherenceResponseTypeVI:WB_ACK) {
+          trigger(Event:Writeback_Ack, in_msg.Address, cache_entry, tbe);
+        } else {
           error("Unexpected message");
         }
       }
@@ -247,8 +251,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
       peek(mandatoryQueue_in, RubyRequest, block_on="LineAddress") {
 
         Entry cache_entry := getCacheEntry(in_msg.LineAddress);
+        // No need to replace on store since stores do not write into the cache
         if (is_invalid(cache_entry) &&
-            cacheMemory.cacheAvail(in_msg.LineAddress) == false ) {
+            cacheMemory.cacheAvail(in_msg.LineAddress) == false &&
+            in_msg.Type != RubyRequestType:ST) {
           // make room for the block
           trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.LineAddress),
                   getCacheEntry(cacheMemory.cacheProbe(in_msg.LineAddress)),
@@ -282,7 +288,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
         out_msg.Requestor := machineID;
         out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
         out_msg.MessageSize := MessageSizeType:Data;
-        out_msg.DataBlk := temp_store_data;
+        // must write the data to the message so the L2 will have the right data
+        in_msg.writeData(out_msg.DataBlk);
         out_msg.Offset := addressOffset(in_msg.PhysicalAddress);
         out_msg.Size := in_msg.Size;
         DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, out_msg.Offset, out_msg.Size);
@@ -374,6 +381,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   action(s_store_hit, "i", desc="Notify sequencer that store completed.") {
+    // To make Ruby happy. We already wrote the data to L2 in b_issuePUT
     sequencer.writeCallback(address,
                             GenericMachineType:L1Cache,
                             temp_store_data);
@@ -427,7 +435,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // TRANSITIONS
 
-  transition({IV, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {} {
+  transition({IV, IA, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {} {
     zz_stallAndWaitMandatoryQueue;
   }
 
@@ -435,16 +443,18 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     zz_stallAndWaitMandatoryQueue;
   }
 
-  transition(V, Store, I) {TagArrayRead, TagArrayWrite} {
+  transition(V, Store, IA) {TagArrayRead, TagArrayWrite} {
     t_profileStoreValid;
-    s_store_hit;
+    v_allocateTBE;
     b_issuePUT;
+    h_deallocateL1CacheBlock;
+    ka_wakeUpAllDependents;
     m_popMandatoryQueue;
   }
 
-  transition(I, Store) {TagArrayWrite} {
+  transition(I, Store, IA) {TagArrayRead} {
     t_profileStoreInvalid;
-    s_store_hit;
+    v_allocateTBE;
     b_issuePUT;
     m_popMandatoryQueue;
   }
@@ -460,7 +470,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     v_allocateTBE;
     i_allocateL1CacheBlock;
     a_issueRequest;
-    p_profileReadMiss;
     m_popMandatoryQueue;
   }
 
@@ -513,8 +522,15 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     n_popResponseQueue;
   }
 
+  transition(IA, Writeback_Ack, I) {} {
+    s_store_hit;
+    w_deallocateTBE;
+    n_popResponseQueue;
+  }
+
   transition(V, Flush_line, I) {TagArrayRead, TagArrayWrite} {
     h_deallocateL1CacheBlock;
+    ka_wakeUpAllDependents;
     m_popMandatoryQueue;
   }
 
