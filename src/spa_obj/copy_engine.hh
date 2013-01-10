@@ -53,18 +53,13 @@ private:
         SPACopyEngine *engine;
 
         /// holds packets that failed to send for retry
-        PacketPtr outstandingPkt;
+        std::queue<PacketPtr> outstandingPkts;
 
         int idx;
-        bool stallOnRetry;
 
     public:
         CEPort(const std::string &_name, SPACopyEngine *_proc, int _idx)
-        : MasterPort(_name, _proc), engine(_proc), idx(_idx)
-        {
-            outstandingPkt = NULL;
-            stallOnRetry = false;
-        }
+        : MasterPort(_name, _proc), engine(_proc), idx(_idx) {}
 
     protected:
         virtual bool recvTimingResp(PacketPtr pkt);
@@ -73,10 +68,9 @@ private:
         virtual void recvFunctional(PacketPtr pkt);
         void setStalled(PacketPtr pkt)
         {
-            outstandingPkt = pkt;
-            stallOnRetry = true;
+            outstandingPkts.push(pkt);
         }
-        bool isStalled() { return stallOnRetry; }
+        bool isStalled() { return !outstandingPkts.empty(); }
         void sendPacket(PacketPtr pkt);
     };
 

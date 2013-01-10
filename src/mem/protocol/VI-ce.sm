@@ -38,15 +38,21 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
   void set_tbe(TBE b);
   void unset_tbe();
 
-
-  MessageBuffer mandatoryQueue, ordered="false", no_vector="true";
-  State cur_state, no_vector="true";
+  MessageBuffer mandatoryQueue, ordered="false";
 
   State getState(TBE tbe, Address addr) {
-    return cur_state;
+    if (is_valid(tbe)) {
+      return tbe.TBEState;
+    }
+    else {
+      return State:READY;
+    }
   }
+
   void setState(TBE tbe, Address addr, State state) {
-  cur_state := state;
+    if (is_valid(tbe)) {
+      tbe.TBEState := state;
+    }
   }
 
   AccessPermission getAccessPermission(Address addr) {
@@ -64,11 +70,11 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
 
   in_port(dmaRequestQueue_in, RubyRequest, mandatoryQueue, desc="...") {
     if (dmaRequestQueue_in.isReady()) {
-      peek(dmaRequestQueue_in, RubyRequest) {
-        if (in_msg.Type == RubyRequestType:LD ) {
+      peek(dmaRequestQueue_in, RubyRequest, block_on="LineAddress") {
+        if (in_msg.Type == RubyRequestType:LD) {
           trigger(Event:ReadRequest, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
         } else if (in_msg.Type == RubyRequestType:ST) {
-            trigger(Event:WriteRequest, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
+          trigger(Event:WriteRequest, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
         } else {
           error("Invalid request type");
         }
@@ -78,11 +84,11 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
 
   in_port(dmaResponseQueue_in, DMAResponseMsg, responseFromDir, desc="...") {
     if (dmaResponseQueue_in.isReady()) {
-      peek( dmaResponseQueue_in, DMAResponseMsg) {
+      peek(dmaResponseQueue_in, DMAResponseMsg) {
         if (in_msg.Type == DMAResponseType:ACK) {
-            trigger(Event:Ack, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
+          trigger(Event:Ack, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
         } else if (in_msg.Type == DMAResponseType:DATA) {
-            trigger(Event:Data, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
+          trigger(Event:Data, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
         } else {
           error("Invalid response type");
         }
@@ -121,17 +127,17 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
       }
   }
 
-  action(s_store_hit, "s", desc="Notify controller of store complete") {
+  action(s_ackCallback, "s", desc="Notify controller of store complete") {
     assert(is_valid(tbe));
-    peek(dmaRequestQueue_in, RubyRequest) {
+    peek(dmaResponseQueue_in, DMAResponseMsg) {
       sequencer.writeCallback(in_msg.LineAddress, tbe.DataBlk);
     }
   }
 
   action(d_dataCallback, "d", desc="Write data to dma sequencer") {
-      peek (dmaResponseQueue_in, DMAResponseMsg) {
-        DataBlock db := in_msg.DataBlk;
-        sequencer.readCallback(in_msg.LineAddress, db);
+    peek(dmaResponseQueue_in, DMAResponseMsg) {
+      DataBlock db := in_msg.DataBlk;
+      sequencer.readCallback(in_msg.LineAddress, db);
     }
   }
 
@@ -153,11 +159,12 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
     unset_tbe();
   }
 
-  action(z_stall, "z", desc="...") {
+  action(zz_stallAndWaitDmaQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {
+    stall_and_wait(dmaRequestQueue_in, address);
   }
 
   transition({BUSY_RD, BUSY_WR}, {ReadRequest, WriteRequest}) {
-    z_stall;
+    zz_stallAndWaitDmaQueue;
   }
 
   transition(READY, ReadRequest, BUSY_RD) {
@@ -168,7 +175,6 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
 
   transition(READY, WriteRequest, BUSY_WR) {
     v_allocateTBE;
-    s_store_hit;
     s_sendWriteRequest;
     p_popRequestQueue;
   }
@@ -180,6 +186,7 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
   }
 
   transition(BUSY_WR, Ack, READY) {
+    s_ackCallback;
     w_deallocateTBE;
     p_popResponseQueue;
   }

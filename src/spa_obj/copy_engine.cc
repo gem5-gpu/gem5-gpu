@@ -79,20 +79,17 @@ bool SPACopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
 }
 
 void SPACopyEngine::CEPort::recvRetry() {
-    assert(outstandingPkt != NULL);
+    assert(outstandingPkts.size());
 
     DPRINTF(SPACopyEngine, "Got a retry...\n");
-    if(sendTimingReq(outstandingPkt)) {
-        DPRINTF(SPACopyEngine, "unblocked moving on.\n");
-        outstandingPkt = NULL;
-        stallOnRetry = false;
+    while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
+        DPRINTF(SPACopyEngine, "Unblocked, sent blocked packet.\n");
+        outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
         if (!engine->tickEvent.scheduled()) {
-            engine->schedule(engine->tickEvent, curTick()+1);
+            engine->schedule(engine->tickEvent, engine->nextCycle());
         }
-    } else {
-        //DPRINTF(SPACopyEngine, "Still blocked\n");
     }
 }
 
@@ -129,9 +126,8 @@ void SPACopyEngine::recvPacket(PacketPtr pkt)
         if (readDone < totalLength) {
             DPRINTF(SPACopyEngine, "Trying to write\n");
             needToWrite = true;
-            // TODO: Schedule an attempt to write... not just a tick?
             if (!tickEvent.scheduled()) {
-                schedule(tickEvent, curTick()+1);
+                schedule(tickEvent, nextCycle());
             }
         }
 
@@ -155,10 +151,8 @@ void SPACopyEngine::recvPacket(PacketPtr pkt)
             delete[] readsDone;
             finishMemcpy();
         } else {
-            // TODO: Schedule the next read attempt... not just a tick?
-            // Should operate at a resonable frequency
             if (!tickEvent.scheduled()) {
-                schedule(tickEvent, curTick()+1);
+                schedule(tickEvent, nextCycle());
             }
         }
     }
@@ -204,14 +198,15 @@ void SPACopyEngine::tryRead()
 
     readLeft -= size;
 
-    // TODO: Why do we need to schedule a tick here?
-    // To issue multiple outstanding reads. Should be 1 per cycle, synchronous
-    // with the Ruby clock (uncore). When blocked, skip.
-    if (!(readLeft > 0) && !tickEvent.scheduled()) {
-        schedule(tickEvent, curTick()+1);
-    }
     if (!(readLeft > 0)) {
         needToRead = false;
+        if (!tickEvent.scheduled()) {
+            schedule(tickEvent, nextCycle());
+        }
+    } else {
+        if (!readPort->isStalled() && !tickEvent.scheduled()) {
+            schedule(tickEvent, nextCycle());
+        }
     }
 }
 
@@ -263,9 +258,8 @@ void SPACopyEngine::tryWrite()
 
     writeLeft -= size;
 
-    // TODO: Why do we need to schedule a tick here?
     if (!(writeLeft > 0) && !tickEvent.scheduled()) {
-        schedule(tickEvent, curTick()+1);
+        schedule(tickEvent, nextCycle());
     }
 }
 
@@ -342,8 +336,7 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_ty
         readsDone[i] = false;
     }
 
-    // TODO: Figure out scheduling... seems ridiculous
-    schedule(tickEvent, curTick()+driverDelay);
+    schedule(tickEvent, nextCycle() + driverDelay);
 
     return 0;
 }
@@ -382,8 +375,7 @@ int SPACopyEngine::memset(Addr dst, int value, size_t length)
         readsDone[i] = true;
     }
 
-    // TODO: Figure out scheduling... seems ridiculous
-    schedule(tickEvent, curTick()+driverDelay);
+    schedule(tickEvent, nextCycle() + driverDelay);
 
     return 0;
 }

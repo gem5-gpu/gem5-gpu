@@ -156,7 +156,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     ce_cntrl = L1CacheCE_Controller(version = 0,
                                     cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
                                     sequencer = cpu_seq,
-                                    number_of_TBEs = 12,
+                                    number_of_TBEs = 256,
                                     ruby_system = ruby_system)
 
 

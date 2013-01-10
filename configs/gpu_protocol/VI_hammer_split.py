@@ -93,7 +93,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     cpu_ce_cntrl = L1CacheCE_Controller(version = 0,
                                     cntrl_id = cpu_cntrl_count,
                                     sequencer = cpu_ce_seq,
-                                    number_of_TBEs = 12,
+                                    number_of_TBEs = 256,
                                     ruby_system = ruby_system,
                                     is_gpu = True)
 
@@ -254,13 +254,13 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                icache = cache,
                                dcache = cache,
                                access_phys_mem = True,
-                               max_outstanding_requests=10, # This directly corresponds to the CE bandwidth
+                               max_outstanding_requests = 64,
                                ruby_system = ruby_system)
 
     gpu_ce_cntrl = L1CacheCE_Controller(version = 1,
                                     cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                     sequencer = gpu_ce_seq,
-                                    number_of_TBEs = 12,
+                                    number_of_TBEs = 256,
                                     ruby_system = ruby_system)
 
     gpu_cluster.add(gpu_ce_cntrl)
@@ -273,7 +273,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     main_cluster.add(gpu_cluster)
     if options.num_dev_dirs == 0:
         for cntrl in dir_cntrls:
-#            cntrl.cntrl_id = len(main_cluster)
             main_cluster.add(cntrl)
 
     return (cpu_sequencers, dir_cntrls, main_cluster)
