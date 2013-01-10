@@ -486,8 +486,10 @@ void StreamProcessorArray::blockThread(ThreadContext *tc, Addr signal_ptr)
     if (streamManager->empty()) {
         // It is common in small memcpys for the stream operation to be complete
         // by the time cudaMemcpy calls blockThread. In this case, just signal
+        DPRINTF(StreamProcessorArray, "No stream operations to block thread %p. Continuing...\n", tc);
         signalThread(tc, signal_ptr);
         blockedThreads.erase(tc);
+        unblockNeeded = false;
     } else {
         DPRINTF(StreamProcessorArray, "Blocking thread %p for GPU syscall\n", tc);
         blockedThreads[tc] = signal_ptr;
