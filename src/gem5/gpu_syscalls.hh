@@ -37,104 +37,70 @@
 
 enum cudaError
 {
-    cudaSuccess                           =      0,   ///< No errors
-    cudaErrorMissingConfiguration         =      1,   ///< Missing configuration error
-    cudaErrorMemoryAllocation             =      2,   ///< Memory allocation error
-    cudaErrorInitializationError          =      3,   ///< Initialization error
-    cudaErrorLaunchFailure                =      4,   ///< Launch failure
-    cudaErrorPriorLaunchFailure           =      5,   ///< Prior launch failure
-    cudaErrorLaunchTimeout                =      6,   ///< Launch timeout error
-    cudaErrorLaunchOutOfResources         =      7,   ///< Launch out of resources error
-    cudaErrorInvalidDeviceFunction        =      8,   ///< Invalid device function
-    cudaErrorInvalidConfiguration         =      9,   ///< Invalid configuration
-    cudaErrorInvalidDevice                =     10,   ///< Invalid device
-    cudaErrorInvalidValue                 =     11,   ///< Invalid value
-    cudaErrorInvalidPitchValue            =     12,   ///< Invalid pitch value
-    cudaErrorInvalidSymbol                =     13,   ///< Invalid symbol
-    cudaErrorMapBufferObjectFailed        =     14,   ///< Map buffer object failed
-    cudaErrorUnmapBufferObjectFailed      =     15,   ///< Unmap buffer object failed
-    cudaErrorInvalidHostPointer           =     16,   ///< Invalid host pointer
-    cudaErrorInvalidDevicePointer         =     17,   ///< Invalid device pointer
-    cudaErrorInvalidTexture               =     18,   ///< Invalid texture
-    cudaErrorInvalidTextureBinding        =     19,   ///< Invalid texture binding
-    cudaErrorInvalidChannelDescriptor     =     20,   ///< Invalid channel descriptor
-    cudaErrorInvalidMemcpyDirection       =     21,   ///< Invalid memcpy direction
-    cudaErrorAddressOfConstant            =     22,   ///< Address of constant error
-                                                    ///< \deprecated
-                                                    ///< This error return is deprecated as of
-                                                    ///< Cuda 3.1. Variables in constant memory
-                                                    ///< may now have their address taken by the
-                                                    ///< runtime via ::cudaGetSymbolAddress().
-    cudaErrorTextureFetchFailed           =     23,   ///< Texture fetch failed
-    cudaErrorTextureNotBound              =     24,   ///< Texture not bound error
-    cudaErrorSynchronizationError         =     25,   ///< Synchronization error
-    cudaErrorInvalidFilterSetting         =     26,   ///< Invalid filter setting
-    cudaErrorInvalidNormSetting           =     27,   ///< Invalid norm setting
-    cudaErrorMixedDeviceExecution         =     28,   ///< Mixed device execution
-    cudaErrorCudartUnloading              =     29,   ///< CUDA runtime unloading
-    cudaErrorUnknown                      =     30,   ///< Unknown error condition
-    cudaErrorNotYetImplemented            =     31,   ///< Function not yet implemented
-    cudaErrorMemoryValueTooLarge          =     32,   ///< Memory value too large
-    cudaErrorInvalidResourceHandle        =     33,   ///< Invalid resource handle
-    cudaErrorNotReady                     =     34,   ///< Not ready error
-    cudaErrorInsufficientDriver           =     35,   ///< CUDA runtime is newer than driver
-    cudaErrorSetOnActiveProcess           =     36,   ///< Set on active process error
-    cudaErrorInvalidSurface               =     37,   ///< Invalid surface
-    cudaErrorNoDevice                     =     38,   ///< No Cuda-capable devices detected
-    cudaErrorECCUncorrectable             =     39,   ///< Uncorrectable ECC error detected
-    cudaErrorSharedObjectSymbolNotFound   =     40,   ///< Link to a shared object failed to resolve
-    cudaErrorSharedObjectInitFailed       =     41,   ///< Shared object initialization failed
-    cudaErrorUnsupportedLimit             =     42,   ///< ::cudaLimit not supported by device
-    cudaErrorDuplicateVariableName        =     43,   ///< Duplicate global variable lookup by string name
-    cudaErrorDuplicateTextureName         =     44,   ///< Duplicate texture lookup by string name
-    cudaErrorDuplicateSurfaceName         =     45,   ///< Duplicate surface lookup by string name
-    cudaErrorDevicesUnavailable           =     46,   ///< All Cuda-capable devices are busy (see ::cudaComputeMode) or unavailable
-    cudaErrorStartupFailure               =   0x7f,   ///< Startup failure
-    cudaErrorApiFailureBase               =  10000    ///< API failure base
+    cudaSuccess                           =      0,   // No errors
+    cudaErrorMissingConfiguration         =      1,   // Missing configuration error
+    cudaErrorMemoryAllocation             =      2,   // Memory allocation error
+    cudaErrorInitializationError          =      3,   // Initialization error
+    cudaErrorLaunchFailure                =      4,   // Launch failure
+    cudaErrorPriorLaunchFailure           =      5,   // Prior launch failure
+    cudaErrorLaunchTimeout                =      6,   // Launch timeout error
+    cudaErrorLaunchOutOfResources         =      7,   // Launch out of resources error
+    cudaErrorInvalidDeviceFunction        =      8,   // Invalid device function
+    cudaErrorInvalidConfiguration         =      9,   // Invalid configuration
+    cudaErrorInvalidDevice                =     10,   // Invalid device
+    cudaErrorInvalidValue                 =     11,   // Invalid value
+    cudaErrorInvalidPitchValue            =     12,   // Invalid pitch value
+    cudaErrorInvalidSymbol                =     13,   // Invalid symbol
+    cudaErrorMapBufferObjectFailed        =     14,   // Map buffer object failed
+    cudaErrorUnmapBufferObjectFailed      =     15,   // Unmap buffer object failed
+    cudaErrorInvalidHostPointer           =     16,   // Invalid host pointer
+    cudaErrorInvalidDevicePointer         =     17,   // Invalid device pointer
+    cudaErrorInvalidTexture               =     18,   // Invalid texture
+    cudaErrorInvalidTextureBinding        =     19,   // Invalid texture binding
+    cudaErrorInvalidChannelDescriptor     =     20,   // Invalid channel descriptor
+    cudaErrorInvalidMemcpyDirection       =     21,   // Invalid memcpy direction
+    cudaErrorAddressOfConstant            =     22,   // Address of constant error
+                                                      // \deprecated
+                                                      // This error return is deprecated as of
+                                                      // Cuda 3.1. Variables in constant memory
+                                                      // may now have their address taken by the
+                                                      // runtime via ::cudaGetSymbolAddress().
+    cudaErrorTextureFetchFailed           =     23,   // Texture fetch failed
+    cudaErrorTextureNotBound              =     24,   // Texture not bound error
+    cudaErrorSynchronizationError         =     25,   // Synchronization error
+    cudaErrorInvalidFilterSetting         =     26,   // Invalid filter setting
+    cudaErrorInvalidNormSetting           =     27,   // Invalid norm setting
+    cudaErrorMixedDeviceExecution         =     28,   // Mixed device execution
+    cudaErrorCudartUnloading              =     29,   // CUDA runtime unloading
+    cudaErrorUnknown                      =     30,   // Unknown error condition
+    cudaErrorNotYetImplemented            =     31,   // Function not yet implemented
+    cudaErrorMemoryValueTooLarge          =     32,   // Memory value too large
+    cudaErrorInvalidResourceHandle        =     33,   // Invalid resource handle
+    cudaErrorNotReady                     =     34,   // Not ready error
+    cudaErrorInsufficientDriver           =     35,   // CUDA runtime is newer than driver
+    cudaErrorSetOnActiveProcess           =     36,   // Set on active process error
+    cudaErrorInvalidSurface               =     37,   // Invalid surface
+    cudaErrorNoDevice                     =     38,   // No Cuda-capable devices detected
+    cudaErrorECCUncorrectable             =     39,   // Uncorrectable ECC error detected
+    cudaErrorSharedObjectSymbolNotFound   =     40,   // Link to a shared object failed to resolve
+    cudaErrorSharedObjectInitFailed       =     41,   // Shared object initialization failed
+    cudaErrorUnsupportedLimit             =     42,   // ::cudaLimit not supported by device
+    cudaErrorDuplicateVariableName        =     43,   // Duplicate global variable lookup by string name
+    cudaErrorDuplicateTextureName         =     44,   // Duplicate texture lookup by string name
+    cudaErrorDuplicateSurfaceName         =     45,   // Duplicate surface lookup by string name
+    cudaErrorDevicesUnavailable           =     46,   // All Cuda-capable devices are busy (see ::cudaComputeMode) or unavailable
+    cudaErrorStartupFailure               =   0x7f,   // Startup failure
+    cudaErrorApiFailureBase               =  10000    // API failure base
 };
 
 typedef enum cudaError cudaError_t;
 
-struct cudaDeviceProp
-{
-    char   name[256];                 ///< ASCII string identifying device
-    size_t totalGlobalMem;            ///< Global memory available on device in bytes
-    size_t sharedMemPerBlock;         ///< Shared memory available per block in bytes
-    int    regsPerBlock;              ///< 32-bit registers available per block
-    int    warpSize;                  ///< Warp size in threads
-    size_t memPitch;                  ///< Maximum pitch in bytes allowed by memory copies
-    int    maxThreadsPerBlock;        ///< Maximum number of threads per block
-    int    maxThreadsDim[3];          ///< Maximum size of each dimension of a block
-    int    maxGridSize[3];            ///< Maximum size of each dimension of a grid
-    int    clockRate;                 ///< Clock frequency in kilohertz
-    size_t totalConstMem;             ///< Constant memory available on device in bytes
-    int    major;                     ///< Major compute capability
-    int    minor;                     ///< Minor compute capability
-    size_t textureAlignment;          ///< Alignment requirement for textures
-    int    deviceOverlap;             ///< Device can concurrently copy memory and execute a kernel
-    int    multiProcessorCount;       ///< Number of multiprocessors on device
-    int    kernelExecTimeoutEnabled;  ///< Specified whether there is a run time limit on kernels
-    int    integrated;                ///< Device is integrated as opposed to discrete
-    int    canMapHostMemory;          ///< Device can map host memory with cudaHostAlloc/cudaHostGetDevicePointer
-    int    computeMode;               ///< Compute mode (See ::cudaComputeMode)
-    int    maxTexture1D;              ///< Maximum 1D texture size
-    int    maxTexture2D[2];           ///< Maximum 2D texture dimensions
-    int    maxTexture3D[3];           ///< Maximum 3D texture dimensions
-    int    maxTexture2DArray[3];      ///< Maximum 2D texture array dimensions
-    size_t surfaceAlignment;          ///< Alignment requirements for surfaces
-    int    concurrentKernels;         ///< Device can possibly execute multiple kernels concurrently
-    int    ECCEnabled;                ///< Device has ECC support enabled
-    int    pciBusID;                  ///< PCI bus ID of the device
-    int    pciDeviceID;               ///< PCI device ID of the device
-    int    __cudaReserved[22];
-};
-
 enum cudaMemcpyKind
 {
-    cudaMemcpyHostToHost          =   0,      ///< Host   -> Host
-    cudaMemcpyHostToDevice        =   1,      ///< Host   -> Device
-    cudaMemcpyDeviceToHost        =   2,      ///< Device -> Host
-    cudaMemcpyDeviceToDevice      =   3       ///< Device -> Device
+    cudaMemcpyHostToHost          =   0,      // Host   -> Host
+    cudaMemcpyHostToDevice        =   1,      // Host   -> Device
+    cudaMemcpyDeviceToHost        =   2,      // Device -> Host
+    cudaMemcpyDeviceToDevice      =   3       // Device -> Device
 };
 
 const char* cudaMemcpyKindStrings[] =

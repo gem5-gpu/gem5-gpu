@@ -212,7 +212,8 @@ WarpMemRequest::WarpMemRequest()
     outstandingRequests = 0;
     firstFinish = 0;
     lastFinish = 0;
-    freq = StreamProcessorArray::getStreamProcessorArray()->getFrequency();
+    // TODO: The FusionProfiler needs to flexible for multiple GPUs...
+    freq = StreamProcessorArray::getStreamProcessorArray(0)->getFrequency();
 }
 
 void

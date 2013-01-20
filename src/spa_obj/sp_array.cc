@@ -53,17 +53,17 @@
 #include "sp_array.hh"
 
 #include "../gpgpu-sim/cuda-sim/cuda-sim.h"
+#include "../gpgpu-sim/gpgpusim_entrypoint.h"
 
 using namespace TheISA;
 using namespace std;
+
+vector<StreamProcessorArray*> StreamProcessorArray::gpuArray;
 
 // From GPU syscalls
 void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t sim_binSize);
 unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_ptr);
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
-class _cuda_device_id *GPGPUSim_Init();
-
-StreamProcessorArray* StreamProcessorArray::singletonPointer = NULL;
 
 StreamProcessorArray::StreamProcessorArray(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
@@ -76,9 +76,14 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     physicalGPUBaseAddr(p->gpu_segment_base),
     physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
 {
+    // Register this device as a CUDA-enabled GPU
+    cudaDeviceID = registerCudaDevice(this);
+    if (cudaDeviceID >= 1) {
+        // TODO: Remove this when multiple GPUs can exist in system
+        panic("GPGPU-Sim is not currently able to simulate more than 1 CUDA-enabled GPU\n");
+    }
+
     streamDelay = 1;
-    assert(singletonPointer == NULL);
-    singletonPointer = this;
 
     running = false;
 
@@ -86,19 +91,45 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
 
     restoring = false;
 
+    // GPU memory handling
     instBaseVaddr = 0;
     instBaseVaddrSet = false;
-
     // Reserve the 0 virtual page for NULL pointers
     virtualGPUBaseAddr = virtualGPUBrkAddr = TheISA::PageBytes;
 
-    //
+    // Initialize GPGPU-Sim
+    theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());
+    theGPU->init();
+    theGPU->setSPA(this);
+
+    // Setup the device properties for this GPU
+    snprintf(deviceProperties.name, 256, "GPGPU-Sim_v%s", g_gpgpusim_version_string);
+    deviceProperties.major = 2;
+    deviceProperties.minor = 0;
+    deviceProperties.totalGlobalMem = gpuMemorySize;
+    deviceProperties.memPitch = 0;
+    deviceProperties.maxThreadsPerBlock = 512;
+    deviceProperties.maxThreadsDim[0] = 512;
+    deviceProperties.maxThreadsDim[1] = 512;
+    deviceProperties.maxThreadsDim[2] = 512;
+    deviceProperties.maxGridSize[0] = 0x40000000;
+    deviceProperties.maxGridSize[1] = 0x40000000;
+    deviceProperties.maxGridSize[2] = 0x40000000;
+    deviceProperties.totalConstMem = gpuMemorySize;
+    deviceProperties.textureAlignment = 0;
+    deviceProperties.sharedMemPerBlock = theGPU->shared_mem_size();
+    deviceProperties.regsPerBlock = theGPU->num_registers_per_core();
+    deviceProperties.warpSize = theGPU->wrp_size();
+    deviceProperties.clockRate = theGPU->shader_clock();
+#if (CUDART_VERSION >= 2010)
+    deviceProperties.multiProcessorCount = theGPU->get_config().num_shader();
+#endif
+
     // Print gpu configuration and stats at exit
-    //
     GPUExitCallback* gpuExitCB = new GPUExitCallback(this, p->stats_filename);
     registerExitCallback(gpuExitCB);
-}
 
+}
 
 void StreamProcessorArray::serialize(std::ostream &os)
 {
@@ -207,6 +238,12 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
 
 void StreamProcessorArray::startup()
 {
+    // Initialize shader cores
+    vector<ShaderCore*>::iterator iter;
+    for (iter = shaderCores.begin(); iter != shaderCores.end(); ++iter) {
+        (*iter)->initialize();
+    }
+
     if (!restoring) {
         return;
     }
@@ -215,7 +252,6 @@ void StreamProcessorArray::startup()
         runningTC = system->getThreadContext(runningTID);
         assert(runningTC);
     }
-    GPGPUSim_Init();
 
     // Setting everything up again!
     std::vector<_FatBinary>::iterator binaries;
@@ -343,19 +379,6 @@ void StreamProcessorArray::streamRequestTick(int ticks) {
 
     schedule(streamTickEvent, streamWakeupTick);
     streamScheduled = true;
-}
-
-void StreamProcessorArray::start(gpgpu_sim *the_gpu, stream_manager *_stream_manager)
-{
-    theGPU = the_gpu;
-    streamManager = _stream_manager;
-
-    vector<ShaderCore*>::iterator iter;
-    for (iter = shaderCores.begin(); iter != shaderCores.end(); ++iter) {
-        (*iter)->initialize();
-    }
-
-    DPRINTF(StreamProcessorArray, "Starting this stream processor from tc\n");
 }
 
 void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_stream)

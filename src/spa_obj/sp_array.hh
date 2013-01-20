@@ -61,22 +61,66 @@
  */
 class StreamProcessorArray : public SimObject
 {
-public:
+  private:
+    static std::vector<StreamProcessorArray*> gpuArray;
+
+  public:
     /**
      *  Only to be used in GPU system calls (gpu_syscalls) as a way to access
-     *  the currently running SPA.
-     *  Note: We could easily make this implement multiple SPA's when we
-     *        get to that point
+     *  the CUDA-enabled GPUs.
      */
-    static StreamProcessorArray *getStreamProcessorArray() {
-        assert(singletonPointer != NULL);
-        return singletonPointer;
+    static StreamProcessorArray *getStreamProcessorArray(unsigned id) {
+        if (id >= gpuArray.size()) {
+            panic("CUDA GPU ID not found: %u. Only %u GPUs registered!\n", id, gpuArray.size());
+        }
+        return gpuArray[id];
     }
 
-private:
-    static StreamProcessorArray *singletonPointer;
+    static unsigned getNumCudaDevices() {
+        return gpuArray.size();
+    }
 
-protected:
+    static unsigned registerCudaDevice(StreamProcessorArray *spa) {
+        unsigned new_id = getNumCudaDevices();
+        gpuArray.push_back(spa);
+        return new_id;
+    }
+
+    struct CudaDeviceProperties
+    {
+        char   name[256];                 // ASCII string identifying device
+        size_t totalGlobalMem;            // Global memory available on device in bytes
+        size_t sharedMemPerBlock;         // Shared memory available per block in bytes
+        int    regsPerBlock;              // 32-bit registers available per block
+        int    warpSize;                  // Warp size in threads
+        size_t memPitch;                  // Maximum pitch in bytes allowed by memory copies
+        int    maxThreadsPerBlock;        // Maximum number of threads per block
+        int    maxThreadsDim[3];          // Maximum size of each dimension of a block
+        int    maxGridSize[3];            // Maximum size of each dimension of a grid
+        int    clockRate;                 // Clock frequency in kilohertz
+        size_t totalConstMem;             // Constant memory available on device in bytes
+        int    major;                     // Major compute capability
+        int    minor;                     // Minor compute capability
+        size_t textureAlignment;          // Alignment requirement for textures
+        int    deviceOverlap;             // Device can concurrently copy memory and execute a kernel
+        int    multiProcessorCount;       // Number of multiprocessors on device
+        int    kernelExecTimeoutEnabled;  // Specified whether there is a run time limit on kernels
+        int    integrated;                // Device is integrated as opposed to discrete
+        int    canMapHostMemory;          // Device can map host memory with cudaHostAlloc/cudaHostGetDevicePointer
+        int    computeMode;               // Compute mode (See ::cudaComputeMode)
+        int    maxTexture1D;              // Maximum 1D texture size
+        int    maxTexture2D[2];           // Maximum 2D texture dimensions
+        int    maxTexture3D[3];           // Maximum 3D texture dimensions
+        int    maxTexture2DArray[3];      // Maximum 2D texture array dimensions
+        size_t surfaceAlignment;          // Alignment requirements for surfaces
+        int    concurrentKernels;         // Device can possibly execute multiple kernels concurrently
+        int    ECCEnabled;                // Device has ECC support enabled
+        int    pciBusID;                  // PCI bus ID of the device
+        int    pciDeviceID;               // PCI device ID of the device
+        int    __cudaReserved[22];
+    };
+
+  protected:
     typedef StreamProcessorArrayParams Params;
 
     /**
@@ -86,11 +130,11 @@ protected:
     {
         friend class StreamProcessorArray;
 
-    private:
+      private:
         StreamProcessorArray *cpu;
         bool streamTick;
 
-    public:
+      public:
         TickEvent(StreamProcessorArray *c, bool stream) : Event(CPU_Tick_Pri), cpu(c), streamTick(stream) {}
         void process() {
             if (streamTick) cpu->streamTick();
@@ -100,7 +144,7 @@ protected:
     };
 
     const StreamProcessorArrayParams *_params;
-    const Params * params() const { return dynamic_cast<const Params *>(_params);	}
+    const Params * params() const { return dynamic_cast<const Params *>(_params); }
 
     /// Tick for when the GPU needs to run its next cycle
     TickEvent gpuTickEvent;
@@ -108,7 +152,10 @@ protected:
     /// Tick for when the stream manager needs execute
     TickEvent streamTickEvent;
 
-private:
+  private:
+    // The CUDA device ID for this GPU
+    unsigned cudaDeviceID;
+
     /// Callback for the gpu tick
     void gpuTick();
 
@@ -130,7 +177,6 @@ private:
     /// Are we restoring from a checkpoint?
     bool restoring;
 
-    /// If true do global mem requests through gem5 otherwise do them through GPGPU-Sim
     int sharedMemDelay;
     std::string gpgpusimConfigPath;
     double launchDelay;
@@ -199,7 +245,7 @@ private:
      */
     class _FatBinary
     {
-    public:
+      public:
         int tid; // CPU thread ID
         unsigned int handle;
         Addr sim_fatCubin;
@@ -210,7 +256,7 @@ private:
 
     class _CudaVar
     {
-    public:
+      public:
         Addr sim_deviceAddress;
         std::string deviceName;
         int sim_size;
@@ -259,7 +305,9 @@ private:
     Addr gpuMemorySize;
     std::map<Addr,size_t> allocatedGPUMemory;
 
-public:
+    CudaDeviceProperties deviceProperties;
+
+  public:
     /// Constructor
     StreamProcessorArray(const Params *p);
 
@@ -270,14 +318,12 @@ public:
     /// Called after constructor, but before any real simulation
     virtual void startup();
 
-    /// Called during GPGPU-Sim initialization to initialize the SPA
-    void start(gpgpu_sim *the_gpu, stream_manager *_stream_manager);
-
     /// Register devices callbacks
     void registerShaderCore(ShaderCore *sc);
     void registerCopyEngine(SPACopyEngine *ce);
 
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
+    CudaDeviceProperties *getDeviceProperties() { return &deviceProperties; }
     int getSharedMemDelay() { return sharedMemDelay; }
     const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
     RubySystem* getRubySystem() { return ruby; }
@@ -383,11 +429,11 @@ public:
  */
 class GPUExitCallback : public Callback
 {
-private:
+  private:
     std::string stats_filename;
     StreamProcessorArray *spa_obj;
 
-public:
+  public:
     virtual ~GPUExitCallback() {}
 
     GPUExitCallback(StreamProcessorArray *_spa_obj, const std::string& _stats_filename)
