@@ -49,6 +49,8 @@ import GPUOptions
 import Options
 import Ruby
 
+import GPUConfig
+
 from FSConfig import *
 from SysPaths import *
 from Benchmarks import *
@@ -107,34 +109,12 @@ test_mem_mode = 'timing'
 
 CPUClass.clock = options.clock
 
-#
-# GPGPU-Sim configuration
-#
-gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
-
-# Variables for creating the stream processor array
-gpu_segment_base_addr = Addr(0)
-gpu_mem_size_bytes = 0
-total_mem_range = AddrRange(options.total_mem_size)
-
-if options.split:
-    buildEnv['PROTOCOL'] +=  '_split'
-    total_mem_size_bytes = long(total_mem_range.second) - long(total_mem_range.first) + 1
-    gpu_addr_range = AddrRange(options.gpu_mem_size)
-    gpu_mem_size_bytes = long(gpu_addr_range.second) - long(gpu_addr_range.first) + 1
-    if gpu_mem_size_bytes >= total_mem_size_bytes:
-        print "GPU memory size (%s) won't fit within total memory size (%s)!" % (options.gpu_mem_size, options.total_mem_size)
-        sys.exit(1)
-    gpu_segment_base_addr = Addr(total_mem_size_bytes - gpu_mem_size_bytes)
-    gpu_addr_range = AddrRange(gpu_segment_base_addr, size = options.gpu_mem_size)
-    options.total_mem_size = long(gpu_segment_base_addr)
-    cpu_mem_range = AddrRange(long(gpu_segment_base_addr))
-else:
-    buildEnv['PROTOCOL'] +=  '_fusion'
-    cpu_mem_range = total_mem_range
+# Create the GPU.
+# NOTE: If using split memory, create GPU sets up cpu_mem_range
+gpu, cpu_mem_range, gpu_addr_range = GPUConfig.createGPU(options)
 
 if buildEnv['TARGET_ISA'] == "x86":
-    bm[0].memsize = cpu_mem_range
+    bm[0].memsize = cpu_mem_range.size()
     system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
     Simulation.setWorkCountOptions(system, options)
 else:
@@ -148,29 +128,20 @@ if options.script is not None:
 
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
-system.stream_proc_array = StreamProcessorArray(manage_gpu_memory = options.split,
-            gpu_segment_base = gpu_segment_base_addr, gpu_memory_size = gpu_mem_size_bytes)
+system.gpu = gpu
+
 if options.split:
     system.gpu_physmem = SimpleMemory(range=AddrRange(gpu_addr_range))
-system.stream_proc_array.shader_cores = [ShaderCore(id=i) for i in xrange(options.num_sc)]
-system.stream_proc_array.frequency = options.gpu_core_clock
-system.stream_proc_array.ce = SPACopyEngine(driver_delay=5000000)
-system.stream_proc_array.warp_size = options.gpu_warp_size
-system.stream_proc_array.shared_mem_delay = options.shMemDelay
-system.stream_proc_array.config_path = gpgpusimconfig
-system.stream_proc_array.dump_kernel_stats = options.kernel_stats
+
 # Hard code the cache block width to at least 128B for now
 # TODO: Remove this if/when block size can be less than 128B
 if options.cacheline_size < 128:
     options.cacheline_size = 128
 Ruby.create_system(options, system, system.piobus, system._dma_ports)
-system.stream_proc_array.ruby = system.ruby
 
-for i in xrange(options.num_sc):
-    system.stream_proc_array.shader_cores[i].data_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-    system.stream_proc_array.shader_cores[i].inst_port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-    system.stream_proc_array.shader_cores[i].dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
-    system.stream_proc_array.shader_cores[i].itb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+i].slave
+system.gpu.ruby = system.ruby
+
+GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
 for (i, cpu) in enumerate(system.cpu):
     cpu.createInterruptController()
@@ -184,18 +155,6 @@ for (i, cpu) in enumerate(system.cpu):
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-
-# Tie the copy engine ports to controllers
-system.stream_proc_array.ce.host_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-system.stream_proc_array.ce.host_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-if options.split:
-    system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
-    system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
-else:
-    # With a unified address space, tie both copy engine ports to the same
-    # copy engine controller
-    system.stream_proc_array.ce.device_port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-    system.stream_proc_array.ce.device_dtb.walker.port = system.ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
 
 system.fusion_profiler = FusionProfiler(ruby_system = system.ruby, num_sc = options.num_sc)
 
