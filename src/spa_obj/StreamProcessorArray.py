@@ -32,27 +32,26 @@ from m5.params import *
 from m5.proxy import *
 
 class StreamProcessorArray(SimObject):
-   type = 'StreamProcessorArray'
-   cxx_class = 'StreamProcessorArray'
-   cxx_header = "gem5-fusion/src/spa_obj/sp_array.hh"
+    type = 'StreamProcessorArray'
+    cxx_class = 'StreamProcessorArray'
+    cxx_header = "gem5-fusion/src/spa_obj/sp_array.hh"
 
-   sys = Param.System(Parent.any, "system sp will run on")
-   shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks")
-   kernel_launch_delay = Param.Float(0.00000025, "Kernel launch delay in seconds")
-   kernel_return_delay = Param.Float(0.0000001, "Kernel return delay in seconds")
+    sys = Param.System(Parent.any, "system sp will run on")
+    shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks")
+    kernel_launch_delay = Param.Float(0.00000025, "Kernel launch delay in seconds")
+    kernel_return_delay = Param.Float(0.0000001, "Kernel return delay in seconds")
 
-   warp_size = Param.Int(32, "Number of threads in each warp. Same as cores/SM")
+    warp_size = Param.Int(32, "Number of threads in each warp. Same as cores/SM")
 
-   ruby = Param.RubySystem(Parent.any, "ruby system")
+    ruby = Param.RubySystem(Parent.any, "ruby system")
 
-   stats_filename = Param.String("gpu_stats.txt",
-         "file to which gpgpu-sim dumps its stats")
-   config_path = Param.String('gpgpusim.config', "file to which gpgpu-sim dumps its stats")
-   dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
+    stats_filename = Param.String("gpu_stats.txt",
+          "file to which gpgpu-sim dumps its stats")
+    config_path = Param.String('gpgpusim.config', "File from which to configure GPGPU-Sim")
+    dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
 
-   # When using a segmented physical address space, the SPA can manage memory
-   manage_gpu_memory = Param.Bool(False, "Handle all GPU memory allocations in this SPA")
-   gpu_segment_base = Param.Addr(0x0, "The base address that the GPU can allocate from")
-   gpu_memory_size = Param.Addr(0, "Size of GPU memory segment")
+    # When using a segmented physical address space, the SPA can manage memory
+    manage_gpu_memory = Param.Bool(False, "Handle all GPU memory allocations in this SPA")
+    gpu_memory_range = Param.AddrRange(AddrRange('1kB'), "The address range for the GPU memory space")
 
-   frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")
+    frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")

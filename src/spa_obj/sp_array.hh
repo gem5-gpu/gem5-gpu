@@ -300,9 +300,9 @@ class StreamProcessorArray : public SimObject
     };
     SPAPageTable pageTable;
     bool manageGPUMemory;
-    Addr physicalGPUBaseAddr, physicalGPUBrkAddr;
-    Addr virtualGPUBaseAddr, virtualGPUBrkAddr;
-    Addr gpuMemorySize;
+    AddrRange gpuMemoryRange;
+    Addr physicalGPUBrkAddr;
+    Addr virtualGPUBrkAddr;
     std::map<Addr,size_t> allocatedGPUMemory;
 
     CudaDeviceProperties deviceProperties;

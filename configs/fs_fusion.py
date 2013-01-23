@@ -1,4 +1,5 @@
-# Copyright (c) 2009-2011 Advanced Micro Devices, Inc.
+# Copyright (c) 2009-2012 Advanced Micro Devices, Inc.
+# Copyright (c) 2012-2013 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,11 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Authors: Brad Beckmann
-
-#
-# Full system configuraiton for ruby
-#
+# Authors: Jason Power, Joel Hestness
 
 import optparse
 import os
@@ -45,27 +42,22 @@ addToPath('../../gem5/configs/ruby')
 addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
-import GPUOptions
+import GPUConfig
+import MemConfig
 import Options
 import Ruby
-
-import GPUConfig
+import Simulation
 
 from FSConfig import *
 from SysPaths import *
 from Benchmarks import *
-import Simulation
-from Caches import *
-
-# Get paths we might need.  It's expected this file is in m5/configs/example.
-config_path = os.path.dirname(os.path.abspath(__file__))
-config_root = os.path.join(config_path,"../../configs")
+# from Caches import *
 
 parser = optparse.OptionParser()
+GPUConfig.addGPUOptions(parser)
+MemConfig.addMemCtrlOptions(parser)
 Options.addCommonOptions(parser)
 Options.addFSOptions(parser)
-GPUOptions.addMemCtrlOptions(parser)
-GPUOptions.addGPUOptions(parser)
 
 #
 # Add the ruby specific and protocol specific options
@@ -74,51 +66,41 @@ Ruby.define_options(parser)
 
 (options, args) = parser.parse_args()
 
+options.ruby = True
+
 if args:
     print "Error: script doesn't take any positional arguments"
     sys.exit(1)
 
-bm = [SysConfig()]
+if buildEnv['TARGET_ISA'] != "x86":
+    fatal("gem5-gpu doesn't currently work with non-x86 system!")
 
-cpu_type = options.cpu_type
-if cpu_type != 'timing' and cpu_type != 'detailed':
-    cpu_type = 'timing'
-
-restore_cpu_type = options.restore_with_cpu
-if restore_cpu_type != 'timing' and restore_cpu_type != 'detailed':
-    restore_cpu_type = 'timing'
-
-FutureClass = None
-if options.checkpoint_restore != None:
-    if restore_cpu_type != cpu_type:
-        if cpu_type == 'timing':
-            class FutureClass(TimingSimpleCPU): pass
-            cpu_type = restore_cpu_type
-            FutureClass.clock = options.clock
-        elif cpu_type == 'detailed':
-            class FutureClass(DerivO3CPU): pass
-            cpu_type = restore_cpu_type
-            FutureClass.clock = options.clock
-
-if cpu_type == 'timing':
-    class CPUClass(TimingSimpleCPU): pass
-elif cpu_type == 'detailed':
-    class CPUClass(DerivO3CPU): pass
-
-test_mem_mode = 'timing'
-
+#
+# CPU type configuration
+#
+if options.cpu_type != "timing" and options.cpu_type != "detailed":
+    print "Warning: gem5-gpu only works with timing and detailed CPUs. Defaulting to timing"
+    options.cpu_type = "timing"
+(CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
 CPUClass.clock = options.clock
 
-# Create the GPU.
-# NOTE: If using split memory, create GPU sets up cpu_mem_range
-gpu, cpu_mem_range, gpu_addr_range = GPUConfig.createGPU(options)
+#
+# Memory space configuration
+#
+(cpu_mem_range, gpu_mem_range) = GPUConfig.configureMemorySpaces(options)
 
-if buildEnv['TARGET_ISA'] == "x86":
-    bm[0].memsize = cpu_mem_range.size()
-    system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
-    Simulation.setWorkCountOptions(system, options)
-else:
-    fatal("Incapable of building non-x86 full system!")
+#
+# Setup benchmark to be run
+#
+bm = [SysConfig()]
+bm[0].memsize = cpu_mem_range.size()
+
+#
+# Instantiate system
+#
+system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
+system.cpu = [CPUClass(cpu_id = i) for i in xrange(options.num_cpus)]
+Simulation.setWorkCountOptions(system, options)
 
 if options.kernel is not None:
     system.kernel = binary(options.kernel)
@@ -126,39 +108,55 @@ if options.kernel is not None:
 if options.script is not None:
     system.readfile = options.script
 
-system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
-
-system.gpu = gpu
+#
+# Create the GPU
+#
+system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 
 if options.split:
-    system.gpu_physmem = SimpleMemory(range=AddrRange(gpu_addr_range))
+    system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
 
 # Hard code the cache block width to at least 128B for now
 # TODO: Remove this if/when block size can be less than 128B
 if options.cacheline_size < 128:
+    print "Warning: Minimum cache block size is currently 128B. Defaulting to 128."
     options.cacheline_size = 128
 Ruby.create_system(options, system, system.piobus, system._dma_ports)
 
 system.gpu.ruby = system.ruby
 
-GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
-
+#
+# Connect CPU ports
+#
 for (i, cpu) in enumerate(system.cpu):
+    ruby_port = system.piobus
+
     cpu.createInterruptController()
-    cpu.interrupts.pio = system.piobus.master
-    cpu.interrupts.int_master = system.piobus.slave
-    cpu.interrupts.int_slave = system.piobus.master
+    cpu.interrupts.pio = ruby_port.master
+    cpu.interrupts.int_master = ruby_port.slave
+    cpu.interrupts.int_slave = ruby_port.master
     #
     # Tie the cpu ports to the correct ruby system ports
     #
     cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+    if buildEnv['TARGET_ISA'] == "x86":
+        cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+        cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+    else:
+        fatal("Not sure how to connect TLB walker ports in non-x86 system!")
 
+#
+# Connect GPU ports
+#
+GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
+
+MemConfig.setMemoryControlOptions(system, options)
+
+#
+# Finalize setup and run
+#
 system.fusion_profiler = FusionProfiler(ruby_system = system.ruby, num_sc = options.num_sc)
-
-GPUOptions.setMemoryControlOptions(system, options)
 
 root = Root(full_system = True, system = system)
 

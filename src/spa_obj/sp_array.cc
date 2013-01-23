@@ -73,8 +73,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     runningStream(NULL), runningTID(-1), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
-    physicalGPUBaseAddr(p->gpu_segment_base),
-    physicalGPUBrkAddr(p->gpu_segment_base), gpuMemorySize(p->gpu_memory_size)
+    gpuMemoryRange(p->gpu_memory_range)
 {
     // Register this device as a CUDA-enabled GPU
     cudaDeviceID = registerCudaDevice(this);
@@ -95,7 +94,8 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     instBaseVaddr = 0;
     instBaseVaddrSet = false;
     // Reserve the 0 virtual page for NULL pointers
-    virtualGPUBaseAddr = virtualGPUBrkAddr = TheISA::PageBytes;
+    virtualGPUBrkAddr = TheISA::PageBytes;
+    physicalGPUBrkAddr = gpuMemoryRange.start;
 
     // Initialize GPGPU-Sim
     theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());
@@ -106,7 +106,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     snprintf(deviceProperties.name, 256, "GPGPU-Sim_v%s", g_gpgpusim_version_string);
     deviceProperties.major = 2;
     deviceProperties.minor = 0;
-    deviceProperties.totalGlobalMem = gpuMemorySize;
+    deviceProperties.totalGlobalMem = gpuMemoryRange.size();
     deviceProperties.memPitch = 0;
     deviceProperties.maxThreadsPerBlock = 512;
     deviceProperties.maxThreadsDim[0] = 512;
@@ -115,7 +115,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     deviceProperties.maxGridSize[0] = 0x40000000;
     deviceProperties.maxGridSize[1] = 0x40000000;
     deviceProperties.maxGridSize[2] = 0x40000000;
-    deviceProperties.totalConstMem = gpuMemorySize;
+    deviceProperties.totalConstMem = gpuMemoryRange.size();
     deviceProperties.textureAlignment = 0;
     deviceProperties.sharedMemPerBlock = theGPU->shared_mem_size();
     deviceProperties.regsPerBlock = theGPU->num_registers_per_core();
@@ -691,7 +691,7 @@ Addr StreamProcessorArray::allocateGPUMemory(size_t size)
     Addr base_paddr = physicalGPUBrkAddr;
     physicalGPUBrkAddr += aligned_size;
 
-    if (virtualGPUBrkAddr > gpuMemorySize) {
+    if (virtualGPUBrkAddr > gpuMemoryRange.size()) {
         panic("Ran out of GPU memory!");
     }
 

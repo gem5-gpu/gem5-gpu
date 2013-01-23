@@ -76,7 +76,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     else:
         cpu_cntrl_count = len(cpu_cluster) + len(dir_cntrls)
 
-
     #
     # Create controller for the copy engine to connect to in CPU cluster
     # Cache is unused by controller
@@ -94,8 +93,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                     cntrl_id = cpu_cntrl_count,
                                     sequencer = cpu_ce_seq,
                                     number_of_TBEs = 256,
-                                    ruby_system = ruby_system,
-                                    is_gpu = True)
+                                    ruby_system = ruby_system)
 
     cpu_cluster.add(cpu_ce_cntrl)
     cpu_cntrl_count += 1
@@ -118,7 +116,12 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
                             replacement_policy = "LRU",
-                            start_index_bit = block_size_bits)
+                            start_index_bit = block_size_bits,
+                            dataArrayBanks = 4,
+                            tagArrayBanks = 4,
+                            dataAccessLatency = 4,
+                            tagAccessLatency = 4,
+                            resourceStalls = True)
 
         l1_cntrl = L1CacheVI_Controller(version = i,
                                       cntrl_id = cpu_cntrl_count+len(gpu_cluster),
@@ -126,6 +129,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
                                       issue_latency = 30,
+                                      number_of_TBEs = options.gpu_l1_buf_depth,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,
@@ -133,7 +137,9 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 dcache = cache,
                                 access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
-                                ruby_system = ruby_system)
+                                ruby_system = ruby_system,
+                                is_gpu = True,
+                                deadlock_threshold = 2000000)
 
         l1_cntrl.sequencer = cpu_seq
 
@@ -164,12 +170,11 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         exec("system.l2_cntrl%d = l2_cntrl" % i)
         gpu_cluster.add(l2_cntrl)
 
-    gpu_phys_mem_size = long(system.gpu_physmem.range.second) - \
-        long(system.gpu_physmem.range.first) + 1
-    
+    gpu_phys_mem_size = system.gpu_physmem.range.size()
+
     if options.num_dev_dirs > 0:
         mem_module_size = gpu_phys_mem_size / options.num_dev_dirs
-    
+
         #
         # determine size and index bits for probe filter
         # By default, the probe filter size is configured to be twice the
@@ -184,7 +189,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                 # if numa high bit explicitly set, make sure it does not overlap
                 # with the probe filter index
                 assert(options.numa_high_bit - dir_bits > pf_bits)
-        
+
             # set the probe filter start bit to just above the block offset
             pf_start_bit = block_size_bits
         else:
@@ -198,19 +203,19 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
             #
             # Create the Ruby objects associated with the directory controller
             #
-    
+
             dir_version = i + num_cpu_dirs
-    
+
             mem_cntrl = RubyMemoryControl(version = dir_version,
                                           bank_queue_size = 24,
                                           ruby_system = ruby_system)
-    
+
             dir_size = MemorySize('0B')
             dir_size.value = mem_module_size
-    
+
             pf = ProbeFilter(size = pf_size, assoc = 4,
                              start_index_bit = pf_start_bit)
-    
+
             dev_dir_cntrl = Directory_Controller(version = dir_version,
                                              cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                              directory = \
@@ -228,10 +233,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                              probe_filter_enabled = options.pf_on,
                                              full_bit_dir_enabled = options.dir_on,
                                              ruby_system = ruby_system)
-    
+
             if options.recycle_latency:
                 dev_dir_cntrl.recycle_latency = options.recycle_latency
-    
+
             exec("system.dev_dir_cntrl%d = dev_dir_cntrl" % i)
             dir_cntrls.append(dev_dir_cntrl)
             gpu_cluster.add(dev_dir_cntrl)

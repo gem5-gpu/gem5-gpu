@@ -38,7 +38,8 @@ addToPath('../../gem5/configs/ruby')
 addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
-import GPUOptions
+import GPUConfig
+import MemConfig
 import Options
 import Ruby
 
@@ -49,7 +50,7 @@ m5_root = os.path.dirname(config_root)
 
 parser = optparse.OptionParser()
 Options.addCommonOptions(parser)
-GPUOptions.addGPUOptions(parser)
+GPUConfig.addGPUOptions(parser)
 
 parser.add_option("-l", "--checks", metavar="N", default=100,
                   help="Stop after N checks (loads)")
@@ -65,7 +66,7 @@ Ruby.define_options(parser)
 
 (options, args) = parser.parse_args()
 
-gpgpusimconfig = GPUOptions.parseGpgpusimConfig(options)
+gpgpusimconfig = MemConfig.parseGpgpusimConfig(options)
 
 #
 # Set the default cache size and associativity to be very small to encourage

@@ -125,9 +125,8 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         cntrl_count += 1
 
-    phys_mem_size = sum(map(lambda mem: mem.range.size(),
-                            system.memories.unproxy(system)))
-    mem_module_size = phys_mem_size / options.num_dirs
+    cpu_mem_range = AddrRange(options.total_mem_size)
+    mem_module_size = cpu_mem_range.size() / options.num_dirs
 
     #
     # determine size and index bits for probe filter
