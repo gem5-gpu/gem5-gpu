@@ -37,7 +37,7 @@ def addMemCtrlOptions(parser):
 def setMemoryControlOptions(system, options):
     from m5.params import Latency
     for i in xrange(options.num_dirs):
-        cntrl = eval("system.dir_cntrl%d" % i)
+        cntrl = eval("system.ruby.dir_cntrl%d" % i)
         if options.mem_freq:
             cntrl.memBuffer.clock = options.mem_freq
         if options.mem_ctl_latency >= 0:
@@ -51,7 +51,7 @@ def setMemoryControlOptions(system, options):
 
     if options.split:
         for i in xrange(options.num_dev_dirs):
-            cntrl = eval("system.dev_dir_cntrl%d" % i)
+            cntrl = eval("system.ruby.dev_dir_cntrl%d" % i)
             if options.gpu_mem_freq:
                 cntrl.memBuffer.clock = options.gpu_mem_freq
             if options.mem_ctl_latency >= 0:

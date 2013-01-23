@@ -106,7 +106,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         if piobus != None:
             cpu_seq.pio_port = piobus.slave
 
-        exec("system.l1_cntrl_sp%02d = l1_cntrl" % i)
+        exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
         #
         # Add controllers and sequencers to the appropriate lists
@@ -135,7 +135,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       L2cacheMemory = l2_cache,
                                       ruby_system = ruby_system)
 
-        exec("system.l2_cntrl%d = l2_cntrl" % i)
+        exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         gpuCluster.add(l2_cntrl)
 
     ######################################################################################

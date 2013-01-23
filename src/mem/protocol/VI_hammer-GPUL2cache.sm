@@ -136,7 +136,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // STRUCTURES
 
-  TBETable TBEs, template="<L2Cache_TBE>";
+  TBETable TBEs, template="<L2Cache_TBE>", constructor="m_number_of_TBEs";
 
   // PROTOTYPES
   void set_cache_entry(AbstractCacheEntry a);

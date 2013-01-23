@@ -81,7 +81,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // STRUCTURES
 
-  TBETable TBEs, template="<L1CacheVI_TBE>";
+  TBETable TBEs, template="<L1CacheVI_TBE>", constructor="m_number_of_TBEs";
 
   // needed for writeCallback to work. The data stored here is ignored
   DataBlock temp_store_data;

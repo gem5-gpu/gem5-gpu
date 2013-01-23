@@ -95,7 +95,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     instBaseVaddrSet = false;
     // Reserve the 0 virtual page for NULL pointers
     virtualGPUBrkAddr = TheISA::PageBytes;
-    physicalGPUBrkAddr = gpuMemoryRange.start;
+    physicalGPUBrkAddr = gpuMemoryRange.start();
 
     // Initialize GPGPU-Sim
     theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());

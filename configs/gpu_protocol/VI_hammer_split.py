@@ -143,7 +143,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l1_cntrl.sequencer = cpu_seq
 
-        exec("system.l1_cntrl_sp%02d = l1_cntrl" % i)
+        exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
         #
         # Add controllers and sequencers to the appropriate lists
@@ -167,7 +167,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       L2cacheMemory = l2_cache,
                                       ruby_system = ruby_system)
 
-        exec("system.l2_cntrl%d = l2_cntrl" % i)
+        exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         gpu_cluster.add(l2_cntrl)
 
     gpu_phys_mem_size = system.gpu_physmem.range.size()
@@ -237,7 +237,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
             if options.recycle_latency:
                 dev_dir_cntrl.recycle_latency = options.recycle_latency
 
-            exec("system.dev_dir_cntrl%d = dev_dir_cntrl" % i)
+            exec("ruby_system.dev_dir_cntrl%d = dev_dir_cntrl" % i)
             dir_cntrls.append(dev_dir_cntrl)
             gpu_cluster.add(dev_dir_cntrl)
     else:
