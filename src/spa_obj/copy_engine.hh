@@ -121,11 +121,11 @@ private:
     Addr currentReadAddr;
     Addr currentWriteAddr;
     Addr beginAddr;
-    unsigned long long writeLeft;
-    unsigned long long writeDone;
-    unsigned long long readLeft;
-    unsigned long long readDone;
-    unsigned long long totalLength;
+    Tick writeLeft;
+    Tick writeDone;
+    Tick readLeft;
+    Tick readDone;
+    Tick totalLength;
 
     uint8_t *curData;
     bool *readsDone;
@@ -135,8 +135,17 @@ private:
     void tryWrite();
     void finishMemcpy();
 
-    unsigned long long memCpyStartTime;
-    std::vector<unsigned long long> memCpyTimes;
+    Tick memCpyStartTime;
+    size_t memCpyLength;
+    class MemCpyStats {
+    public:
+        MemCpyStats(Tick _ticks, size_t _bytes) :
+            ticks(_ticks), bytes(_bytes)
+        { }
+        Tick ticks;
+        size_t bytes;
+    };
+    std::vector<MemCpyStats> memCpyStats;
 
 public:
 

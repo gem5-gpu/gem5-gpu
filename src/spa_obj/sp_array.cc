@@ -416,10 +416,13 @@ StreamProcessorArray *StreamProcessorArrayParams::create() {
 
 void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     // Print kernel statistics
-    unsigned long long total_kernel_ticks = 0;
-    unsigned long long last_kernel_time = 0;
+    Tick total_kernel_ticks = 0;
+    Tick last_kernel_time = 0;
     bool kernel_active = false;
-    vector<unsigned long long>::iterator it;
+    vector<Tick>::iterator it;
+
+    out << "spa frequency: " << SimClock::Frequency/(frequency*1000000000.0) << " GHz\n";
+    out << "spa period: " << frequency << " ticks\n";
     out << "kernel times (ticks):\n";
     out << "start, end, start, end, ..., exit\n";
     for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {
@@ -441,7 +444,7 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     for (shaders = shaderCores.begin(); shaders != shaderCores.end(); shaders++) {
         (*shaders)->printCTAStats(out);
     }
-    out << "\ntotal kernel time = " << total_kernel_ticks << "\n";
+    out << "\ntotal kernel time (ticks) = " << total_kernel_ticks << "\n";
 
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";

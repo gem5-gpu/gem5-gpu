@@ -1023,8 +1023,8 @@ ShaderCore::record_block_commit(unsigned hw_cta_id)
 
 void ShaderCore::printCTAStats(std::ostream& out)
 {
-    std::map<unsigned, std::vector<unsigned long long> >::iterator iter;
-    std::vector<unsigned long long>::iterator times;
+    std::map<unsigned, std::vector<Tick> >::iterator iter;
+    std::vector<Tick>::iterator times;
     for (iter = shaderCTAActiveStats.begin(); iter != shaderCTAActiveStats.end(); iter++) {
         unsigned cta_id = iter->first;
         out << id << ", " << cta_id << ", ";

@@ -368,7 +368,7 @@ public:
     void record_st(memory_space_t space);
     void record_inst(int inst_type);
     std::map<unsigned, bool> shaderCTAActive;
-    std::map<unsigned, std::vector<unsigned long long> > shaderCTAActiveStats;
+    std::map<unsigned, std::vector<Tick> > shaderCTAActiveStats;
     void record_block_issue(unsigned hw_cta_id);
     void record_block_commit(unsigned hw_cta_id);
     void printCTAStats(std::ostream& out);

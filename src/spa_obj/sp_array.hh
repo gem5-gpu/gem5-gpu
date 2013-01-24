@@ -216,7 +216,7 @@ class StreamProcessorArray : public SimObject
     }
 
     /// For statistics
-    std::vector<unsigned long long> kernelTimes;
+    std::vector<Tick> kernelTimes;
     Tick clearTick;
     std::queue<kernelTermInfo> finishedKernels;
     bool dumpKernelStats;
@@ -349,7 +349,7 @@ class StreamProcessorArray : public SimObject
     int getWarpSize() { return warpSize; }
 
     /// Callback for GPGPU-Sim to get the current simulation time
-    unsigned long long getCurTick(){ return curTick(); }
+    Tick getCurTick(){ return curTick(); }
 
     Tick getFrequency() { return frequency; }
 

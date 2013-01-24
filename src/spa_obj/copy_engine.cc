@@ -105,8 +105,9 @@ void SPACopyEngine::finishMemcpy()
     running = false;
     readPort = writePort = NULL;
     readDTB = writeDTB = NULL;
-    DPRINTF(SPACopyEngine, "Total time was: %llu\n", curTick() - memCpyStartTime);
-    memCpyTimes.push_back(curTick() - memCpyStartTime);
+    Tick total_time = curTick() - memCpyStartTime;
+    DPRINTF(SPACopyEngine, "Total time was: %llu\n", total_time);
+    memCpyStats.push_back(MemCpyStats(total_time, memCpyLength));
     spa->finishCopyOperation();
 }
 
@@ -307,6 +308,7 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_ty
     }
 
     assert(length > 0);
+    memCpyLength = length;
     assert(!running);
     running = true;
 
@@ -418,30 +420,46 @@ SPACopyEngine *SPACopyEngineParams::create() {
 }
 
 void SPACopyEngine::cePrintStats(std::ostream& out) {
-    int i = 0;
-    unsigned long long total_memcpy_ticks = 0;
-    unsigned long long max_memcpy_ticks = 0;
-    unsigned long long min_memcpy_ticks = ULONG_LONG_MAX;
-    vector<unsigned long long>::iterator it;
+    int memcpy_cnt = 0;
+    Tick total_memcpy_ticks = 0;
+    Tick total_memcpy_bytes = 0;
+    Tick max_memcpy_ticks = 0;
+    Tick min_memcpy_ticks = ULONG_LONG_MAX;
+    vector<MemCpyStats>::iterator it;
+
+    out << "copy engine frequency: " << frequency()/(1000000000.0) << " GHz\n";
+    out << "copy engine period: " << clockPeriod() << " ticks\n";
+
     out << "memcpy times in ticks:\n";
-    for (it = memCpyTimes.begin(); it < memCpyTimes.end(); it++) {
-        out << *it << ", ";
-        i++;
-        total_memcpy_ticks += *it;
-        if (*it < min_memcpy_ticks) min_memcpy_ticks = *it;
-        if (*it > max_memcpy_ticks) max_memcpy_ticks = *it;
+    for (it = memCpyStats.begin(); it < memCpyStats.end(); it++) {
+        out << (*it).ticks << ", ";
+        memcpy_cnt++;
+        total_memcpy_ticks += (*it).ticks;
+        if ((*it).ticks < min_memcpy_ticks) min_memcpy_ticks = (*it).ticks;
+        if ((*it).ticks > max_memcpy_ticks) max_memcpy_ticks = (*it).ticks;
     }
     out << "\n";
-    out << "total memcpy ticks = " << total_memcpy_ticks << "\n";
-    unsigned long long int average_memcpy_ticks;
-    if (i > 0) {
-        average_memcpy_ticks = total_memcpy_ticks / i;
+    Tick average_memcpy_ticks;
+    if (memcpy_cnt > 0) {
+        average_memcpy_ticks = total_memcpy_ticks / memcpy_cnt;
     } else {
         average_memcpy_ticks = 0;
     }
+
+    out << "memcpy sizes in bytes:\n";
+    for (it = memCpyStats.begin(); it < memCpyStats.end(); it++) {
+        size_t num_bytes = (*it).bytes;
+        out << num_bytes << ", ";
+        total_memcpy_bytes += num_bytes;
+    }
+    out << "\n";
+
     out << "average ticks per memcpy = " << average_memcpy_ticks << "\n";
     out << "minimum ticks per memcpy = " << min_memcpy_ticks << "\n";
     out << "maximum ticks per memcpy = " << max_memcpy_ticks << "\n";
+    out << "total memcpy ticks = " << total_memcpy_ticks << "\n";
+    out << "total memcpy bytes = " << total_memcpy_bytes << "\n";
+    out << "\n";
 }
 
 void CEExitCallback::process()
