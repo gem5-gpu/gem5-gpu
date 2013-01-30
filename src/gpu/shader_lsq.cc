@@ -31,9 +31,9 @@
 #include <set>
 #include <vector>
 
-#include "shader_lsq.hh"
-#include "shader_tlb.hh"
 #include "debug/ShaderLSQ.hh"
+#include "gpu/shader_lsq.hh"
+#include "gpu/shader_tlb.hh"
 
 using namespace std;
 

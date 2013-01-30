@@ -25,26 +25,33 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from MemObject import MemObject
-from ShaderTLB import ShaderTLB
+
+from m5.SimObject import SimObject
 from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
-class ShaderCore(MemObject):
-    type = 'ShaderCore'
-    cxx_class = 'ShaderCore'
-    cxx_header = "gem5-fusion/src/spa_obj/shader_core.hh"
+class StreamProcessorArray(SimObject):
+    type = 'StreamProcessorArray'
+    cxx_class = 'StreamProcessorArray'
+    cxx_header = "gpu/gpgpu-sim/cuda_gpu.hh"
 
-    data_port = MasterPort("The data cache port for this SC")
-    inst_port = MasterPort("The instruction cache port for this SC")
+    sys = Param.System(Parent.any, "system sp will run on")
+    shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks")
+    kernel_launch_delay = Param.Float(0.00000025, "Kernel launch delay in seconds")
+    kernel_return_delay = Param.Float(0.0000001, "Kernel return delay in seconds")
 
-    lsq_port = VectorMasterPort("the load/store queue coalescer ports")
+    warp_size = Param.Int(32, "Number of threads in each warp. Same as cores/SM")
 
-    sys = Param.System(Parent.any, "system sc will run on")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    ruby = Param.RubySystem(Parent.any, "ruby system")
 
-    dtb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
-    itb = Param.ShaderTLB(ShaderTLB(), "Instruction TLB")
+    stats_filename = Param.String("gpu_stats.txt",
+          "file to which gpgpu-sim dumps its stats")
+    config_path = Param.String('gpgpusim.config', "File from which to configure GPGPU-Sim")
+    dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
 
-    id = Param.Int(-1, "ID of the SP")
+    # When using a segmented physical address space, the SPA can manage memory
+    manage_gpu_memory = Param.Bool(False, "Handle all GPU memory allocations in this SPA")
+    gpu_memory_range = Param.AddrRange(AddrRange('1kB'), "The address range for the GPU memory space")
+
+    frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")

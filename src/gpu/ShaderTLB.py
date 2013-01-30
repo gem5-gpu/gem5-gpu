@@ -1,5 +1,3 @@
-# -*- mode:python -*-
-
 # Copyright (c) 2011 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
@@ -27,36 +25,14 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-Import('*')
+from m5.params import *
+from m5.proxy import *
+from X86TLB import X86TLB
 
+class ShaderTLB(X86TLB):
+    type = 'ShaderTLB'
+    cxx_class = 'ShaderTLB'
+    cxx_header = "gpu/shader_tlb.hh"
 
-SimObject('StreamProcessorArray.py')
-SimObject('ShaderCore.py')
-SimObject('ShaderLSQ.py')
-SimObject('ShaderTLB.py')
-SimObject('SPACopyEngine.py')
-
-Source('sp_array.cc')
-Source('shader_core.cc')
-Source('shader_lsq.cc')
-Source('shader_tlb.cc')
-Source('copy_engine.cc')
-
-
-DebugFlag('GpuTick')
-DebugFlag('StreamProcessorArray')
-DebugFlag('StreamProcessorArrayAccess')
-DebugFlag('StreamProcessorArrayPageTable')
-DebugFlag('StreamProcessorArrayTick')
-
-DebugFlag('ShaderCore')
-DebugFlag('ShaderCoreAccess')
-DebugFlag('ShaderCoreFetch')
-DebugFlag('ShaderCoreTick')
-DebugFlag('ShaderMemTrace')
-
-DebugFlag('ShaderLSQ')
-
-DebugFlag('ShaderTLB')
-
-DebugFlag('SPACopyEngine')
+    access_host_pagetable = Param.Bool(False, "Whether to allow accesses to host page table")
+    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")

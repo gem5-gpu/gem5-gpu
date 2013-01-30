@@ -1,3 +1,5 @@
+# -*- mode:python -*-
+
 # Copyright (c) 2011 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
@@ -25,14 +27,16 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from m5.params import *
-from m5.proxy import *
-from X86TLB import X86TLB
+Import('*')
 
-class ShaderTLB(X86TLB):
-    type = 'ShaderTLB'
-    cxx_class = 'ShaderTLB'
-    cxx_header = "gem5-fusion/src/spa_obj/shader_tlb.hh"
+SimObject('ShaderLSQ.py')
+SimObject('ShaderTLB.py')
+SimObject('SPACopyEngine.py')
 
-    access_host_pagetable = Param.Bool(False, "Whether to allow accesses to host page table")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+Source('copy_engine.cc')
+Source('shader_lsq.cc')
+Source('shader_tlb.cc')
+
+DebugFlag('ShaderLSQ')
+DebugFlag('ShaderTLB')
+DebugFlag('SPACopyEngine')

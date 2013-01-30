@@ -40,10 +40,10 @@
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
+#include "gpu/shader_tlb.hh"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/ShaderCore.hh"
-#include "shader_tlb.hh"
 #include "sim/process.hh"
 
 class StreamProcessorArray;

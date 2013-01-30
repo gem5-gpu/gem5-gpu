@@ -30,9 +30,8 @@
 #define SHADER_TLB_HH_
 
 #include "arch/x86/tlb.hh"
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "params/ShaderTLB.hh"
-#include "shader_core.hh"
-#include "sp_array.hh"
 
 class ShaderTLB : public X86ISA::TLB
 {

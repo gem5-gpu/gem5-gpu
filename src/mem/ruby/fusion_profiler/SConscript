@@ -1,4 +1,6 @@
-# Copyright (c) 2011 Mark D. Hill and David A. Wood
+# -*- mode:python -*-
+
+# Copyright (c) 2012 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,33 +27,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+Import('*')
 
-from m5.SimObject import SimObject
-from m5.defines import buildEnv
-from m5.params import *
-from m5.proxy import *
+if env['PROTOCOL'] == 'None':
+    Return()
 
-class StreamProcessorArray(SimObject):
-    type = 'StreamProcessorArray'
-    cxx_class = 'StreamProcessorArray'
-    cxx_header = "gem5-fusion/src/spa_obj/sp_array.hh"
+SimObject('FusionProfiler.py')
 
-    sys = Param.System(Parent.any, "system sp will run on")
-    shared_mem_delay = Param.Int(1, "Delay to access shared memory in gpgpu-sim ticks")
-    kernel_launch_delay = Param.Float(0.00000025, "Kernel launch delay in seconds")
-    kernel_return_delay = Param.Float(0.0000001, "Kernel return delay in seconds")
-
-    warp_size = Param.Int(32, "Number of threads in each warp. Same as cores/SM")
-
-    ruby = Param.RubySystem(Parent.any, "ruby system")
-
-    stats_filename = Param.String("gpu_stats.txt",
-          "file to which gpgpu-sim dumps its stats")
-    config_path = Param.String('gpgpusim.config', "File from which to configure GPGPU-Sim")
-    dump_kernel_stats = Param.Bool(False, "Dump and reset simulator statistics at the beginning and end of kernels")
-
-    # When using a segmented physical address space, the SPA can manage memory
-    manage_gpu_memory = Param.Bool(False, "Handle all GPU memory allocations in this SPA")
-    gpu_memory_range = Param.AddrRange(AddrRange('1kB'), "The address range for the GPU memory space")
-
-    frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")
+Source('fusion_profiler.cc')

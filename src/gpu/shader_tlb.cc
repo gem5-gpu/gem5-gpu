@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "shader_tlb.hh"
 #include "debug/ShaderTLB.hh"
+#include "gpu/shader_tlb.hh"
 
 ShaderTLB::ShaderTLB(const Params *p) :
     X86ISA::TLB(p), spa(p->spa), accessHostPageTable(p->access_host_pagetable)

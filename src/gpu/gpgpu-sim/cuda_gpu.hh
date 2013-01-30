@@ -46,8 +46,12 @@
 #include "params/StreamProcessorArray.hh"
 #include "sim/process.hh"
 #include "sim/system.hh"
-#include "copy_engine.hh"
-#include "shader_core.hh"
+
+// @TODO: Fix the dependencies between sp_array and copy_engine, and
+// sort these includes into the set above as necessary
+#include "gpu/copy_engine.hh"
+#include "gpu/gpgpu-sim/cuda_core.hh"
+class ShaderCore;
 
 /**
  *  Main wrapper class for GPGPU-Sim

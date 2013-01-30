@@ -29,6 +29,7 @@
 #ifndef __SIM_GPGPU_SYSCALLS_HH__
 #define __SIM_GPGPU_SYSCALLS_HH__
 
+#include "api/gpu_syscall_helper.hh"
 #include "sim/syscall_emul.hh"
 
 /*******************************

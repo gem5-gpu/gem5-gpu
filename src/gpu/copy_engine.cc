@@ -33,9 +33,9 @@
 #include "base/output.hh"
 #include "config/the_isa.hh"
 #include "debug/SPACopyEngine.hh"
+#include "gpu/copy_engine.hh"
 #include "mem/page_table.hh"
 #include "params/SPACopyEngine.hh"
-#include "copy_engine.hh"
 
 #define READ_AMOUNT 128
 

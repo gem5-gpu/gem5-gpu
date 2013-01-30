@@ -3,7 +3,7 @@
 // University of British Columbia
 
 /*
- * cuda_runtime_api.cc
+ * cuda_syscalls.cc
  *
  * Copyright © 2009 by Tor M. Aamodt, Wilson W. L. Fung, Ali Bakhoda,
  * George L. Yuan and the University of British Columbia, Vancouver,
@@ -102,7 +102,7 @@
  */
 
 /*
- * Copyright (c) 2011 Mark D. Hill and David A. Wood
+ * Copyright (c) 2011-2013 Mark D. Hill and David A. Wood
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -155,11 +155,11 @@
 #include "../gpgpu-sim/gpgpu-sim/gpu-sim.h"
 #include "../gpgpu-sim/gpgpusim_entrypoint.h"
 #include "../gpgpu-sim/stream_manager.h"
-#include "../spa_obj/sp_array.hh"
+#include "api/cuda_syscalls.hh"
+#include "api/gpu_syscall_helper.hh"
 #include "cpu/thread_context.hh"
 #include "debug/GPUSyscalls.hh"
-#include "gpu_syscall_helper.hh"
-#include "gpu_syscalls.hh"
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 
 #define MAX_STRING_LEN 1000
 
@@ -1237,7 +1237,7 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
     delete[] device_fun;
 }
 
-void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar) 
+void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar)
 {
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterVar(fatCubinHandle** = %x, hostVar* = 0x%x, deviceAddress* = 0x%x, deviceName* = %s, ext = %d, size = %d, constant = %d, global = %d)\n",
             /*sim_fatCubinHandle*/ 0, sim_hostVar, sim_deviceAddress,
@@ -1270,7 +1270,7 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
 
     spa->saveVar(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
-    
+
     register_var(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
 }
 

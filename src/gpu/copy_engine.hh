@@ -36,9 +36,11 @@
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/SPACopyEngine.hh"
-#include "params/ShaderCore.hh"
 #include "sim/process.hh"
-#include "sp_array.hh"
+
+// @TODO: Fix the dependencies between sp_array and copy_engine, and
+// sort this include into the set above
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 
 class SPACopyEngine : public MemObject
 {

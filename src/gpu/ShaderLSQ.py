@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Mark D. Hill and David A. Wood
+# Copyright (c) 2012 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,26 +25,23 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+
 from MemObject import MemObject
 from ShaderTLB import ShaderTLB
-from m5.defines import buildEnv
 from m5.params import *
-from m5.proxy import *
 
-class SPACopyEngine(MemObject):
-    type = 'SPACopyEngine'
-    cxx_class = 'SPACopyEngine'
-    cxx_header = "gem5-fusion/src/spa_obj/copy_engine.hh"
+class ShaderLSQ(MemObject):
+    type = 'ShaderLSQ'
+    cxx_class = 'ShaderLSQ'
+    cxx_header = "gpu/shader_lsq.hh"
 
-    host_port = MasterPort("The copy engine port to host coherence domain")
-    device_port = MasterPort("The copy engine port to device coherence domain")
-    driver_delay = Param.Int(0, "memcpy launch delay in ticks");
-    sys = Param.System(Parent.any, "system sc will run on")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    cache_port = MasterPort("The data cache port for this LSQ")
 
-    host_dtb = Param.ShaderTLB(ShaderTLB(access_host_pagetable = True), "TLB for the host memory space")
-    device_dtb = Param.ShaderTLB(ShaderTLB(), "TLB for the device memory space")
+    lane_port = VectorSlavePort("the ports back to the shader core")
 
-    id = Param.Int(-1, "ID of the CE")
-    stats_filename = Param.String("ce_stats.txt",
-        "file to which copy engine dumps its stats")
+    data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
+
+    request_buffers = Param.Int(16, "Number of buffers to put ld/st request after coalescing")
+    request_buffer_depth = Param.Int(1024, "Max number of outstanding requests per buffer")
+
+    warp_size = Param.Int("Size of the warp")

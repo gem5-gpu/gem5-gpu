@@ -34,6 +34,7 @@
 
 #include "arch/tlb.hh"
 #include "arch/utility.hh"
+#include "api/gpu_syscall_helper.hh"
 #include "base/chunk_generator.hh"
 #include "base/output.hh"
 #include "config/the_isa.hh"
@@ -44,13 +45,11 @@
 #include "debug/StreamProcessorArrayAccess.hh"
 #include "debug/StreamProcessorArrayPageTable.hh"
 #include "debug/StreamProcessorArrayTick.hh"
-#include "gem5/gpu_syscall_helper.hh"
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
 #include "sim/pseudo_inst.hh"
-
-#include "sp_array.hh"
 
 #include "../gpgpu-sim/cuda-sim/cuda-sim.h"
 #include "../gpgpu-sim/gpgpusim_entrypoint.h"

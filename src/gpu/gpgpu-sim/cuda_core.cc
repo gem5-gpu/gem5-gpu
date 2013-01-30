@@ -41,11 +41,11 @@
 #include "debug/ShaderCoreFetch.hh"
 #include "debug/ShaderCoreTick.hh"
 #include "debug/ShaderMemTrace.hh"
+#include "gpu/gpgpu-sim/cuda_core.hh"
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/page_table.hh"
-#include "mem/ruby/fusion_profiler.hh"
+#include "mem/ruby/fusion_profiler/fusion_profiler.hh"
 #include "params/ShaderCore.hh"
-#include "shader_core.hh"
-#include "sp_array.hh"
 #include "../gpgpu-sim/cuda-sim/instructions_extra.h"
 
 using namespace TheISA;
