@@ -40,19 +40,18 @@
 #include "config/the_isa.hh"
 #include "cpu/thread_context.hh"
 #include "cpu/translation.hh"
+#include "cuda-sim/cuda-sim.h"
 #include "debug/GpuTick.hh"
 #include "debug/StreamProcessorArray.hh"
 #include "debug/StreamProcessorArrayAccess.hh"
 #include "debug/StreamProcessorArrayPageTable.hh"
 #include "debug/StreamProcessorArrayTick.hh"
+#include "gpgpusim_entrypoint.h"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
 #include "params/StreamProcessorArray.hh"
 #include "sim/pseudo_inst.hh"
-
-#include "../gpgpu-sim/cuda-sim/cuda-sim.h"
-#include "../gpgpu-sim/gpgpusim_entrypoint.h"
 
 using namespace TheISA;
 using namespace std;

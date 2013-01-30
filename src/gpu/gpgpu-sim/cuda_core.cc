@@ -46,7 +46,6 @@
 #include "mem/page_table.hh"
 #include "mem/ruby/fusion_profiler/fusion_profiler.hh"
 #include "params/ShaderCore.hh"
-#include "../gpgpu-sim/cuda-sim/instructions_extra.h"
 
 using namespace TheISA;
 using namespace std;
@@ -194,7 +193,7 @@ bool ShaderCore::SCDataPort::recvTimingResp(PacketPtr pkt)
             ptx_reg_t register_data;
             memcpy(&register_data, (void*)(pkt->getPtr<uint8_t>() + offset_in_line), curr_hint->getSize());
             if (type == S16_TYPE || type == S32_TYPE) {
-                sign_extend(register_data, curr_hint->getSize()*8, dst);
+//                sign_extend(register_data, curr_hint->getSize()*8, dst);
             }
             if (!vector_spec) {
                 thread->set_operand_value(dst, register_data, type, thread, pI);

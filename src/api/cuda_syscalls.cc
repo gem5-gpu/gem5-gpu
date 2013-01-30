@@ -148,18 +148,18 @@
 #endif
 #endif
 
-#include "../gpgpu-sim/cuda-sim/cuda-sim.h"
-#include "../gpgpu-sim/cuda-sim/ptx_ir.h"
-#include "../gpgpu-sim/cuda-sim/ptx_loader.h"
-#include "../gpgpu-sim/cuda-sim/ptx_parser.h"
-#include "../gpgpu-sim/gpgpu-sim/gpu-sim.h"
-#include "../gpgpu-sim/gpgpusim_entrypoint.h"
-#include "../gpgpu-sim/stream_manager.h"
 #include "api/cuda_syscalls.hh"
 #include "api/gpu_syscall_helper.hh"
 #include "cpu/thread_context.hh"
+#include "cuda-sim/cuda-sim.h"
+#include "cuda-sim/ptx_ir.h"
+#include "cuda-sim/ptx_loader.h"
+#include "cuda-sim/ptx_parser.h"
 #include "debug/GPUSyscalls.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
+#include "gpgpusim_entrypoint.h"
+#include "gpgpu-sim/gpu-sim.h"
+#include "stream_manager.h"
 
 #define MAX_STRING_LEN 1000
 

@@ -33,13 +33,13 @@
 #include <queue>
 #include <set>
 
-#include "../gpgpu-sim/cuda-sim/ptx_ir.h"
-#include "../gpgpu-sim/cuda-sim/ptx_sim.h"
-#include "../gpgpu-sim/gpgpu-sim/mem_fetch.h"
-#include "../gpgpu-sim/gpgpu-sim/shader.h"
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
+#include "cuda-sim/ptx_ir.h"
+#include "cuda-sim/ptx_sim.h"
+#include "gpgpu-sim/mem_fetch.h"
+#include "gpgpu-sim/shader.h"
 #include "gpu/shader_tlb.hh"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"

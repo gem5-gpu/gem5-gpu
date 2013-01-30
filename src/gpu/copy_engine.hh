@@ -29,7 +29,6 @@
 #ifndef __GPGPU_COPY_ENGINE_HH__
 #define __GPGPU_COPY_ENGINE_HH__
 
-#include "../gpgpu-sim/stream_manager.h"
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
@@ -37,6 +36,7 @@
 #include "mem/mem_object.hh"
 #include "params/SPACopyEngine.hh"
 #include "sim/process.hh"
+#include "stream_manager.h"
 
 // @TODO: Fix the dependencies between sp_array and copy_engine, and
 // sort this include into the set above

@@ -35,17 +35,17 @@
 #include <string>
 #include <vector>
 
-#include "../gpgpu-sim/gpgpu-sim/gpu-sim.h"
-#include "../gpgpu-sim/stream_manager.h"
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
 #include "debug/StreamProcessorArrayPageTable.hh"
+#include "gpgpu-sim/gpu-sim.h"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/StreamProcessorArray.hh"
 #include "sim/process.hh"
 #include "sim/system.hh"
+#include "stream_manager.h"
 
 // @TODO: Fix the dependencies between sp_array and copy_engine, and
 // sort these includes into the set above as necessary
