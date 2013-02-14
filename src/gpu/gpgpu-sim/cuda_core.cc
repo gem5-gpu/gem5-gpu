@@ -74,6 +74,8 @@ ShaderCore::ShaderCore(const Params *p) :
                                     this, i));
     }
 
+    activeCTAs = 0;
+
     DPRINTF(ShaderCore, "[SC:%d] Created shader core\n", id);
 }
 
@@ -449,6 +451,25 @@ ShaderCore::regStats()
         .name(name() + ".inst_counts")
         .desc("Inst counts: 1: ALU, 2: MAD, 3: CTRL, 4: SFU, 5: MEM, 6: TEX, 7: NOP")
         ;
+
+    activeCycles
+        .name(name() + ".activeCycles")
+        .desc("Number of cycles this shader was executing a CTA")
+        ;
+    notStalledCycles
+        .name(name() + ".notStalledCycles")
+        .desc("Number of cycles this shader was actually executing at least one instance")
+        ;
+    instInstances
+        .name(name() + ".instInstances")
+        .desc("Total instructions executed by all PEs in the core")
+        ;
+    instPerCycle
+        .name(name() + ".instPerCycle")
+        .desc("Instruction instances per cycle")
+        ;
+
+    instPerCycle = instInstances / activeCycles;
 }
 
 void
@@ -502,6 +523,15 @@ void
 ShaderCore::record_inst(int inst_type)
 {
     instCounts[inst_type]++;
+
+    // if not nop
+    if (inst_type != 7) {
+        instInstances++;
+        if (curCycle() != lastActiveCycle) {
+            lastActiveCycle = curCycle();
+            notStalledCycles++;
+        }
+    }
 }
 
 void
@@ -510,6 +540,11 @@ ShaderCore::record_block_issue(unsigned hw_cta_id)
     assert(!shaderCTAActive[hw_cta_id]);
     shaderCTAActive[hw_cta_id] = true;
     shaderCTAActiveStats[hw_cta_id].push_back(curTick());
+
+    if (activeCTAs == 0) {
+        beginActiveCycle = curCycle();
+    }
+    activeCTAs++;
 }
 
 void
@@ -518,6 +553,11 @@ ShaderCore::record_block_commit(unsigned hw_cta_id)
     assert(shaderCTAActive[hw_cta_id]);
     shaderCTAActive[hw_cta_id] = false;
     shaderCTAActiveStats[hw_cta_id].push_back(curTick());
+
+    activeCTAs--;
+    if (activeCTAs == 0) {
+        activeCycles += curCycle() - beginActiveCycle;
+    }
 }
 
 void ShaderCore::printCTAStats(std::ostream& out)
