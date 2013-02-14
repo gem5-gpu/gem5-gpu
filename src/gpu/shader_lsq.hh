@@ -33,6 +33,7 @@
 #include <list>
 #include <vector>
 
+#include "base/statistics.hh"
 #include "cpu/translation.hh"
 #include "mem/mem_object.hh"
 #include "mem/packet_queue.hh"
@@ -300,6 +301,16 @@ public:
      */
     void processSendResponseEvent();
     EventWrapper<ShaderLSQ, &ShaderLSQ::processSendResponseEvent> sendResponseEvent;
+
+    // Stats
+    Stats::Scalar coalescerStalls;
+    Stats::Scalar responsePortStalls;
+    Stats::Scalar requestBufferFullStalls;
+
+    Stats::Histogram warpCoalescedRequests;
+    Stats::Histogram warpLatencyRead;
+    Stats::Histogram warpLatencyWrite;
+    void regStats();
 
 };
 

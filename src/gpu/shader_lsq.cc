@@ -121,6 +121,7 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
     if (warpRequest && warpRequest->occupiedTick != curTick()) {
         // There is an old request currently occupying this register
         DPRINTF(ShaderLSQ, "Stall for coalescer\n");
+        lsq.coalescerStalls++;
         return false;
     }
     if (!warpRequest) {
@@ -242,6 +243,11 @@ ShaderLSQ::prepareResponse(PacketPtr pkt)
         // All coalesced requests generated for this warp request have finished
         DPRINTF(ShaderLSQ, "Warp request (%d) completely finished!\n", warpRequest->read);
         DPRINTF(ShaderLSQ, "Responses to send: %d\n", responseQueue.size());
+        if (warpRequest->read) {
+            warpLatencyRead.sample(curCycle() - warpRequest->occupiedCycle);
+        } else if (warpRequest->write) {
+            warpLatencyWrite.sample(curCycle() - warpRequest->occupiedCycle);
+        }
 
         if (warpRequest->read) {
             // For now this is an infinite queue.
@@ -288,6 +294,7 @@ ShaderLSQ::processSendResponseEvent()
     if (responsePortBlocked) {
         // This may happen if a recvResp gets called multiple times in a cycle
         DPRINTF(ShaderLSQ, "Repsonse port is blocked!\n");
+        responsePortStalls++;
         return;
     }
 
@@ -344,6 +351,7 @@ ShaderLSQ::processCoalesceEvent()
         // Haven't actually coalesced yet!
         DPRINTF(ShaderLSQ, "Doing the coalescing\n");
         coalesce(warpRequest);
+        warpCoalescedRequests.sample(coalescedRequests.size());
     }
 
     DPRINTF(ShaderLSQ, "Have %d coalesced requests left to send\n",
@@ -361,10 +369,11 @@ ShaderLSQ::processCoalesceEvent()
         if (coalescingQueue.size() > 0) {
             schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
         }
+    } else {
+        // Skip this request and try again later
+        // after something has been removed from the outgoing buffer
+        requestBufferFullStalls++;
     }
-    // Otherwise:
-    //   Skip this request and try again later
-    //   after something has been removed from the outgoing buffer
 }
 
 bool
@@ -669,6 +678,39 @@ ShaderLSQ::generateCoalescedRequest(Addr addr, size_t size,
         panic("Coalescer only supports reads and writes\n");
     }
     warpRequest->coalescedRequests.push_back(request);
+}
+
+void
+ShaderLSQ::regStats()
+{
+    coalescerStalls
+        .name(name()+".coalescerStalls")
+        .desc("Number of stalls for the coalescer")
+        ;
+    responsePortStalls
+        .name(name()+".responsePortStalls")
+        .desc("Number of stalls for the response port")
+        ;
+    requestBufferFullStalls
+        .name(name()+".requestBufferFullStalls")
+        .desc("Number of stalls for the request buffer")
+        ;
+
+    warpCoalescedRequests
+        .name(name() + ".warpCoalescedRequests")
+        .desc("Number of coalesced requests for each warp")
+        .init(33)
+        ;
+    warpLatencyRead
+        .name(name() + ".warpLatencyRead")
+        .desc("Latency in cycles for whole warp to finish the read")
+        .init(16)
+        ;
+    warpLatencyWrite
+        .name(name() + ".warpLatencyWrite")
+        .desc("Latency in cycles for whole warp to finish the write")
+        .init(16)
+        ;
 }
 
 
