@@ -528,7 +528,7 @@ ShaderLSQ::coalesce(WarpRequest *warpRequest)
         std::map< Addr, transaction_info >::iterator t;
         for( t=subwarp_transactions.begin(); t !=subwarp_transactions.end(); t++ ) {
             Addr addr = t->first;
-            const transaction_info &info = t->second;
+            transaction_info &info = t->second;
 
             // memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size);
             // Copied below.
@@ -581,47 +581,54 @@ ShaderLSQ::coalesce(WarpRequest *warpRequest)
             }
             // m_accessq.push_back( mem_access_t(access_type,addr,size,is_write,info.active,info.bytes) );
 
-            // A map from the word of the block to the lane id
-            // Needs to be multimap since two lanes could have same addr
-            multimap<int,int> validWords;
-            vector<int>::const_iterator iter = info.activeLanes.begin();
-            for ( ; iter != info.activeLanes.end(); iter++) {
-                Addr a = warpRequest->laneRequests[*iter]->req->getVaddr();
-                int offset = a & (size-1);
-                validWords.insert(pair<int,int>(offset, *iter));
-            }
+            if (warpRequest->read) {
+                // It would be good to reduce the size as much as possible to
+                // allow for flexibility in the minumum request size in caches
+                generateCoalescedRequest(addr, size, warpRequest, info.activeLanes);
+            } else {
+                // Writes must be contiguous!
+                // A map from the word of the block to the lane id
+                // Needs to be multimap since two lanes could have same addr
+                multimap<int,int> validWords;
+                vector<int>::const_iterator iter = info.activeLanes.begin();
+                for ( ; iter != info.activeLanes.end(); iter++) {
+                    Addr a = warpRequest->laneRequests[*iter]->req->getVaddr();
+                    int offset = a & (size-1);
+                    validWords.insert(pair<int,int>(offset, *iter));
+                }
 
-            multimap<int,int>::iterator it = validWords.begin();
-            while (it != validWords.end()) {
-                Addr base = addr + it->first;
-                vector<int> lanes;
-                int chunkSize = warpRequest->size;
-                // While the next offset is the current offset + size of word
-                // Use >= because could have two requests with same offset
-                // incr the current offset
-                multimap<int,int>::iterator next(it);
-                next++;
-                do {
-                    lanes.push_back(it->second);
-                    if (next == validWords.end()) {
-                        // This was the last thread
-                        it++;
-                        break;
-                    }
-                    if (it->first + warpRequest->size == next->first) {
-                        // Only add to the chunk if the address is the next
-                        chunkSize += warpRequest->size;
-                    } else if (it->first != next->first) {
-                        // if next offset is not cur+size or cur, end of chunk
-                        it++;
-                        break;
-                    }
-                    it++;
+                multimap<int,int>::iterator it = validWords.begin();
+                while (it != validWords.end()) {
+                    Addr base = addr + it->first;
+                    vector<int> lanes;
+                    int chunkSize = warpRequest->size;
+                    // While the next offset is the current offset + size of word
+                    // Use >= because could have two requests with same offset
+                    // incr the current offset
+                    multimap<int,int>::iterator next(it);
                     next++;
-                } while (it != validWords.end());
-                DPRINTF(ShaderLSQ, "Base 0x%llx, chunk %d\n", base, chunkSize);
-                // This is a new chunk that we need to send off
-                generateCoalescedRequest(base, chunkSize, warpRequest, lanes);
+                    do {
+                        lanes.push_back(it->second);
+                        if (next == validWords.end()) {
+                            // This was the last thread
+                            it++;
+                            break;
+                        }
+                        if (it->first + warpRequest->size == next->first) {
+                            // Only add to the chunk if the address is the next
+                            chunkSize += warpRequest->size;
+                        } else if (it->first != next->first) {
+                            // if next offset is not cur+size or cur, end of chunk
+                            it++;
+                            break;
+                        }
+                        it++;
+                        next++;
+                    } while (it != validWords.end());
+                    DPRINTF(ShaderLSQ, "Base 0x%llx, chunk %d\n", base, chunkSize);
+                    // This is a new chunk that we need to send off
+                    generateCoalescedRequest(base, chunkSize, warpRequest, lanes);
+                }
             }
         }
     }
@@ -634,10 +641,8 @@ ShaderLSQ::generateCoalescedRequest(Addr addr, size_t size,
 {
     DPRINTF(ShaderLSQ, "Generating mem access at 0x%llx for %d bytes for %d threads\n", addr, size, activeLanes.size());
 
-    assert(activeLanes.size() * warpRequest->size >= size);
-
     Request::Flags flags;
-    const int asid = 0;
+    int asid = 0;
     RequestPtr req = new Request(asid, addr, size, flags,
                                  warpRequest->masterId,
                                  warpRequest->pc, warpRequest->cid,
