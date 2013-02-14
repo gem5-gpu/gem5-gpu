@@ -36,7 +36,6 @@ class ShaderCore(MemObject):
     cxx_class = 'ShaderCore'
     cxx_header = "gpu/gpgpu-sim/cuda_core.hh"
 
-    data_port = MasterPort("The data cache port for this SC")
     inst_port = MasterPort("The instruction cache port for this SC")
 
     lsq_port = VectorMasterPort("the load/store queue coalescer ports")
@@ -44,7 +43,6 @@ class ShaderCore(MemObject):
     sys = Param.System(Parent.any, "system sc will run on")
     spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
 
-    dtb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
     itb = Param.ShaderTLB(ShaderTLB(), "Instruction TLB")
 
     id = Param.Int(-1, "ID of the SP")

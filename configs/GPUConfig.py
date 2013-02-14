@@ -146,7 +146,6 @@ def createGPU(options, gpu_mem_range):
     if options.access_host_pagetable:
         for sc in gpu.shader_cores:
             sc.itb.access_host_pagetable = True
-            sc.dtb.access_host_pagetable = True
             sc.lsq.data_tlb.access_host_pagetable = True
         gpu.ce.device_dtb.access_host_pagetable = True
         gpu.ce.host_dtb.access_host_pagetable = True
@@ -159,7 +158,6 @@ def createGPU(options, gpu_mem_range):
 
 def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
-        sc.data_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
         sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]

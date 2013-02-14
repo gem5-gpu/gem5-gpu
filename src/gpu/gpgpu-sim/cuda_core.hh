@@ -61,39 +61,7 @@ protected:
     typedef ShaderCoreParams Params;
 
     /**
-     * Port for sending a receiving data memory requests
-     * Required for implementing MemObject
-     */
-    class SCDataPort : public MasterPort
-    {
-        friend class ShaderCore;
-
-    private:
-        // Pointer back to shader core for callbacks
-        ShaderCore *proc;
-
-        // Holds packets that failed to send for retry
-        std::list<PacketPtr> outDataPkts;
-
-        // List of write packets to be sent
-        std::map<Addr,std::list<PacketPtr> > writePackets;
-    public:
-        SCDataPort(const std::string &_name, ShaderCore *_proc)
-        : MasterPort(_name, _proc), proc(_proc) {}
-        // Sends a request into the gem5 memory system (Ruby)
-        bool sendPkt(PacketPtr pkt);
-
-    protected:
-        virtual bool recvTimingResp(PacketPtr pkt);
-        virtual void recvRetry();
-        virtual Tick recvAtomic(PacketPtr pkt);
-        virtual void recvFunctional(PacketPtr pkt);
-    };
-    /// Instantiation of above port
-    SCDataPort dataPort;
-
-    /**
-     * Port for sending a receiving data memory requests
+     * Port for sending a receiving instuction memory requests
      * Required for implementing MemObject
      */
     class SCInstPort : public MasterPort
@@ -153,32 +121,12 @@ protected:
         warp_inst_t inst;
     };
 
-    /**
-     *  Helper class for tick events
-     */
-    class TickEvent : public Event
-    {
-        friend class ShaderCore;
-
-    private:
-        ShaderCore *sc;
-    public:
-        TickEvent(ShaderCore *c) : Event(CPU_Tick_Pri), sc(c) {}
-        void process() { sc->tick(); }
-        virtual const char *description() const { return "ShaderCore tick"; }
-    };
-
     const Params * params() const { return dynamic_cast<const Params *>(_params);	}
     const ShaderCoreParams *_params;
-
-    TickEvent tickEvent;
-    bool scheduledTickEvent;
 
     MasterID masterId;
 
 private:
-    /// Called on tick events, and re-schedules a previously failed access
-    void tick();
 
     /// Called to begin a virtual memory access
     void accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode);
@@ -192,38 +140,13 @@ private:
 
     /// Stalled because a memory request called recvRetry, usually because a queue
     /// filled up
-    bool stallOnDCacheRetry;
     bool stallOnICacheRetry;
-
-    /// Stalled because we have some atomics finish the read part
-    /// and we still need to issue the writes, but they are beinging blocked by
-    /// something else
-//    bool stallOnAtomicQueue;
-
-    /// Holds requests that came in after a failed packet, but
-    /// before a call to resourceAvailable
-    class PendingReq {
-    public:
-        PendingReq(RequestPtr _req, BaseTLB::Mode _mode, mem_fetch *_mf=NULL) :
-            req(_req), mode(_mode), mf(_mf) {}
-        RequestPtr req;
-        BaseTLB::Mode mode;
-        mem_fetch *mf;
-    };
 
     /// holds all outstanding addresses, maps from address to mf object (from gpgpu-sim)
     /// used mostly for acking GPGPU-Sim
-    std::map<Addr,mem_fetch *> busyDataCacheLineAddrs;
     std::map<Addr,mem_fetch *> busyInstCacheLineAddrs;
 
-    /// For profiling warp specific latencies pair is (pc, warpID)
-    std::map<std::pair<uint64_t, unsigned>, class WarpMemRequest> warpMemRequests;
-
-    /// Queue for outstanding atomic writes (see stallOnAtomicQueue)
-    std::queue<PendingReq*> atomicQueue;
-
     /// TLB's. These do NOT perform any timing right now
-    ShaderTLB *dtb;
     ShaderTLB *itb;
 
     /// Point to SPA this shader core is part of
@@ -235,64 +158,8 @@ private:
     /// Returns the line of the address, a
     Addr addrToLine(Addr a);
 
-    /// Can we issue a data cache request this cycle?
-    int dataCacheResourceAvailable(Addr a);
-
-    /// Can we issue a data cache request this cycle?
+    /// Can we issue an inst  cache request this cycle?
     int instCacheResourceAvailable(Addr a);
-
-    // A class to store actions that need to be taken by the shader core
-    // when memory accesses use gem5 memory
-    class MemRequestHint {
-        Addr addr;
-        size_t size;
-        BaseTLB::Mode reqType;
-        uint8_t* data;
-        unsigned int wID;
-        unsigned int tID;
-        ptx_thread_info* thread;
-        const ptx_instruction* pI;
-    public:
-        MemRequestHint(Addr _addr, size_t _size, BaseTLB::Mode _reqType) :
-            addr(_addr), size(_size), reqType(_reqType), data(NULL)
-            { data = new uint8_t[size]; }
-        MemRequestHint(Addr _addr, size_t _size, BaseTLB::Mode _reqType, unsigned int _wID, unsigned int _tID) :
-            addr(_addr), size(_size), reqType(_reqType), data(NULL), wID(_wID), tID(_tID)
-            {}
-        ~MemRequestHint() { if (data) delete[] data; }
-        void addData(size_t _size, const void* _data, unsigned offset = 0);
-        bool isRead() {return (reqType == BaseTLB::Read);}
-        bool isWrite() {return (reqType == BaseTLB::Write);}
-        Addr getAddr() {return addr;}
-        size_t getSize() {return size;}
-        uint8_t* getData() {return data;}
-        unsigned int getWID() {return wID;}
-        unsigned int getTID() {return tID;}
-        ptx_thread_info * getThread() {return thread;}
-        const ptx_instruction* getInst() {return pI;}
-        void setThread(ptx_thread_info *_thd) {thread = _thd;}
-        void setInst(const ptx_instruction *_pI) {pI = _pI;}
-        Tick tick;
-    };
-
-    // Map of memory write hints from ST instructions executed on this core
-    std::map<Addr,std::list<MemRequestHint*> > memWriteHints;
-    // Map of memory write packets to be sent by this core
-    std::map<Addr,std::list<MemRequestHint*> > writePacketHints;
-
-    class ReadPacketBuffer : public Packet::SenderState {
-        mem_fetch* mf;
-        std::list<MemRequestHint*> bufferedReads;
-    public:
-        ReadPacketBuffer(mem_fetch* _mf) : mf(_mf) {}
-        ~ReadPacketBuffer() { bufferedReads.clear(); }
-        unsigned int numBufferedReads() {return bufferedReads.size();}
-        std::list<MemRequestHint*> getBufferedReads() {return bufferedReads;}
-        void addBufferedRead(MemRequestHint* hint) {bufferedReads.push_back(hint);}
-    };
-
-    // Map of memory read hints from LD instructions executed on this core
-    std::map<Addr,std::list<MemRequestHint*> > memReadHints;
 
 public:
     /// Constructor
@@ -317,13 +184,6 @@ public:
     * @ return Is the current instruction squashed?
     */
     bool isSquashed() const { return false; }
-
-    /// Wrapper functions for GPGPU-Sim to call on reads, writes, and atomics
-    int readTiming (Addr a, size_t size, mem_fetch *mf);
-    int writeTiming(Addr a, size_t size, mem_fetch *mf);
-    int atomicRMW(Addr a, size_t size, mem_fetch *mf);
-    void addWriteHint(Addr addr, size_t size, const void* data);
-    void addReadHint(Addr addr, size_t size, const void* data, ptx_thread_info *thd, const ptx_instruction *pI);
 
     /**
     * This function is the main entrypoint from GPGPU-Sim
