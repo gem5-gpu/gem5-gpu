@@ -41,7 +41,9 @@ class ShaderLSQ(MemObject):
 
     data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
 
-    request_buffers = Param.Int(16, "Number of buffers to put ld/st request after coalescing")
-    request_buffer_depth = Param.Int(1024, "Max number of outstanding requests per buffer")
+    request_buffer_depth = Param.Int(16, "Max outstanding requests to the L1 cache")
 
-    warp_size = Param.Int("Size of the warp")
+    warp_size = Param.Int(32, "Size of the warp")
+    warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
+
+    coalescing_latency = Param.Int(4, "Cycles of latency for the coalescer")

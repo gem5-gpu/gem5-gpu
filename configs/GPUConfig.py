@@ -30,6 +30,7 @@ import m5
 import os
 from m5.objects import *
 from m5.util.convert import *
+from m5.util import fatal
 
 def addGPUOptions(parser):
     parser.add_option("--clusters", default=16, help="Number of shader core clusters in the gpu that GPGPU-sim is simulating", type="int")
@@ -54,6 +55,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_membus_busy_cycles", type="int", default=-1, help="GPU memory bus busy cycles per data transfer")
     parser.add_option("--gpu_membank_busy_time", type="string", default=None, help="GPU memory bank busy time in ns (CL+tRP+tRCD+CAS)")
     parser.add_option("--gpu_warp_size", type="int", default=32, help="Number of threads per warp, also functional units per shader core/SM")
+    parser.add_option("--gpu_threads_per_core", type="int", default=1536, help="Maximum number of threads per GPU core (SM)")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -65,8 +67,7 @@ def configureMemorySpaces(options):
         total_mem_size = total_mem_range.size()
         gpu_mem_range = AddrRange(options.gpu_mem_size)
         if gpu_mem_range.size() >= total_mem_size:
-            print "GPU memory size (%s) won't fit within total memory size (%s)!" % (options.gpu_mem_size, options.total_mem_size)
-            sys.exit(1)
+            fatal("GPU memory size (%s) won't fit within total memory size (%s)!" % (options.gpu_mem_size, options.total_mem_size))
         gpu_segment_base_addr = Addr(total_mem_size - gpu_mem_range.size())
         gpu_mem_range = AddrRange(gpu_segment_base_addr, size = options.gpu_mem_size)
         options.total_mem_size = long(gpu_segment_base_addr)
@@ -86,8 +87,7 @@ def parseGpgpusimConfig(options):
         gpgpusimconfig = os.path.join(os.path.dirname(__file__), 'gpu_config/gpgpusim.config.template')
         usingTemplate = True
         if not os.path.isfile(gpgpusimconfig):
-            print >>sys.stderr, "Unable to find gpgpusim config (%s)" % gpgpusimconfig
-            sys.exit(1)
+            fatal("Unable to find gpgpusim config (%s)" % gpgpusimconfig)
     f = open(gpgpusimconfig, 'r')
     config = f.read()
     f.close()
@@ -101,6 +101,7 @@ def parseGpgpusimConfig(options):
         config = config.replace("%warp_size%", str(options.gpu_warp_size))
         # GPGPU-Sim config expects freq in MHz
         config = config.replace("%freq%", str(toFrequency(options.gpu_core_clock) / 1.0e6))
+        config = config.replace("%threads_per_sm%", str(options.gpu_threads_per_core))
         options.num_sc = options.clusters*options.cores_per_cluster
         f = open(m5.options.outdir + '/gpgpusim.config', 'w')
         f.write(config)
@@ -141,6 +142,9 @@ def createGPU(options, gpu_mem_range):
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()
         sc.lsq.warp_size = options.gpu_warp_size
+        if options.gpu_threads_per_core % options.gpu_warp_size:
+            fatal("gpu_warp_size must divide gpu_threads_per_core evenly.")
+        sc.lsq.warp_contexts = options.gpu_threads_per_core / options.gpu_warp_size
 
     # This is a stop-gap solution until we implement a better way to register device memory
     if options.access_host_pagetable:

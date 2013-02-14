@@ -38,9 +38,12 @@
 using namespace std;
 
 ShaderLSQ::ShaderLSQ(Params *p)
-	: MemObject(p), responsePortBlocked(false), cachePort(name() + "cache_port", this),
-      warpSize(p->warp_size), coalescingRegister(NULL), requestBufferDepth(p->request_buffer_depth),
-      tlb(p->data_tlb), coalesceEvent(this), sendResponseEvent(this)
+	: MemObject(p), responsePortBlocked(false),
+      cachePort(name() + "cache_port", this),
+      requestBufferDepth(p->request_buffer_depth), tlb(p->data_tlb),
+      warpSize(p->warp_size), numWarpContexts(p->warp_contexts),
+      coalescingLatency(p->coalescing_latency), coalesceEvent(this),
+      sendResponseEvent(this)
 {
     // create the lane ports based on the number of connected ports
     for (int i = 0; i < p->port_lane_port_connection_count; i++) {
@@ -48,19 +51,20 @@ ShaderLSQ::ShaderLSQ(Params *p)
                                           i, this));
     }
 
-    requestBuffers.resize(p->request_buffers);
-
-    for (int i=0; i < warpSize; i++) {
-        sendRubyRequestEvents.push_back(new SendRubyRequestEvent(this, i));
-    }
+    coalescingBuffers = new WarpRequest*[numWarpContexts]();
 }
 
 ShaderLSQ::~ShaderLSQ()
 {
     for (int i=0; i < warpSize; i++) {
-        delete sendRubyRequestEvents[i];
         delete lanePorts[i];
     }
+
+    for (int i=0; i < numWarpContexts; i++) {
+        assert(coalescingBuffers[i] == NULL);
+    }
+
+    delete[] coalescingBuffers;
 }
 
 BaseMasterPort &
@@ -104,11 +108,15 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
 	// NOTE: If this is going to fail, it needs to fail early. The first port
 	//       in lanePorts must fail so that the lanes are in the same state
 
-	DPRINTF(ShaderLSQ, "Address 0x%llx\n", pkt->req->getVaddr());
+    DPRINTF(ShaderLSQ, "Warp id: %d, Address 0x%llx\n",
+            pkt->req->threadId(), pkt->req->getVaddr());
 
     // Get the cross-lane warp request from the lsq which owns this port
     ShaderLSQ &lsq = (ShaderLSQ&)owner;
-    WarpRequest *warpRequest = lsq.coalescingRegister;
+
+    // NOTE: pkt->threadId() is the warp/wavefront (scheduling unit) ID
+    assert(pkt->req->threadId() < lsq.numWarpContexts);
+    WarpRequest* &warpRequest = lsq.coalescingBuffers[pkt->req->threadId()];
 
     if (warpRequest && warpRequest->occupiedTick != curTick()) {
         // There is an old request currently occupying this register
@@ -117,8 +125,7 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
     }
     if (!warpRequest) {
         // I must be the first lane here setup cross lane info
-        lsq.coalescingRegister = new WarpRequest(lsq.warpSize);
-        warpRequest = lsq.coalescingRegister;
+        warpRequest = new WarpRequest(lsq.warpSize);
         warpRequest->occupiedCycle = lsq.curCycle();
         warpRequest->occupiedTick = curTick();
         warpRequest->size = pkt->req->getSize();
@@ -134,7 +141,10 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
             panic("ShaderLSQ::LanePort::recvTimingReq only supports reads / writes\n");
         }
 
-        lsq.schedule(lsq.coalesceEvent, lsq.nextCycle());
+        if (!lsq.coalesceEvent.scheduled()) {
+            lsq.schedule(lsq.coalesceEvent, lsq.nextCycle());
+        }
+        lsq.coalescingQueue.push(pkt->req->threadId());
     }
 
     // Requests should be the same size for all lanes
@@ -192,16 +202,6 @@ ShaderLSQ::CachePort::recvTimingResp(PacketPtr pkt)
     return lsq.prepareResponse(pkt);
 }
 
-void
-ShaderLSQ::CachePort::recvRetry()
-{
-	DPRINTF(ShaderLSQ, "Got retry from Ruby\n");
-
-    ShaderLSQ &lsq = (ShaderLSQ&)owner;
-
-    lsq.rescheduleBlockedRequestBuffers();
-}
-
 bool
 ShaderLSQ::prepareResponse(PacketPtr pkt)
 {
@@ -227,7 +227,7 @@ ShaderLSQ::prepareResponse(PacketPtr pkt)
         respPkt->makeTimingResponse();
     }
 
-    // remove this coalesced request from its the ld/st buffer
+    // remove this coalesced request from the outgoing buffer
     removeRequestFromBuffer(request);
 
     // remove this request from the warp request
@@ -264,9 +264,17 @@ ShaderLSQ::prepareResponse(PacketPtr pkt)
                     delete *it;
                 }
             }
+            coalescingBuffers[warpRequest->warpId] = NULL;
             delete warpRequest;
         }
 
+    } else {
+        // If there are other coalesced requests for this warp request, we
+        // schedule another "coalesce" event to send the next request out
+        coalescingQueue.push(warpRequest->warpId);
+        if (!coalesceEvent.scheduled()) {
+            schedule(coalesceEvent, nextCycle());
+        }
     }
 
     return true;
@@ -308,6 +316,11 @@ ShaderLSQ::processSendResponseEvent()
 
     responseQueue.pop_back();
     DPRINTF(ShaderLSQ, "Responses to send: %d\n", responseQueue.size());
+    assert(warpRequest == coalescingBuffers[warpRequest->warpId]);
+
+    // We have completed this warp request, now delete it and remove it from
+    // its coalescing buffer.
+    coalescingBuffers[warpRequest->warpId] = NULL;
     delete warpRequest;
 
     if (!responseQueue.empty()) {
@@ -318,83 +331,77 @@ ShaderLSQ::processSendResponseEvent()
 void
 ShaderLSQ::processCoalesceEvent()
 {
-    assert(coalescingRegister);
+    assert(coalescingQueue.size() > 0);
+    WarpRequest *warpRequest = coalescingBuffers[coalescingQueue.front()];
+    assert(warpRequest);
+
+    list<CoalescedRequest*> &coalescedRequests =
+            warpRequest->coalescedRequests;
+
+    DPRINTF(ShaderLSQ, "Coalescing for warp %d\n", warpRequest->warpId);
+
     if (coalescedRequests.empty()) {
         // Haven't actually coalesced yet!
         DPRINTF(ShaderLSQ, "Doing the coalescing\n");
-        coalesce(coalescingRegister);
+        coalesce(warpRequest);
     }
 
     DPRINTF(ShaderLSQ, "Have %d coalesced requests left to send\n",
             coalescedRequests.size());
 
-    assert(!coalescedRequests.empty());
+    assert(coalescedRequests.size() > 0);
 
-    list<CoalescedRequest*>::iterator iter = coalescedRequests.begin();
-    while (iter != coalescedRequests.end()) {
-        if (!insertRequestIntoBuffer(*iter)) {
-            // Skip this request and try again later
-            iter++;
-        } else {
-            beginTranslation(*iter);
-            coalescedRequests.erase(iter++);
-            DPRINTF(ShaderLSQ, "Now have %d coalesced requests\n", coalescedRequests.size());
+    CoalescedRequest *req = coalescedRequests.front();
+    if (insertRequestIntoBuffer(req)) {
+        beginTranslation(req);
+        coalescedRequests.pop_front();
+        DPRINTF(ShaderLSQ, "Now have %d coalesced requests\n", coalescedRequests.size());
+
+        coalescingQueue.pop();
+        if (coalescingQueue.size() > 0) {
+            schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
         }
     }
-
-    if (coalescedRequests.empty()) {
-        // Coalescer has finished and all requests were put into buffers
-        // Now we can accept the next warp request
-        DPRINTF(ShaderLSQ, "Finished sending all coalesced requests\n");
-        coalescingRegister = NULL;
-    }
-}
-
-vector<ShaderLSQ::CoalescedRequest*> &
-ShaderLSQ::getRequestBuffer(CoalescedRequest *request)
-{
-    Addr addr = request->req->getVaddr();
-
-    // NOTE: This assumes 128 byte lines and address striping at the L1
-    int bufferNum = (addr / 128) % requestBuffers.size();
-    request->bufferNum = bufferNum;
-    return requestBuffers[bufferNum];
+    // Otherwise:
+    //   Skip this request and try again later
+    //   after something has been removed from the outgoing buffer
 }
 
 bool
 ShaderLSQ::insertRequestIntoBuffer(CoalescedRequest *request)
 {
-    vector<CoalescedRequest*> &buffer = getRequestBuffer(request);
-
-    // If no room in the buffer
-    if (buffer.size() >= requestBufferDepth) {
+    // Add the request to the outgoing buffer
+    // if buffer is full return false
+    if (outgoingBuffer.size() >= requestBufferDepth) {
         return false;
     }
 
-    buffer.push_back(request);
+    // If there is already an entry in the buffer for this vaddr
+    // wait until that request has been processed
+    if (outgoingBuffer[request->req->getVaddr()] != NULL) {
+        DPRINTF(ShaderLSQ, "Stall for outgoing buffer\n");
+        assert(request->warpRequest !=
+               outgoingBuffer[request->req->getVaddr()]->warpRequest);
+        return false;
+    }
+
+    outgoingBuffer[request->req->getVaddr()] = request;
     return true;
 }
 
 void
 ShaderLSQ::removeRequestFromBuffer(CoalescedRequest *request)
 {
-    vector<CoalescedRequest*> &buffer = getRequestBuffer(request);
+    // Remove request from outgoing buffer as it has finished
+    map<Addr, CoalescedRequest*>::iterator it;
+    it = outgoingBuffer.find(request->req->getVaddr());
+    assert(it != outgoingBuffer.end());
 
-    vector<CoalescedRequest*>::iterator it;
-    bool found = false;
-    for (it = buffer.begin(); it != buffer.end(); it++) {
-        if (*it == request) {
-            found  = true;
-            buffer.erase(it);
-            break;
-        }
-    }
-    // It better have been in the buffer!!
-    assert(found);
+    outgoingBuffer.erase(it);
 
-    if (!coalescedRequests.empty() && !coalesceEvent.scheduled()) {
-        // This may have unblocked the coalescer
-        schedule(coalesceEvent, curTick());
+    // The coalescer may be able to add something to the buffer now
+    if (coalescingQueue.size() > 0 && !coalesceEvent.scheduled()) {
+        schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
     }
 }
 
@@ -438,68 +445,29 @@ ShaderLSQ::finishTranslation(WholeTranslationState *state)
 
     delete state;
 
-    request->translated = true;
-
-    Event *e = sendRubyRequestEvents[request->bufferNum];
-    if (!e->scheduled()) {
-        // if true, This means two translations that hash to the same ld/st
-        // buffer finished in the same cycle
-        schedule(e, curTick());
-    }
+    sendMemoryRequest(request);
 }
 
 void
-ShaderLSQ::rescheduleBlockedRequestBuffers()
+ShaderLSQ::sendMemoryRequest(CoalescedRequest *request)
 {
-    list<int>::iterator iter = blockedBufferNums.begin();
-    while (iter != blockedBufferNums.end()) {
-        Event *e = sendRubyRequestEvents[*iter];
-        if (!e->scheduled()) {
-            // if true, This means two translations that hash to the same ld/st
-            // buffer finished in the same cycle
-            schedule(e, curTick());
-        }
-        blockedBufferNums.erase(iter++);
+
+    DPRINTF(ShaderLSQ, "About to send req to ruby for vaddr: 0x%llx\n",
+            request->req->getVaddr());
+
+    PacketPtr pkt;
+    if (request->read) {
+        pkt = new Packet(request->req, MemCmd::ReadReq);
+        pkt->allocate();
+    } else if (request->write) {
+        pkt = new Packet(request->req, MemCmd::WriteReq);
+        pkt->allocate();
+        pkt->setData(request->data);
+    } else {
+        panic("ShaderLSQ::sendRubyRequest bad request type\n");
     }
-}
-
-void
-ShaderLSQ::sendRubyRequest(int requestBufferNum)
-{
-    vector<CoalescedRequest*> &buffer = requestBuffers[requestBufferNum];
-
-    // We must iterate through the buffer because if two requests both finish
-    // translation in the same cycle then there will be only one event sched.
-
-    vector<CoalescedRequest*>::iterator iter;
-    for (iter = buffer.begin(); iter != buffer.end(); iter++) {
-        CoalescedRequest *request = *iter;
-        if (request->sent || !request->translated) {
-            continue;
-        }
-        DPRINTF(ShaderLSQ, "[RB: %d] About to send req to ruby for vaddr: 0x%llx\n",
-                requestBufferNum, request->req->getVaddr());
-
-        PacketPtr pkt;
-        if (request->read) {
-            pkt = new Packet(request->req, MemCmd::ReadReq);
-            pkt->allocate();
-        } else if (request->write) {
-            pkt = new Packet(request->req, MemCmd::WriteReq);
-            pkt->allocate();
-            pkt->setData(request->data);
-        } else {
-            panic("ShaderLSQ::sendRubyRequest bad request type\n");
-        }
-        pkt->senderState = request;
-        if (!cachePort.sendTimingReq(pkt)) {
-            delete pkt;
-            DPRINTF(ShaderLSQ, "Sending to Ruby failed for buffer num %d\n", requestBufferNum);
-            blockedBufferNums.push_back(requestBufferNum);
-        } else {
-            request->sent = true;
-        }
-    }
+    pkt->senderState = request;
+    cachePort.schedTimingReq(pkt, curTick());
 }
 
 void
@@ -653,19 +621,20 @@ ShaderLSQ::coalesce(WarpRequest *warpRequest)
                 } while (it != validWords.end());
                 DPRINTF(ShaderLSQ, "Base 0x%llx, chunk %d\n", base, chunkSize);
                 // This is a new chunk that we need to send off
-                generateMemoryAccess(base, chunkSize, warpRequest, lanes);
+                generateCoalescedRequest(base, chunkSize, warpRequest, lanes);
             }
         }
     }
 }
 
 void
-ShaderLSQ::generateMemoryAccess(Addr addr, size_t size, WarpRequest *warpRequest, vector<int> &activeLanes)
+ShaderLSQ::generateCoalescedRequest(Addr addr, size_t size,
+                                    WarpRequest *warpRequest,
+                                    vector<int> &activeLanes)
 {
     DPRINTF(ShaderLSQ, "Generating mem access at 0x%llx for %d bytes for %d threads\n", addr, size, activeLanes.size());
 
     assert(activeLanes.size() * warpRequest->size >= size);
-    // Insert into coalesced request buffer
 
     Request::Flags flags;
     const int asid = 0;
@@ -677,9 +646,6 @@ ShaderLSQ::generateMemoryAccess(Addr addr, size_t size, WarpRequest *warpRequest
     CoalescedRequest *request = new CoalescedRequest();
     request->warpRequest = warpRequest;
     request->req = req;
-    request->done = false;
-    request->sent = false;
-    request->translated = false;
     request->activeLanes = activeLanes;
     if (warpRequest->read) {
         request->read = true;
@@ -698,8 +664,6 @@ ShaderLSQ::generateMemoryAccess(Addr addr, size_t size, WarpRequest *warpRequest
         panic("Coalescer only supports reads and writes\n");
     }
     warpRequest->coalescedRequests.push_back(request);
-    coalescedRequests.push_back(request);
-    DPRINTF(ShaderLSQ, "Now have %d coalesced requests\n", coalescedRequests.size());
 }
 
 

@@ -29,7 +29,7 @@
 #ifndef __GPGPU_SHADER_LSQ_HH__
 #define __GPGPU_SHADER_LSQ_HH__
 
-#include <deque>
+#include <queue>
 #include <list>
 #include <vector>
 
@@ -80,21 +80,19 @@ private:
     /**
      * Port which sends the coalesced requests to the ruby port
      */
-    class CachePort : public MasterPort
+    class CachePort : public QueuedMasterPort
     {
     private:
+        /** A packet queue for outgoing packets. */
+        MasterPacketQueue queue;
 
     public:
         CachePort(const std::string &_name, ShaderLSQ *owner)
-        : MasterPort(_name, owner) {}
-    protected:
-        virtual bool recvTimingResp(PacketPtr pkt);
-        virtual void recvRetry();
+        : QueuedMasterPort(_name, owner, queue), queue(*owner, *this) {}
+
+        bool recvTimingResp(PacketPtr pkt);
     };
     CachePort cachePort;
-
-    // Number of lanes, and number of threads active in a cycle
-    int warpSize;
 
     // Should remove this when we are confident in the coalescing logic
     // From GPGPU-Sim
@@ -169,9 +167,6 @@ private:
             return laneRequests[laneId]->setData(data);
         }
     };
-    // The current lane request being processed by the coalescer
-    // This could be a finite buffer at some point
-    WarpRequest *coalescingRegister;
 
     /**
      * There is exactly on coalesced request per request sent to Ruby/the cache
@@ -182,6 +177,9 @@ private:
      */
     class CoalescedRequest : public Packet::SenderState {
     public:
+        CoalescedRequest() : read(false), write(false), data(NULL)
+        {}
+
         RequestPtr req;
         WarpRequest* warpRequest;
         std::vector<int> activeLanes;
@@ -191,60 +189,49 @@ private:
         int bufferNum;
         uint8_t *data;
 
-        bool done;
-        bool sent;
-        bool translated;
         bool valid;
-        ~CoalescedRequest() { delete [] data; }
+        ~CoalescedRequest() {
+            if (write) {
+                assert(data != NULL);
+                delete [] data;
+            } else {
+                assert(data == NULL);
+            }
+        }
     };
 
-    // Logically equivielnt to NVIDIA's ld/st units
-    std::vector<std::vector<CoalescedRequest*> > requestBuffers;
+    // There is one buffer per warp context. This forces all coalesced accesses
+    // from the same warp to be serialized.
+    WarpRequest **coalescingBuffers;
+
+    // This structure emulates the behavior of he hardware buffering
+    // between the coalescer and the L1 cache
+    std::map<Addr, CoalescedRequest*> outgoingBuffer;
     int requestBufferDepth;
 
-    // Which of the request buffers are blocked
-    std::list<int> blockedBufferNums;
-
-    // Temporary buffer for coalesced requests while the warp request is
-    // being coalesced
-    std::list<CoalescedRequest*> coalescedRequests;
+    // This structure simulates a age-based scheduler for arbitrating
+    // access to the coalescer for different warp contexts.
+    std::queue<int> coalescingQueue;
 
     // Queue of warp requests which have completely finished but have not been
     // sent to the ShaderCore yet. This queue is currently infinite
     std::deque<WarpRequest*> responseQueue;
 
-    /**
-     * This event is scheduled when a coalesced request in a requestBuffer
-     * is ready to be sent to Ruby/the cache.
-     */
-    class SendRubyRequestEvent : public Event
-    {
-    private:
-        ShaderLSQ *owner;
-        int requestBufferNum;
-    public:
-        SendRubyRequestEvent(ShaderLSQ *_owner, int _requestBufferNum)
-            : owner(_owner), requestBufferNum(_requestBufferNum) {}
-        void process() {
-            owner->sendRubyRequest(requestBufferNum);
-        }
-    };
-    // One event per request buffer
-    std::vector<SendRubyRequestEvent*> sendRubyRequestEvents;
-
     // Data TLB, this does NOT perform any timing right now
     ShaderTLB *tlb;
 
-    /**
-     * Returns the request buffer that this coalesced request would go to
-     * Currently hashed on low bits above line offset. Theoretically this is
-     * the same banking as in the L1 cache.
-     */
-    std::vector<CoalescedRequest*>& getRequestBuffer(CoalescedRequest *request);
+    // Number of lanes, and number of threads active in a cycle
+    unsigned warpSize;
+
+    // Number of unique warp contexts this LSQ supports simultaneously
+    unsigned numWarpContexts;
+
+    // Latency for the coalescer
+    unsigned coalescingLatency;
 
     /**
-     * These functions will insert/remvoe a coalesced request from its buffer.
-     * Internally uses getRequestBuffer to locate the buffer for the request
+     * These functions will insert/remvoe a coalesced request from the 
+     * outgoing buffer between the LSQ and the memory sytem.
      * @return true for success, false if buffer is full
      * (remove cannot fail)
      */
@@ -266,8 +253,9 @@ private:
     /**
      * Actually generate the coalesced request, called from coalesce()
      */
-    void generateMemoryAccess(Addr addr, size_t size, WarpRequest *warpRequest,
-                              std::vector<int> &activeLanes);
+    void generateCoalescedRequest(Addr addr, size_t size,
+                                  WarpRequest *warpRequest,
+                                  std::vector<int> &activeLanes);
 
 
 public:
@@ -280,16 +268,9 @@ public:
     virtual BaseSlavePort& getSlavePort(const std::string &if_name, PortID idx = -1);
 
     /**
-     * Sends ALL requests in the buffer number provided to ruby
+     * Creates the packet and sends the request to the memory system
      */
-    void sendRubyRequest(int requestBufferNum);
-
-    /**
-     * For each buffer that has been blocked, schedule sendRubyRequest
-     * Called when Ruby sends a retry. This does more work than it needs to
-     * but Ruby doesn't know what buffer blocked.
-     */
-    void rescheduleBlockedRequestBuffers();
+    void sendMemoryRequest(CoalescedRequest *request);
 
     /**
      * Prepares the per-lane packets for sending and puts them the repsonse Q

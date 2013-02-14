@@ -296,6 +296,14 @@ ShaderCore::executeMemOp(const warp_inst_t &inst)
                 // some, but not all, of the requests have been sent the
                 // behavior is undefined.
                 assert(!completed);
+
+                if (inst.is_load()) {
+                    delete pkt->senderState;
+                }
+                delete pkt->req;
+                delete pkt;
+
+                // Return that there is a pipeline stall
                 return true;
             } else {
                 completed = true;
