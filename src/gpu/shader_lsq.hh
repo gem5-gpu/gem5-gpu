@@ -72,7 +72,7 @@ private:
         virtual AddrRangeList getAddrRanges() const;
 
     };
-    /// One lane port for each lane in the Shader Core
+    /// One lane port for each lane in the shader core
     std::vector<LanePort*> lanePorts;
 
     // For tracking if the port to send to the shader core is blocked
@@ -215,7 +215,7 @@ private:
     std::queue<int> coalescingQueue;
 
     // Queue of warp requests which have completely finished but have not been
-    // sent to the ShaderCore yet. This queue is currently infinite
+    // sent to the shader core yet. This queue is currently infinite
     std::deque<WarpRequest*> responseQueue;
 
     // Data TLB, this does NOT perform any timing right now
@@ -297,7 +297,7 @@ public:
     EventWrapper<ShaderLSQ, &ShaderLSQ::processCoalesceEvent> coalesceEvent;
 
     /**
-     * Sends one response to the ShaderCore from the response queue
+     * Sends one response to the shader core from the response queue
      */
     void processSendResponseEvent();
     EventWrapper<ShaderLSQ, &ShaderLSQ::processSendResponseEvent> sendResponseEvent;

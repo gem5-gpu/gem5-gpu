@@ -32,24 +32,24 @@
 #include "arch/utility.hh"
 #include "base/output.hh"
 #include "config/the_isa.hh"
-#include "debug/SPACopyEngine.hh"
+#include "debug/GPUCopyEngine.hh"
 #include "gpu/copy_engine.hh"
 #include "mem/page_table.hh"
-#include "params/SPACopyEngine.hh"
+#include "params/GPUCopyEngine.hh"
 
 #define READ_AMOUNT 128
 
 using namespace TheISA;
 using namespace std;
 
-SPACopyEngine::SPACopyEngine(const Params *p) :
+GPUCopyEngine::GPUCopyEngine(const Params *p) :
     MemObject(p), hostPort(name() + ".hostPort", this, 0),
     devicePort(name() + ".devicePort", this, 0), readPort(NULL),
     writePort(NULL), tickEvent(this), masterId(p->sys->getMasterId(name())),
-    spa(p->spa), _params(p), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
+    cudaGPU(p->gpu), _params(p), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
     deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
 {
-    DPRINTF(SPACopyEngine, "Created copy engine\n");
+    DPRINTF(GPUCopyEngine, "Created copy engine\n");
 
     needToRead = false;
     needToWrite = false;
@@ -58,32 +58,32 @@ SPACopyEngine::SPACopyEngine(const Params *p) :
     CEExitCallback* ceExitCB = new CEExitCallback(this, p->stats_filename);
     registerExitCallback(ceExitCB);
 
-    spa->registerCopyEngine(this);
+    cudaGPU->registerCopyEngine(this);
 }
 
-Tick SPACopyEngine::CEPort::recvAtomic(PacketPtr pkt)
+Tick GPUCopyEngine::CEPort::recvAtomic(PacketPtr pkt)
 {
-    panic("SPACopyEngine::CEPort::recvAtomic() not implemented!\n");
+    panic("GPUCopyEngine::CEPort::recvAtomic() not implemented!\n");
     return 0;
 }
 
-void SPACopyEngine::CEPort::recvFunctional(PacketPtr pkt)
+void GPUCopyEngine::CEPort::recvFunctional(PacketPtr pkt)
 {
-    panic("SPACopyEngine::CEPort::recvFunctional() not implemented!\n");
+    panic("GPUCopyEngine::CEPort::recvFunctional() not implemented!\n");
 }
 
-bool SPACopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
+bool GPUCopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
 {
     engine->recvPacket(pkt);
     return true;
 }
 
-void SPACopyEngine::CEPort::recvRetry() {
+void GPUCopyEngine::CEPort::recvRetry() {
     assert(outstandingPkts.size());
 
-    DPRINTF(SPACopyEngine, "Got a retry...\n");
+    DPRINTF(GPUCopyEngine, "Got a retry...\n");
     while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
-        DPRINTF(SPACopyEngine, "Unblocked, sent blocked packet.\n");
+        DPRINTF(GPUCopyEngine, "Unblocked, sent blocked packet.\n");
         outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
@@ -93,28 +93,28 @@ void SPACopyEngine::CEPort::recvRetry() {
     }
 }
 
-void SPACopyEngine::CEPort::sendPacket(PacketPtr pkt) {
+void GPUCopyEngine::CEPort::sendPacket(PacketPtr pkt) {
     if (!sendTimingReq(pkt)) {
-        DPRINTF(SPACopyEngine, "sendTiming failed in sendPacket(pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
+        DPRINTF(GPUCopyEngine, "sendTiming failed in sendPacket(pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
         setStalled(pkt);
     }
 }
 
-void SPACopyEngine::finishMemcpy()
+void GPUCopyEngine::finishMemcpy()
 {
     running = false;
     readPort = writePort = NULL;
     readDTB = writeDTB = NULL;
     Tick total_time = curTick() - memCpyStartTime;
-    DPRINTF(SPACopyEngine, "Total time was: %llu\n", total_time);
+    DPRINTF(GPUCopyEngine, "Total time was: %llu\n", total_time);
     memCpyStats.push_back(MemCpyStats(total_time, memCpyLength));
-    spa->finishCopyOperation();
+    cudaGPU->finishCopyOperation();
 }
 
-void SPACopyEngine::recvPacket(PacketPtr pkt)
+void GPUCopyEngine::recvPacket(PacketPtr pkt)
 {
     if (pkt->isRead()) {
-        DPRINTF(SPACopyEngine, "done with a read addr: 0x%x, size: %d\n", pkt->req->getVaddr(), pkt->getSize());
+        DPRINTF(GPUCopyEngine, "done with a read addr: 0x%x, size: %d\n", pkt->req->getVaddr(), pkt->getSize());
         pkt->writeData(curData + (pkt->req->getVaddr() - beginAddr));
 
         // set the addresses we just got as done
@@ -123,9 +123,9 @@ void SPACopyEngine::recvPacket(PacketPtr pkt)
             readsDone[i] = true;
         }
 
-        DPRINTF(SPACopyEngine, "Data is: %d\n", *((int*) (curData + (pkt->req->getVaddr() - beginAddr))));
+        DPRINTF(GPUCopyEngine, "Data is: %d\n", *((int*) (curData + (pkt->req->getVaddr() - beginAddr))));
         if (readDone < totalLength) {
-            DPRINTF(SPACopyEngine, "Trying to write\n");
+            DPRINTF(GPUCopyEngine, "Trying to write\n");
             needToWrite = true;
             if (!tickEvent.scheduled()) {
                 schedule(tickEvent, nextCycle());
@@ -138,15 +138,15 @@ void SPACopyEngine::recvPacket(PacketPtr pkt)
         }
 
         if (readDone >= totalLength) {
-            DPRINTF(SPACopyEngine, "done reading!!\n");
+            DPRINTF(GPUCopyEngine, "done reading!!\n");
             needToRead = false;
         }
     } else {
-        DPRINTF(SPACopyEngine, "done with a write addr: 0x%x\n", pkt->req->getVaddr());
+        DPRINTF(GPUCopyEngine, "done with a write addr: 0x%x\n", pkt->req->getVaddr());
         writeDone += pkt->getSize();
         if (!(writeDone < totalLength)) {
             // we are done!
-            DPRINTF(SPACopyEngine, "done writing, completely done!!!!\n");
+            DPRINTF(GPUCopyEngine, "done writing, completely done!!!!\n");
             needToWrite = false;
             delete[] curData;
             delete[] readsDone;
@@ -161,7 +161,7 @@ void SPACopyEngine::recvPacket(PacketPtr pkt)
     delete pkt;
 }
 
-void SPACopyEngine::tryRead()
+void GPUCopyEngine::tryRead()
 {
     RequestPtr req = new Request();
     Request::Flags flags;
@@ -170,28 +170,28 @@ void SPACopyEngine::tryRead()
     //unsigned block_size = port.peerBlockSize();
 
     if (readLeft <= 0) {
-        DPRINTF(SPACopyEngine, "WHY ARE WE HERE?\n");
+        DPRINTF(GPUCopyEngine, "WHY ARE WE HERE?\n");
         return;
     }
 
     int size;
     if (currentReadAddr % READ_AMOUNT) {
         size = READ_AMOUNT - (currentReadAddr % READ_AMOUNT);
-        DPRINTF(SPACopyEngine, "Aligning\n");
+        DPRINTF(GPUCopyEngine, "Aligning\n");
     } else {
         size = READ_AMOUNT;
     }
     size = readLeft > (size - 1) ? size : readLeft;
     req->setVirt(asid, currentReadAddr, size, flags, masterId, pc);
 
-    DPRINTF(SPACopyEngine, "trying read addr: 0x%x, %d bytes\n", currentReadAddr, size);
+    DPRINTF(GPUCopyEngine, "trying read addr: 0x%x, %d bytes\n", currentReadAddr, size);
 
     BaseTLB::Mode mode = BaseTLB::Read;
 
     WholeTranslationState *state =
             new WholeTranslationState(req, NULL, NULL, mode);
-    DataTranslation<SPACopyEngine*> *translation
-            = new DataTranslation<SPACopyEngine*>(this, state);
+    DataTranslation<GPUCopyEngine*> *translation
+            = new DataTranslation<GPUCopyEngine*>(this, state);
 
     readDTB->beginTranslateTiming(req, translation, mode);
 
@@ -211,17 +211,17 @@ void SPACopyEngine::tryRead()
     }
 }
 
-void SPACopyEngine::tryWrite()
+void GPUCopyEngine::tryWrite()
 {
     if (writeLeft <= 0) {
-        DPRINTF(SPACopyEngine, "WHY ARE WE HERE (write)?\n");
+        DPRINTF(GPUCopyEngine, "WHY ARE WE HERE (write)?\n");
         return;
     }
 
     int size;
     if (currentWriteAddr % READ_AMOUNT) {
         size = READ_AMOUNT - (currentWriteAddr % READ_AMOUNT);
-        DPRINTF(SPACopyEngine, "Aligning\n");
+        DPRINTF(GPUCopyEngine, "Aligning\n");
     } else {
         size = READ_AMOUNT;
     }
@@ -229,7 +229,7 @@ void SPACopyEngine::tryWrite()
 
     if (readDone < size+(totalLength-writeLeft)) {
         // haven't read enough yet
-        DPRINTF(SPACopyEngine, "Tried to write when we haven't read enough\n");
+        DPRINTF(GPUCopyEngine, "Tried to write when we haven't read enough\n");
         return;
     }
 
@@ -244,14 +244,14 @@ void SPACopyEngine::tryWrite()
     std::memcpy(data, &curData[totalLength-writeLeft], size);
     req->setExtraData((uint64_t)data);
 
-    DPRINTF(SPACopyEngine, "trying write addr: 0x%x, %d bytes, data %d\n", currentWriteAddr, size, *((int*)(&curData[totalLength-writeLeft])));
+    DPRINTF(GPUCopyEngine, "trying write addr: 0x%x, %d bytes, data %d\n", currentWriteAddr, size, *((int*)(&curData[totalLength-writeLeft])));
 
     BaseTLB::Mode mode = BaseTLB::Write;
 
     WholeTranslationState *state =
             new WholeTranslationState(req, NULL, NULL, mode);
-    DataTranslation<SPACopyEngine*> *translation
-            = new DataTranslation<SPACopyEngine*>(this, state);
+    DataTranslation<GPUCopyEngine*> *translation
+            = new DataTranslation<GPUCopyEngine*>(this, state);
 
     writeDTB->beginTranslateTiming(req, translation, mode);
 
@@ -264,24 +264,24 @@ void SPACopyEngine::tryWrite()
     }
 }
 
-void SPACopyEngine::tick()
+void GPUCopyEngine::tick()
 {
     if (!running) return;
     if (readPort->isStalled() && writePort->isStalled()) {
-        DPRINTF(SPACopyEngine, "Stalled\n");
+        DPRINTF(GPUCopyEngine, "Stalled\n");
     } else {
         if (needToRead && !readPort->isStalled()) {
-            DPRINTF(SPACopyEngine, "trying read\n");
+            DPRINTF(GPUCopyEngine, "trying read\n");
             tryRead();
         }
         if (needToWrite && !writePort->isStalled() && ((totalLength - writeLeft) < readDone)) {
-            DPRINTF(SPACopyEngine, "trying write\n");
+            DPRINTF(GPUCopyEngine, "trying write\n");
             tryWrite();
         }
     }
 }
 
-int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_type type)
+int GPUCopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_type type)
 {
     switch (type) {
     case stream_memcpy_host_to_device:
@@ -312,7 +312,7 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_ty
     assert(!running);
     running = true;
 
-    DPRINTF(SPACopyEngine, "Initiating copy of %d bytes from 0x%x to 0x%x\n", length, src, dst);
+    DPRINTF(GPUCopyEngine, "Initiating copy of %d bytes from 0x%x to 0x%x\n", length, src, dst);
     memCpyStartTime = curTick();
 
     needToRead = true;
@@ -343,7 +343,7 @@ int SPACopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_ty
     return 0;
 }
 
-int SPACopyEngine::memset(Addr dst, int value, size_t length)
+int GPUCopyEngine::memset(Addr dst, int value, size_t length)
 {
     assert(!running && !readPort && !readDTB);
     readPort = &hostPort;
@@ -354,7 +354,7 @@ int SPACopyEngine::memset(Addr dst, int value, size_t length)
     assert(length > 0);
     running = true;
 
-    DPRINTF(SPACopyEngine, "Initiating memset of %d bytes at 0x%x to %d\n", length, dst, value);
+    DPRINTF(GPUCopyEngine, "Initiating memset of %d bytes at 0x%x to %d\n", length, dst, value);
     memCpyStartTime = curTick();
 
     needToRead = false;
@@ -382,12 +382,12 @@ int SPACopyEngine::memset(Addr dst, int value, size_t length)
     return 0;
 }
 
-void SPACopyEngine::finishTranslation(WholeTranslationState *state)
+void GPUCopyEngine::finishTranslation(WholeTranslationState *state)
 {
     if (state->getFault() != NoFault) {
         panic("Translation encountered fault (%s) for address 0x%x", state->getFault()->name(), state->mainReq->getVaddr());
     }
-    DPRINTF(SPACopyEngine, "Finished translation of Vaddr 0x%x -> Paddr 0x%x\n", state->mainReq->getVaddr(), state->mainReq->getPaddr());
+    DPRINTF(GPUCopyEngine, "Finished translation of Vaddr 0x%x -> Paddr 0x%x\n", state->mainReq->getVaddr(), state->mainReq->getPaddr());
     PacketPtr pkt;
     if (state->mode == BaseTLB::Read) {
         pkt = new Packet(state->mainReq, MemCmd::ReadReq);
@@ -405,7 +405,7 @@ void SPACopyEngine::finishTranslation(WholeTranslationState *state)
 }
 
 BaseMasterPort&
-SPACopyEngine::getMasterPort(const std::string &if_name, PortID idx)
+GPUCopyEngine::getMasterPort(const std::string &if_name, PortID idx)
 {
     if (if_name == "host_port")
         return hostPort;
@@ -415,11 +415,11 @@ SPACopyEngine::getMasterPort(const std::string &if_name, PortID idx)
         return MemObject::getMasterPort(if_name, idx);
 }
 
-SPACopyEngine *SPACopyEngineParams::create() {
-    return new SPACopyEngine(this);
+GPUCopyEngine *GPUCopyEngineParams::create() {
+    return new GPUCopyEngine(this);
 }
 
-void SPACopyEngine::cePrintStats(std::ostream& out) {
+void GPUCopyEngine::cePrintStats(std::ostream& out) {
     int memcpy_cnt = 0;
     Tick total_memcpy_ticks = 0;
     Tick total_memcpy_bytes = 0;
@@ -468,6 +468,6 @@ void CEExitCallback::process()
     if (!os) {
         os = simout.create(stats_filename);
     }
-    ce_obj->cePrintStats(*os);
+    engine->cePrintStats(*os);
     *os << std::endl;
 }

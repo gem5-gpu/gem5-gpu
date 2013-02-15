@@ -31,9 +31,9 @@ from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
-class StreamProcessorArray(SimObject):
-    type = 'StreamProcessorArray'
-    cxx_class = 'StreamProcessorArray'
+class CudaGPU(SimObject):
+    type = 'CudaGPU'
+    cxx_class = 'CudaGPU'
     cxx_header = "gpu/gpgpu-sim/cuda_gpu.hh"
 
     sys = Param.System(Parent.any, "system sp will run on")

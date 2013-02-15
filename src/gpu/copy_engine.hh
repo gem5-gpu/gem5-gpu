@@ -34,7 +34,7 @@
 #include "cpu/translation.hh"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
-#include "params/SPACopyEngine.hh"
+#include "params/GPUCopyEngine.hh"
 #include "sim/process.hh"
 #include "stream_manager.h"
 
@@ -42,17 +42,17 @@
 // sort this include into the set above
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 
-class SPACopyEngine : public MemObject
+class GPUCopyEngine : public MemObject
 {
 private:
-    typedef SPACopyEngineParams Params;
+    typedef GPUCopyEngineParams Params;
 
     class CEPort : public MasterPort
     {
-        friend class SPACopyEngine;
+        friend class GPUCopyEngine;
 
     private:
-        SPACopyEngine *engine;
+        GPUCopyEngine *engine;
 
         /// holds packets that failed to send for retry
         std::queue<PacketPtr> outstandingPkts;
@@ -60,7 +60,7 @@ private:
         int idx;
 
     public:
-        CEPort(const std::string &_name, SPACopyEngine *_proc, int _idx)
+        CEPort(const std::string &_name, GPUCopyEngine *_proc, int _idx)
         : MasterPort(_name, _proc), engine(_proc), idx(_idx) {}
 
     protected:
@@ -85,15 +85,15 @@ private:
 
     class TickEvent : public Event
     {
-        friend class SPACopyEngine;
+        friend class GPUCopyEngine;
 
     private:
-        SPACopyEngine *ce;
+        GPUCopyEngine *engine;
 
     public:
-        TickEvent(SPACopyEngine *c) : Event(CPU_Tick_Pri), ce(c) {}
-        void process() { ce->tick(); }
-        virtual const char *description() const { return "SPACopyEngine tick"; }
+        TickEvent(GPUCopyEngine *_engine) : Event(CPU_Tick_Pri), engine(_engine) {}
+        void process() { engine->tick(); }
+        virtual const char *description() const { return "GPUCopyEngine tick"; }
     };
 
     const Params * params() const { return dynamic_cast<const Params *>(_params);	}
@@ -102,9 +102,9 @@ private:
     MasterID masterId;
 
 private:
-    StreamProcessorArray *spa;
+    CudaGPU *cudaGPU;
 
-    const SPACopyEngineParams *_params;
+    const GPUCopyEngineParams *_params;
 
     void tick();
 
@@ -151,7 +151,7 @@ private:
 
 public:
 
-    SPACopyEngine(const Params *p);
+    GPUCopyEngine(const Params *p);
     virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);
     void finishTranslation(WholeTranslationState *state);
     int memcpy(Addr src, Addr dst, size_t length, stream_operation_type type);
@@ -174,15 +174,15 @@ class CEExitCallback : public Callback
 {
 private:
     std::string stats_filename;
-    SPACopyEngine *ce_obj;
+    GPUCopyEngine *engine;
 
 public:
     virtual ~CEExitCallback() {}
 
-    CEExitCallback(SPACopyEngine *_ce_obj, const std::string& _stats_filename)
+    CEExitCallback(GPUCopyEngine *_engine, const std::string& _stats_filename)
     {
         stats_filename = _stats_filename;
-        ce_obj = _ce_obj;
+        engine = _engine;
     }
 
     virtual void process();

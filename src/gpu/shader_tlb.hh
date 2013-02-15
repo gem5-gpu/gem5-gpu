@@ -37,7 +37,7 @@ class ShaderTLB : public X86ISA::TLB
 {
   private:
     // Pointer to the SPA to access the page table
-    StreamProcessorArray* spa;
+    CudaGPU* cudaGPU;
     bool accessHostPageTable;
 
   public:

@@ -31,9 +31,9 @@ from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
-class ShaderCore(MemObject):
-    type = 'ShaderCore'
-    cxx_class = 'ShaderCore'
+class CudaCore(MemObject):
+    type = 'CudaCore'
+    cxx_class = 'CudaCore'
     cxx_header = "gpu/gpgpu-sim/cuda_core.hh"
 
     inst_port = MasterPort("The instruction cache port for this SC")
@@ -41,7 +41,7 @@ class ShaderCore(MemObject):
     lsq_port = VectorMasterPort("the load/store queue coalescer ports")
 
     sys = Param.System(Parent.any, "system sc will run on")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    gpu = Param.CudaGPU(Parent.any, "The GPU this core is part of")
 
     itb = Param.ShaderTLB(ShaderTLB(), "Instruction TLB")
 

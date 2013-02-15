@@ -31,16 +31,17 @@ from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
-class SPACopyEngine(MemObject):
-    type = 'SPACopyEngine'
-    cxx_class = 'SPACopyEngine'
+class GPUCopyEngine(MemObject):
+    type = 'GPUCopyEngine'
+    cxx_class = 'GPUCopyEngine'
     cxx_header = "gpu/copy_engine.hh"
 
     host_port = MasterPort("The copy engine port to host coherence domain")
     device_port = MasterPort("The copy engine port to device coherence domain")
     driver_delay = Param.Int(0, "memcpy launch delay in ticks");
     sys = Param.System(Parent.any, "system sc will run on")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    # @TODO: This will need to be removed when CUDA syscalls manage copies
+    gpu = Param.CudaGPU(Parent.any, "The GPU")
 
     host_dtb = Param.ShaderTLB(ShaderTLB(access_host_pagetable = True), "TLB for the host memory space")
     device_dtb = Param.ShaderTLB(ShaderTLB(), "TLB for the device memory space")

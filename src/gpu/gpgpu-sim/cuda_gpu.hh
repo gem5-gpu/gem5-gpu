@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __GPGPU_STREAM_PROCESSOR_HH__
-#define __GPGPU_STREAM_PROCESSOR_HH__
+#ifndef __CUDA_GPU_HH__
+#define __CUDA_GPU_HH__
 
 #include <map>
 #include <queue>
@@ -38,11 +38,11 @@
 #include "arch/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/translation.hh"
-#include "debug/StreamProcessorArrayPageTable.hh"
+#include "debug/CudaGPUPageTable.hh"
 #include "gpgpu-sim/gpu-sim.h"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
-#include "params/StreamProcessorArray.hh"
+#include "params/CudaGPU.hh"
 #include "sim/process.hh"
 #include "sim/system.hh"
 #include "stream_manager.h"
@@ -51,29 +51,29 @@
 // sort these includes into the set above as necessary
 #include "gpu/copy_engine.hh"
 #include "gpu/gpgpu-sim/cuda_core.hh"
-class ShaderCore;
+class CudaCore;
 
 /**
  *  Main wrapper class for GPGPU-Sim
  *
- *  All functional accesses from GPGPU-Sim are routed through this class.
- *  This class also holds pointers to all of the shader cores and the copy engine.
+ *  All global and const accesses from GPGPU-Sim are routed through this class.
+ *  This class also holds pointers to all of the CUDA cores and the copy engine.
  *  Statistics for kernel times are also kept in this class.
  *
  *  Currently this class only supports a single GPU device and does not support
  *  concurrent kernels.
  */
-class StreamProcessorArray : public SimObject
+class CudaGPU : public SimObject
 {
   private:
-    static std::vector<StreamProcessorArray*> gpuArray;
+    static std::vector<CudaGPU*> gpuArray;
 
   public:
     /**
      *  Only to be used in GPU system calls (gpu_syscalls) as a way to access
      *  the CUDA-enabled GPUs.
      */
-    static StreamProcessorArray *getStreamProcessorArray(unsigned id) {
+    static CudaGPU *getCudaGPU(unsigned id) {
         if (id >= gpuArray.size()) {
             panic("CUDA GPU ID not found: %u. Only %u GPUs registered!\n", id, gpuArray.size());
         }
@@ -84,9 +84,9 @@ class StreamProcessorArray : public SimObject
         return gpuArray.size();
     }
 
-    static unsigned registerCudaDevice(StreamProcessorArray *spa) {
+    static unsigned registerCudaDevice(CudaGPU *gpu) {
         unsigned new_id = getNumCudaDevices();
-        gpuArray.push_back(spa);
+        gpuArray.push_back(gpu);
         return new_id;
     }
 
@@ -125,29 +125,29 @@ class StreamProcessorArray : public SimObject
     };
 
   protected:
-    typedef StreamProcessorArrayParams Params;
+    typedef CudaGPUParams Params;
 
     /**
      *  Helper class for both Stream and GPU tick events
      */
     class TickEvent : public Event
     {
-        friend class StreamProcessorArray;
+        friend class CudaGPU;
 
       private:
-        StreamProcessorArray *cpu;
+        CudaGPU *cpu;
         bool streamTick;
 
       public:
-        TickEvent(StreamProcessorArray *c, bool stream) : Event(CPU_Tick_Pri), cpu(c), streamTick(stream) {}
+        TickEvent(CudaGPU *c, bool stream) : Event(CPU_Tick_Pri), cpu(c), streamTick(stream) {}
         void process() {
             if (streamTick) cpu->streamTick();
             else cpu->gpuTick();
         }
-        virtual const char *description() const { return "StreamProcessorArray tick"; }
+        virtual const char *description() const { return "CudaGPU tick"; }
     };
 
-    const StreamProcessorArrayParams *_params;
+    const CudaGPUParams *_params;
     const Params * params() const { return dynamic_cast<const Params *>(_params); }
 
     /// Tick for when the GPU needs to run its next cycle
@@ -167,7 +167,7 @@ class StreamProcessorArray : public SimObject
     void streamTick();
 
     /// Pointer to the copy engine for this device
-    SPACopyEngine *copyEngine;
+    GPUCopyEngine *copyEngine;
 
     /// Used to register this SPA with the system
     System *system;
@@ -175,7 +175,7 @@ class StreamProcessorArray : public SimObject
     /// Frequency of GPU in Hz
     Tick frequency;
 
-    /// Number of threads in each warp, also number of "cores" per shader core/SM
+    /// Number of threads in each warp, also number of lanes per CUDA core
     int warpSize;
 
     /// Are we restoring from a checkpoint?
@@ -197,8 +197,8 @@ class StreamProcessorArray : public SimObject
     /// NOTE: I think there is a more right way to do this
     RubySystem *ruby;
 
-    /// Holds all of the shader cores in this stream processor array
-    std::vector<ShaderCore*> shaderCores;
+    /// Holds all of the CUDA cores in this GPU
+    std::vector<CudaCore*> cudaCores;
 
     /// The thread context, stream and thread ID currently running on the SPA
     ThreadContext *runningTC;
@@ -273,13 +273,13 @@ class StreamProcessorArray : public SimObject
     std::vector<_FatBinary> fatBinaries;
     std::vector<_CudaVar> cudaVars;
 
-    class SPAPageTable
+    class GPUPageTable
     {
       private:
         std::map<Addr, Addr> pageMap;
 
       public:
-        SPAPageTable() {};
+        GPUPageTable() {};
 
         Addr addrToPage(Addr addr);
         void insert(Addr vaddr, Addr paddr) {
@@ -302,7 +302,7 @@ class StreamProcessorArray : public SimObject
         void serialize(std::ostream &os);
         void unserialize(Checkpoint *cp, const std::string &section);
     };
-    SPAPageTable pageTable;
+    GPUPageTable pageTable;
     bool manageGPUMemory;
     AddrRange gpuMemoryRange;
     Addr physicalGPUBrkAddr;
@@ -313,7 +313,7 @@ class StreamProcessorArray : public SimObject
 
   public:
     /// Constructor
-    StreamProcessorArray(const Params *p);
+    CudaGPU(const Params *p);
 
     /// For checkpointing
     virtual void serialize(std::ostream &os);
@@ -323,8 +323,8 @@ class StreamProcessorArray : public SimObject
     virtual void startup();
 
     /// Register devices callbacks
-    void registerShaderCore(ShaderCore *sc);
-    void registerCopyEngine(SPACopyEngine *ce);
+    void registerCudaCore(CudaCore *sc);
+    void registerCopyEngine(GPUCopyEngine *ce);
 
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
     CudaDeviceProperties *getDeviceProperties() { return &deviceProperties; }
@@ -346,10 +346,10 @@ class StreamProcessorArray : public SimObject
     /// Reset statistics for the SPA and for all of Ruby
     void clearStats();
 
-    /// Returns shader core with id coreId
-    ShaderCore *getShaderCore(int coreId);
+    /// Returns CUDA core with id coreId
+    CudaCore *getCudaCore(int coreId);
 
-    /// Returns size of warp (same for all shader cores)
+    /// Returns size of warp (same for all CUDA cores)
     int getWarpSize() { return warpSize; }
 
     /// Callback for GPGPU-Sim to get the current simulation time
@@ -421,7 +421,7 @@ class StreamProcessorArray : public SimObject
     uint64_t getInstBaseVaddr();
 
     /// For handling GPU memory mapping table
-    SPAPageTable* getGPUPageTable() { return &pageTable; };
+    GPUPageTable* getGPUPageTable() { return &pageTable; };
     void registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size);
     void registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size);
     bool isManagingGPUMemory() { return manageGPUMemory; }
@@ -435,15 +435,15 @@ class GPUExitCallback : public Callback
 {
   private:
     std::string stats_filename;
-    StreamProcessorArray *spa_obj;
+    CudaGPU *gpu;
 
   public:
     virtual ~GPUExitCallback() {}
 
-    GPUExitCallback(StreamProcessorArray *_spa_obj, const std::string& _stats_filename)
+    GPUExitCallback(CudaGPU *_gpu, const std::string& _stats_filename)
     {
         stats_filename = _stats_filename;
-        spa_obj = _spa_obj;
+        gpu = _gpu;
     }
 
     virtual void process();

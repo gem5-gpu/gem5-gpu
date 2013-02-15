@@ -31,7 +31,7 @@ Import('*')
 
 SimObject('ShaderLSQ.py')
 SimObject('ShaderTLB.py')
-SimObject('SPACopyEngine.py')
+SimObject('GPUCopyEngine.py')
 
 Source('copy_engine.cc')
 Source('shader_lsq.cc')
@@ -39,4 +39,4 @@ Source('shader_tlb.cc')
 
 DebugFlag('ShaderLSQ')
 DebugFlag('ShaderTLB')
-DebugFlag('SPACopyEngine')
+DebugFlag('GPUCopyEngine')

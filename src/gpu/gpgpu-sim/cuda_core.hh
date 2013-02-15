@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __GPGPU_SHADER_CORE_HH__
-#define __GPGPU_SHADER_CORE_HH__
+#ifndef __CUDA_CORE_HH__
+#define __CUDA_CORE_HH__
 
 #include <map>
 #include <queue>
@@ -43,22 +43,22 @@
 #include "gpu/shader_tlb.hh"
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
-#include "params/ShaderCore.hh"
+#include "params/CudaCore.hh"
 #include "sim/process.hh"
 
-class StreamProcessorArray;
+class CudaGPU;
 
 /**
  *  Wrapper class for the shader cores in GPGPU-Sim
- *  A shader core is equivalent to an NVIDIA streaming multiprocessor (SM)
+ *  A CUDA core is equivalent to an NVIDIA streaming multiprocessor (SM)
  *
  *  GPGPU-Sim shader *timing* memory references are routed through this class.
  *
  */
-class ShaderCore : public MemObject
+class CudaCore : public MemObject
 {
 protected:
-    typedef ShaderCoreParams Params;
+    typedef CudaCoreParams Params;
 
     /**
      * Port for sending a receiving instuction memory requests
@@ -66,18 +66,18 @@ protected:
      */
     class SCInstPort : public MasterPort
     {
-        friend class ShaderCore;
+        friend class CudaCore;
 
     private:
         // Pointer back to shader core for callbacks
-        ShaderCore *proc;
+        CudaCore *core;
 
         // Holds packets that failed to send for retry
         std::list<PacketPtr> outInstPkts;
 
     public:
-        SCInstPort(const std::string &_name, ShaderCore *_proc)
-        : MasterPort(_name, _proc), proc(_proc) {}
+        SCInstPort(const std::string &_name, CudaCore *_core)
+        : MasterPort(_name, _core), core(_core) {}
         // Sends a request into the gem5 memory system (Ruby)
         bool sendPkt(PacketPtr pkt);
 
@@ -95,15 +95,15 @@ protected:
     */
     class LSQPort : public MasterPort
     {
-        friend class ShaderCore;
+        friend class CudaCore;
 
     private:
-        ShaderCore *proc;
+        CudaCore *core;
         int idx;
 
     public:
-        LSQPort(const std::string &_name, ShaderCore *_proc, int _idx)
-        : MasterPort(_name, _proc), proc(_proc), idx(_idx) {}
+        LSQPort(const std::string &_name, CudaCore *_core, int _idx)
+        : MasterPort(_name, _core), core(_core), idx(_idx) {}
 
     protected:
         virtual bool recvTimingResp(PacketPtr pkt);
@@ -122,7 +122,7 @@ protected:
     };
 
     const Params * params() const { return dynamic_cast<const Params *>(_params);	}
-    const ShaderCoreParams *_params;
+    const CudaCoreParams *_params;
 
     MasterID masterId;
 
@@ -131,11 +131,10 @@ private:
     /// Called to begin a virtual memory access
     void accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode);
 
-    /// Id for this shader core, should match the id in GPGPU-Sim
-    /// To convert gem5Id = cluster_num*shader_per_cluster+num_in_cluster
+    /// ID for this CUDA core, should match the id in GPGPU-Sim
     int id;
 
-    /// Number of threads in the warp, also the number of "cores" per shader/SM
+    /// Number of threads in the warp, also the number of lanes per SM
     int warpSize;
 
     /// Stalled because a memory request called recvRetry, usually because a queue
@@ -149,10 +148,10 @@ private:
     /// TLB's. These do NOT perform any timing right now
     ShaderTLB *itb;
 
-    /// Point to SPA this shader core is part of
-    StreamProcessorArray *spa;
+    /// Point to GPU this CUDA core is part of
+    CudaGPU *cudaGPU;
 
-    /// Pointer to GPGPU-Sim shader this shader core is a proxy for
+    /// Pointer to GPGPU-Sim shader this CUDA core is a proxy for
     shader_core_ctx *shaderImpl;
 
     /// Returns the line of the address, a
@@ -163,14 +162,14 @@ private:
 
     Cycles lastActiveCycle;
 
-    std::map<unsigned, bool> shaderCTAActive;
-    std::map<unsigned, std::vector<Tick> > shaderCTAActiveStats;
+    std::map<unsigned, bool> coreCTAActive;
+    std::map<unsigned, std::vector<Tick> > coreCTAActiveStats;
     Cycles beginActiveCycle;
     int activeCTAs;
 
 public:
     /// Constructor
-    ShaderCore(const Params *p);
+    CudaCore(const Params *p);
 
     /// Required for implementing MemObject
     virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);

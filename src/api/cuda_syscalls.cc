@@ -247,9 +247,9 @@ extern "C" void ptxinfo_addinfo()
         clear_ptxinfo();
         return;
     }
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     print_ptxinfo();
-    spa->add_ptxinfo(get_ptxinfo_kname(), get_ptxinfo_kinfo());
+    cudaGPU->add_ptxinfo(get_ptxinfo_kname(), get_ptxinfo_kinfo());
     clear_ptxinfo();
 }
 
@@ -287,15 +287,15 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
 
     g_last_cudaError = cudaSuccess;
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
-    if (!spa->isManagingGPUMemory()) {
+    if (!cudaGPU->isManagingGPUMemory()) {
         // Tell CUDA runtime to allocate memory
         cudaError_t to_return = cudaErrorApiFailureBase;
         helper.setReturn((uint8_t*)&to_return, sizeof(cudaError_t));
         return;
     } else {
-        Addr addr = spa->allocateGPUMemory(sim_size);
+        Addr addr = cudaGPU->allocateGPUMemory(sim_size);
         helper.writeBlob(sim_devPtr, (uint8_t*)(&addr), sizeof(Addr));
         if (addr) {
             g_last_cudaError = cudaSuccess;
@@ -331,8 +331,8 @@ cudaRegisterDeviceMemory(ThreadContext *tc, gpusyscall_t *call_params)
     size_t sim_size = *((size_t*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaRegisterDeviceMemory(devicePtr = %x, size = %d)\n", sim_devicePtr, sim_size);
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    spa->registerDeviceMemory(tc, sim_devicePtr, sim_size);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    cudaGPU->registerDeviceMemory(tc, sim_devicePtr, sim_size);
 }
 
 void
@@ -354,9 +354,9 @@ cudaFree(ThreadContext *tc, gpusyscall_t *call_params) {
     Addr sim_devPtr = *((Addr*)helper.getParam(0));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFree(devPtr = %x)\n", sim_devPtr);
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
-    if (!spa->isManagingGPUMemory()) {
+    if (!cudaGPU->isManagingGPUMemory()) {
         g_last_cudaError = cudaSuccess;
         // Tell CUDA runtime to free memory
         cudaError_t to_return = cudaErrorApiFailureBase;
@@ -403,8 +403,7 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     size_t sim_count = *((size_t*)helper.getParam(2));
     enum cudaMemcpyKind sim_kind = *((enum cudaMemcpyKind*)helper.getParam(3));
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    gpgpu_t *gpu = spa->getTheGPU();
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpy(dst = %x, src = %x, count = %d, kind = %s)\n",
             sim_dst, sim_src, sim_count, cudaMemcpyKindStrings[sim_kind]);
@@ -432,7 +431,7 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
         panic("GPGPU-Sim PTX: cudaMemcpy - ERROR : unsupported cudaMemcpyKind\n");
     }
 
-    suspend = gpu->gem5_spa->needsToBlock();
+    suspend = cudaGPU->needsToBlock();
     assert(suspend);
     g_last_cudaError = cudaSuccess;
     helper.setReturn((uint8_t*)&suspend, sizeof(bool));
@@ -490,20 +489,17 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
     size_t sim_offset = *((size_t*)helper.getParam(3));
     enum cudaMemcpyKind sim_kind = *((enum cudaMemcpyKind*)helper.getParam(4));
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpyToSymbol(symbol = %x, src = %x, count = %d, offset = %d, kind = %s)\n",
             sim_symbol, sim_src, sim_count, sim_offset, cudaMemcpyKindStrings[sim_kind]);
-
-    // Get the data to be copied
-    gpgpu_t *gpu = spa->getTheGPU();
 
     assert(sim_kind == cudaMemcpyHostToDevice);
     stream_operation mem_op(sim_src, sim_symbol, sim_count, sim_offset, NULL);
     mem_op.setThreadContext(tc);
     g_stream_manager->push(mem_op);
 
-    bool suspend = gpu->gem5_spa->needsToBlock();
+    bool suspend = cudaGPU->needsToBlock();
     assert(suspend);
     g_last_cudaError = cudaSuccess;
     helper.setReturn((uint8_t*)&suspend, sizeof(bool));
@@ -571,8 +567,8 @@ cudaBlockThread(ThreadContext *tc, gpusyscall_t *call_params)
 
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaBlockThread(tc = %x, is_free_ptr = %x)\n", tc, sim_is_free_ptr);
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    spa->blockThread(tc, sim_is_free_ptr);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    cudaGPU->blockThread(tc, sim_is_free_ptr);
 }
 
 /*******************************************************************************
@@ -591,9 +587,9 @@ cudaMemset(ThreadContext *tc, gpusyscall_t *call_params)
     size_t sim_count = *((size_t*)helper.getParam(2));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemset(mem = %x, c = %d, count = %d)\n", sim_mem, sim_c, sim_count);
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
-    if (!spa->isManagingGPUMemory()) {
+    if (!cudaGPU->isManagingGPUMemory()) {
         // Signal to libcuda that it should handle the memset
         g_last_cudaError = cudaErrorApiFailureBase;
         helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
@@ -642,7 +638,7 @@ cudaGetDeviceCount(ThreadContext *tc, gpusyscall_t *call_params)
     GPUSyscallHelper helper(tc, call_params);
     Addr sim_count = *((Addr*)helper.getParam(0));
 
-    int count = StreamProcessorArray::getNumCudaDevices();
+    int count = CudaGPU::getNumCudaDevices();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDeviceCount(count* = %x) = %d\n", sim_count, count);
 
     helper.writeBlob(sim_count, (uint8_t*)(&count), sizeof(int));
@@ -657,10 +653,10 @@ cudaGetDeviceProperties(ThreadContext *tc, gpusyscall_t *call_params)
     Addr sim_prop = *((Addr*)helper.getParam(0));
     int sim_device = *((int*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDeviceProperties(prop* = %x, device = %d)\n", sim_prop, sim_device);
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    if (sim_device <= StreamProcessorArray::getNumCudaDevices())  {
-        StreamProcessorArray::CudaDeviceProperties *prop = spa->getDeviceProperties();
-        helper.writeBlob(sim_prop, (uint8_t*)(prop), sizeof(StreamProcessorArray::CudaDeviceProperties));
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    if (sim_device <= CudaGPU::getNumCudaDevices())  {
+        CudaGPU::CudaDeviceProperties *prop = cudaGPU->getDeviceProperties();
+        helper.writeBlob(sim_prop, (uint8_t*)(prop), sizeof(CudaGPU::CudaDeviceProperties));
         g_last_cudaError = cudaSuccess;
     } else {
         g_last_cudaError = cudaErrorInvalidDevice;
@@ -681,7 +677,7 @@ cudaSetDevice(ThreadContext *tc, gpusyscall_t *call_params)
 
     int sim_device = *((int*)helper.getParam(0));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaSetDevice(device = %d)\n", sim_device);
-    if (sim_device <= StreamProcessorArray::getNumCudaDevices()) {
+    if (sim_device <= CudaGPU::getNumCudaDevices()) {
         g_active_device = sim_device;
         g_last_cudaError = cudaSuccess;
     } else {
@@ -697,7 +693,7 @@ cudaGetDevice(ThreadContext *tc, gpusyscall_t *call_params)
 
     Addr sim_device = *((Addr*)helper.getParam(0));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDevice(device = 0x%x)\n", sim_device);
-    if (g_active_device <= StreamProcessorArray::getNumCudaDevices()) {
+    if (g_active_device <= CudaGPU::getNumCudaDevices()) {
         helper.writeBlob(sim_device, (uint8_t*)&g_active_device, sizeof(int));
         g_last_cudaError = cudaSuccess;
     } else {
@@ -833,7 +829,7 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
 
     const char* sim_hostFun = *((char**)helper.getParam(0));
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     char *mode = getenv("PTX_SIM_MODE_FUNC");
     if (mode)
         sscanf(mode,"%u", &g_ptx_sim_mode);
@@ -841,8 +837,8 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     kernel_config config = g_cuda_launch_stack.back();
     struct CUstream_st *stream = config.get_stream();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun* = %x)\n", (void*)sim_hostFun);
-    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(config.get_args(), config.grid_dim(), config.block_dim(), spa->get_kernel(sim_hostFun));
-    grid->set_inst_base_vaddr(spa->getInstBaseVaddr());
+    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(config.get_args(), config.grid_dim(), config.block_dim(), cudaGPU->get_kernel(sim_hostFun));
+    grid->set_inst_base_vaddr(cudaGPU->getInstBaseVaddr());
     std::string kname = grid->name();
     stream_operation op(grid, g_ptx_sim_mode, stream);
     op.setThreadContext(tc);
@@ -947,8 +943,8 @@ cudaThreadSynchronize(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaThreadSynchronize(), tc = %x\n", tc);
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    bool suspend = spa->needsToBlock();
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    bool suspend = cudaGPU->needsToBlock();
     g_last_cudaError = cudaSuccess;
     helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
@@ -999,14 +995,14 @@ get_global_and_constant_alloc_size(symbol_table* symtab)
 void
 finalize_global_and_constant_setup(ThreadContext *tc, Addr base_addr, symbol_table* symtab)
 {
-    StreamProcessorArray* spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     Addr curr_addr = base_addr;
     Addr next_addr = 0;
     symbol_table::iterator iter;
     for (iter = symtab->global_iterator_begin(); iter != symtab->global_iterator_end(); iter++) {
         symbol* global = *iter;
         global->set_address(curr_addr);
-        spa->registerDeviceMemory(tc, curr_addr, global->get_size_in_bytes());
+        cudaGPU->registerDeviceMemory(tc, curr_addr, global->get_size_in_bytes());
         next_addr = curr_addr + global->get_size_in_bytes();
         if (next_addr - base_addr > registering_allocation_size) {
             panic("Didn't allocate enough global+const memory. Bailing!");
@@ -1019,7 +1015,7 @@ finalize_global_and_constant_setup(ThreadContext *tc, Addr base_addr, symbol_tab
     for (iter = symtab->const_iterator_begin(); iter != symtab->const_iterator_end(); iter++) {
         symbol* constant = *iter;
         constant->set_address(curr_addr);
-        spa->registerDeviceMemory(tc, curr_addr, constant->get_size_in_bytes());
+        cudaGPU->registerDeviceMemory(tc, curr_addr, constant->get_size_in_bytes());
         next_addr = curr_addr + constant->get_size_in_bytes();
         if (next_addr - base_addr > registering_allocation_size) {
             panic("Didn't allocate enough global+const memory. Bailing!");
@@ -1032,8 +1028,8 @@ finalize_global_and_constant_setup(ThreadContext *tc, Addr base_addr, symbol_tab
 
 void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t sim_binSize)
 {
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    gpgpu_t *gpu = spa->getTheGPU();
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    gpgpu_t *gpu = cudaGPU->getTheGPU();
 
     // Get primary arguments
     __cudaFatCudaBinary* fat_cubin = new __cudaFatCudaBinary;
@@ -1057,7 +1053,7 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if (ptx_entry_ptr->ptx != 0) {
             DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (address_type)(Addr)ptx_entry_ptr->ptx);
-            spa->registerDeviceInstText(helper->getThreadContext(), (Addr)ptx_entry_ptr->ptx, sim_binSize);
+            cudaGPU->registerDeviceInstText(helper->getThreadContext(), (Addr)ptx_entry_ptr->ptx, sim_binSize);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             helper->readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize);
             uint8_t* gpu_profile = new uint8_t[MAX_STRING_LEN];
@@ -1115,7 +1111,7 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
         } else {
             assert(registering_symtab == NULL);
             registering_symtab = gpgpu_ptx_sim_load_ptx_from_string(ptx, source_num);
-            spa->add_binary(registering_symtab, registering_fat_cubin_handle);
+            cudaGPU->add_binary(registering_symtab, registering_fat_cubin_handle);
             gpgpu_ptxinfo_load_from_string(ptx, source_num);
         }
         source_num++;
@@ -1142,17 +1138,17 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     Addr sim_fatCubin = *((Addr*)helper.getParam(0));
     int sim_binSize = *((int*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterFatBinary(fatCubin* = %x, binSize = %d)\n", sim_fatCubin, sim_binSize);
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
     registerFatBinaryTop(&helper, sim_fatCubin, sim_binSize);
 
-    spa->saveFatBinaryInfoTop(tc->threadId(), registering_fat_cubin_handle, sim_fatCubin, sim_binSize);
+    cudaGPU->saveFatBinaryInfoTop(tc->threadId(), registering_fat_cubin_handle, sim_fatCubin, sim_binSize);
 
-    if (!spa->isManagingGPUMemory()) {
+    if (!cudaGPU->isManagingGPUMemory()) {
         helper.setReturn((uint8_t*)&registering_allocation_size, sizeof(int));
     } else {
         assert(!registering_allocation_ptr);
-        registering_allocation_ptr = spa->allocateGPUMemory(registering_allocation_size);
+        registering_allocation_ptr = cudaGPU->allocateGPUMemory(registering_allocation_size);
         int zero_allocation = 0;
         helper.setReturn((uint8_t*)&zero_allocation, sizeof(int));
     }
@@ -1190,18 +1186,18 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
     GPUSyscallHelper helper(tc, call_params);
     Addr sim_alloc_ptr = *((Addr*)helper.getParam(0));
 
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
-    spa->saveFatBinaryInfoBottom(sim_alloc_ptr);
+    cudaGPU->saveFatBinaryInfoBottom(sim_alloc_ptr);
 
     unsigned int handle;
-    if (!spa->isManagingGPUMemory()) {
-        spa->saveFatBinaryInfoBottom(sim_alloc_ptr);
+    if (!cudaGPU->isManagingGPUMemory()) {
+        cudaGPU->saveFatBinaryInfoBottom(sim_alloc_ptr);
         handle = registerFatBinaryBottom(&helper, sim_alloc_ptr);
     } else {
         assert(!sim_alloc_ptr);
         assert(registering_allocation_ptr || registering_allocation_size == 0);
-        spa->saveFatBinaryInfoBottom(registering_allocation_ptr);
+        cudaGPU->saveFatBinaryInfoBottom(registering_allocation_ptr);
         handle = registerFatBinaryBottom(&helper, registering_allocation_ptr);
     }
 
@@ -1227,13 +1223,13 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
 
     // Read device function name from simulated system memory
     char* device_fun = new char[MAX_STRING_LEN];
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     helper.readString(sim_deviceFun, (uint8_t*)device_fun, MAX_STRING_LEN);
 
     // Register function
     unsigned fat_cubin_handle = (unsigned)(unsigned long long)sim_fatCubinHandle;
-    spa->register_function(fat_cubin_handle, sim_hostFun, device_fun);
-    spa->saveFunctionNames(fat_cubin_handle, sim_hostFun, device_fun);
+    cudaGPU->register_function(fat_cubin_handle, sim_hostFun, device_fun);
+    cudaGPU->saveFunctionNames(fat_cubin_handle, sim_hostFun, device_fun);
     delete[] device_fun;
 }
 
@@ -1266,10 +1262,10 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
     int sim_global = *((int*)helper.getParam(7));
 
     const char* deviceName = new char[MAX_STRING_LEN];
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
 
-    spa->saveVar(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
+    cudaGPU->saveVar(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
 
     register_var(sim_deviceAddress, deviceName, sim_size, sim_constant, sim_global, sim_ext, sim_hostVar);
 }
@@ -1304,8 +1300,8 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
             sim_deviceName, sim_dim, sim_norm, sim_ext);
 
     const char* deviceName = new char[MAX_STRING_LEN];
-    StreamProcessorArray *spa = StreamProcessorArray::getStreamProcessorArray(g_active_device);
-    gpgpu_t *gpu = spa->getTheGPU();
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    gpgpu_t *gpu = cudaGPU->getTheGPU();
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
 
     gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, sim_hostVar);

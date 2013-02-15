@@ -30,7 +30,7 @@
 #include "gpu/shader_tlb.hh"
 
 ShaderTLB::ShaderTLB(const Params *p) :
-    X86ISA::TLB(p), spa(p->spa), accessHostPageTable(p->access_host_pagetable)
+    X86ISA::TLB(p), cudaGPU(p->gpu), accessHostPageTable(p->access_host_pagetable)
 {
 }
 
@@ -46,16 +46,16 @@ void
 ShaderTLB::beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode)
 {
     if (accessHostPageTable) {
-        translateTiming(req, spa->getThreadContext(), translation, mode);
+        translateTiming(req, cudaGPU->getThreadContext(), translation, mode);
     } else {
         // The below code implements a perfect TLB with instant access to the
         // device page table.
         // TODO: We can shift this around, maybe to memory, maybe hierarchical TLBs
         Addr vaddr = req->getVaddr();
-        Addr page_vaddr = spa->getGPUPageTable()->addrToPage(vaddr);
+        Addr page_vaddr = cudaGPU->getGPUPageTable()->addrToPage(vaddr);
         Addr offset = vaddr - page_vaddr;
         Addr page_paddr;
-        if (spa->getGPUPageTable()->lookup(page_vaddr, page_paddr)) {
+        if (cudaGPU->getGPUPageTable()->lookup(page_vaddr, page_paddr)) {
             DPRINTF(ShaderTLB, "Translation found for vaddr %x = paddr %x\n", vaddr, page_paddr + offset);
             req->setPaddr(page_paddr + offset);
             translation->finish(NoFault, req, NULL, mode);

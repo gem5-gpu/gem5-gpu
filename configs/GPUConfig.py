@@ -130,11 +130,11 @@ def parseGpgpusimConfig(options):
 def createGPU(options, gpu_mem_range):
     gpgpusimOptions = parseGpgpusimConfig(options)
 
-    gpu = StreamProcessorArray(manage_gpu_memory = options.split,
+    gpu = CudaGPU(manage_gpu_memory = options.split,
             gpu_memory_range = gpu_mem_range)
 
-    gpu.shader_cores = [ShaderCore(id = i) for i in xrange(options.num_sc)]
-    gpu.ce = SPACopyEngine(driver_delay = 5000000)
+    gpu.shader_cores = [CudaCore(id = i) for i in xrange(options.num_sc)]
+    gpu.ce = GPUCopyEngine(driver_delay = 5000000)
 
     gpu.frequency = options.gpu_core_clock
     gpu.warp_size = options.gpu_warp_size

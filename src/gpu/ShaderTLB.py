@@ -35,4 +35,4 @@ class ShaderTLB(X86TLB):
     cxx_header = "gpu/shader_tlb.hh"
 
     access_host_pagetable = Param.Bool(False, "Whether to allow accesses to host page table")
-    spa = Param.StreamProcessorArray(Parent.any, "The GPU core")
+    gpu = Param.CudaGPU(Parent.any, "The GPU")

@@ -41,29 +41,28 @@
 #include "cpu/thread_context.hh"
 #include "cpu/translation.hh"
 #include "cuda-sim/cuda-sim.h"
-#include "debug/GpuTick.hh"
-#include "debug/StreamProcessorArray.hh"
-#include "debug/StreamProcessorArrayAccess.hh"
-#include "debug/StreamProcessorArrayPageTable.hh"
-#include "debug/StreamProcessorArrayTick.hh"
+#include "debug/CudaGPU.hh"
+#include "debug/CudaGPUAccess.hh"
+#include "debug/CudaGPUPageTable.hh"
+#include "debug/CudaGPUTick.hh"
 #include "gpgpusim_entrypoint.h"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
 #include "mem/page_table.hh"
-#include "params/StreamProcessorArray.hh"
+#include "params/CudaGPU.hh"
 #include "sim/pseudo_inst.hh"
 
 using namespace TheISA;
 using namespace std;
 
-vector<StreamProcessorArray*> StreamProcessorArray::gpuArray;
+vector<CudaGPU*> CudaGPU::gpuArray;
 
 // From GPU syscalls
 void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t sim_binSize);
 unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_ptr);
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 
-StreamProcessorArray::StreamProcessorArray(const Params *p) :
+CudaGPU::CudaGPU(const Params *p) :
     SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
     system(p->sys), frequency(p->frequency), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
@@ -98,7 +97,7 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
     // Initialize GPGPU-Sim
     theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());
     theGPU->init();
-    theGPU->setSPA(this);
+    theGPU->setCudaGPU(this);
 
     // Setup the device properties for this GPU
     snprintf(deviceProperties.name, 256, "GPGPU-Sim_v%s", g_gpgpusim_version_string);
@@ -129,9 +128,9 @@ StreamProcessorArray::StreamProcessorArray(const Params *p) :
 
 }
 
-void StreamProcessorArray::serialize(std::ostream &os)
+void CudaGPU::serialize(std::ostream &os)
 {
-    DPRINTF(StreamProcessorArray, "Serializing\n");
+    DPRINTF(CudaGPU, "Serializing\n");
     if (running) {
         panic("Checkpointing during GPU execution not supported\n");
     }
@@ -179,9 +178,9 @@ void StreamProcessorArray::serialize(std::ostream &os)
     pageTable.serialize(os);
 }
 
-void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &section)
+void CudaGPU::unserialize(Checkpoint *cp, const std::string &section)
 {
-    DPRINTF(StreamProcessorArray, "UNserializing\n");
+    DPRINTF(CudaGPU, "UNserializing\n");
 
     restoring = true;
 
@@ -190,11 +189,11 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
 
     UNSERIALIZE_SCALAR(runningTID);
 
-    DPRINTF(StreamProcessorArray, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, instBaseVaddr);
+    DPRINTF(CudaGPU, "UNSerializing %d, %d\n", m_last_fat_cubin_handle, instBaseVaddr);
 
     int numBinaries;
     UNSERIALIZE_SCALAR(numBinaries);
-    DPRINTF(StreamProcessorArray, "UNserializing %d binaries\n", numBinaries);
+    DPRINTF(CudaGPU, "UNserializing %d binaries\n", numBinaries);
     fatBinaries.resize(numBinaries);
     for (int i=0; i<numBinaries; i++) {
         stringstream ss;
@@ -205,7 +204,7 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
         paramIn(cp, section, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
         paramIn(cp, section, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
         paramIn(cp, section, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
-        DPRINTF(StreamProcessorArray, "Got %d %d %d %d\n", fatBinaries[i].handle, fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
+        DPRINTF(CudaGPU, "Got %d %d %d %d\n", fatBinaries[i].handle, fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
 
         int funcMapSize;
         paramIn(cp, section, num+"fatBinaries.funcMap.size", funcMapSize);
@@ -234,11 +233,11 @@ void StreamProcessorArray::unserialize(Checkpoint *cp, const std::string &sectio
     pageTable.unserialize(cp, section);
 }
 
-void StreamProcessorArray::startup()
+void CudaGPU::startup()
 {
-    // Initialize shader cores
-    vector<ShaderCore*>::iterator iter;
-    for (iter = shaderCores.begin(); iter != shaderCores.end(); ++iter) {
+    // Initialize CUDA cores
+    vector<CudaCore*>::iterator iter;
+    for (iter = cudaCores.begin(); iter != cudaCores.end(); ++iter) {
         (*iter)->initialize();
     }
 
@@ -275,25 +274,25 @@ void StreamProcessorArray::startup()
     }
 }
 
-void StreamProcessorArray::clearStats()
+void CudaGPU::clearStats()
 {
     ruby->resetStats();
     clearTick = curTick();
 }
 
-void StreamProcessorArray::registerShaderCore(ShaderCore *sc)
+void CudaGPU::registerCudaCore(CudaCore *sc)
 {
-    shaderCores.push_back(sc);
+    cudaCores.push_back(sc);
 }
 
-void StreamProcessorArray::registerCopyEngine(SPACopyEngine *ce)
+void CudaGPU::registerCopyEngine(GPUCopyEngine *ce)
 {
     copyEngine = ce;
 }
 
-void StreamProcessorArray::gpuTick()
+void CudaGPU::gpuTick()
 {
-    DPRINTF(GpuTick, "GPU Tick\n");
+    DPRINTF(CudaGPUTick, "GPU Tick\n");
 
     // check if a kernel has completed
     // TODO: Cleanup this code to schedule an event for a completed kernel
@@ -312,7 +311,7 @@ void StreamProcessorArray::gpuTick()
     }
 
     while(!finishedKernels.empty() && finishedKernels.front().time < curTick()) {
-        DPRINTF(StreamProcessorArrayTick, "GPU finished a kernel id %d\n", finishedKernels.front().grid_uid);
+        DPRINTF(CudaGPUTick, "GPU finished a kernel id %d\n", finishedKernels.front().grid_uid);
 
         streamManager->register_finished_kernel(finishedKernels.front().grid_uid);
         finishedKernels.pop();
@@ -323,7 +322,7 @@ void StreamProcessorArray::gpuTick()
         }
 
         if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
-            DPRINTF(StreamProcessorArray, "Stream manager is empty, unblocking\n");
+            DPRINTF(CudaGPU, "Stream manager is empty, unblocking\n");
             unblockThread(runningTC);
         }
 
@@ -347,8 +346,8 @@ void StreamProcessorArray::gpuTick()
 
 }
 
-void StreamProcessorArray::streamTick() {
-    DPRINTF(StreamProcessorArrayTick, "Stream Tick\n");
+void CudaGPU::streamTick() {
+    DPRINTF(CudaGPUTick, "Stream Tick\n");
 
     streamScheduled = false;
 
@@ -362,15 +361,15 @@ void StreamProcessorArray::streamTick() {
     }
 }
 
-void StreamProcessorArray::gpuRequestTick(float gpuTicks) {
+void CudaGPU::gpuRequestTick(float gpuTicks) {
     Tick gpuWakeupTick = (int)(gpuTicks * SimClock::Frequency) + curTick();
 
     schedule(gpuTickEvent, gpuWakeupTick);
 }
 
-void StreamProcessorArray::streamRequestTick(int ticks) {
+void CudaGPU::streamRequestTick(int ticks) {
     if (streamScheduled) {
-        DPRINTF(StreamProcessorArrayTick, "Already scheduled a tick, ignoring\n");
+        DPRINTF(CudaGPUTick, "Already scheduled a tick, ignoring\n");
         return;
     }
     Tick streamWakeupTick = ticks + curTick();
@@ -379,11 +378,11 @@ void StreamProcessorArray::streamRequestTick(int ticks) {
     streamScheduled = true;
 }
 
-void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_stream)
+void CudaGPU::beginRunning(Tick launchTime, struct CUstream_st *_stream)
 {
     beginStreamOperation(_stream);
 
-    DPRINTF(StreamProcessorArray, "Beginning kernel execution at %llu\n", curTick());
+    DPRINTF(CudaGPU, "Beginning kernel execution at %llu\n", curTick());
     kernelTimes.push_back(curTick());
     if (dumpKernelStats) {
         PseudoInst::dumpresetstats(runningTC, 0, 0);
@@ -402,17 +401,17 @@ void StreamProcessorArray::beginRunning(Tick launchTime, struct CUstream_st *_st
     schedule(gpuTickEvent, curTick() + delay);
 }
 
-ShaderCore *StreamProcessorArray::getShaderCore(int coreId)
+CudaCore *CudaGPU::getCudaCore(int coreId)
 {
-    assert(coreId < shaderCores.size());
-    return shaderCores[coreId];
+    assert(coreId < cudaCores.size());
+    return cudaCores[coreId];
 }
 
-StreamProcessorArray *StreamProcessorArrayParams::create() {
-    return new StreamProcessorArray(this);
+CudaGPU *CudaGPUParams::create() {
+    return new CudaGPU(this);
 }
 
-void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
+void CudaGPU::gpuPrintStats(std::ostream& out) {
     // Print kernel statistics
     Tick total_kernel_ticks = 0;
     Tick last_kernel_time = 0;
@@ -438,9 +437,9 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     // Print Shader CTA statistics
     out << "\nshader CTA times (ticks):\n";
     out << "shader, CTA ID, start, end, start, end, ..., exit\n";
-    std::vector<ShaderCore*>::iterator shaders;
-    for (shaders = shaderCores.begin(); shaders != shaderCores.end(); shaders++) {
-        (*shaders)->printCTAStats(out);
+    std::vector<CudaCore*>::iterator cores;
+    for (cores = cudaCores.begin(); cores != cudaCores.end(); cores++) {
+        (*cores)->printCTAStats(out);
     }
     out << "\ntotal kernel time (ticks) = " << total_kernel_ticks << "\n";
 
@@ -449,12 +448,12 @@ void StreamProcessorArray::gpuPrintStats(std::ostream& out) {
     }
 }
 
-void StreamProcessorArray::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
+void CudaGPU::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
     beginStreamOperation(_stream);
     copyEngine->memcpy((Addr)src, (Addr)dst, count, type);
 }
 
-void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *_stream) {
+void CudaGPU::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *_stream) {
     // First, initialize the stream operation
     beginStreamOperation(_stream);
 
@@ -477,12 +476,12 @@ void StreamProcessorArray::memcpy_symbol(const char *hostVar, const void *src, s
     }
 }
 
-void StreamProcessorArray::memset(Addr dst, int value, size_t count, struct CUstream_st *_stream) {
+void CudaGPU::memset(Addr dst, int value, size_t count, struct CUstream_st *_stream) {
     beginStreamOperation(_stream);
     copyEngine->memset(dst, value, count);
 }
 
-void StreamProcessorArray::finishCopyOperation()
+void CudaGPU::finishCopyOperation()
 {
     runningStream->record_next_done();
     streamRequestTick(1);
@@ -492,36 +491,36 @@ void StreamProcessorArray::finishCopyOperation()
 
 // TODO: When we move the stream manager into libcuda, this will need to be
 // eliminated, and libcuda will have to decide when to block the calling thread
-bool StreamProcessorArray::needsToBlock()
+bool CudaGPU::needsToBlock()
 {
     if (!streamManager->empty()) {
-        DPRINTF(StreamProcessorArray, "Suspend request: Need to activate CPU later\n");
+        DPRINTF(CudaGPU, "Suspend request: Need to activate CPU later\n");
         unblockNeeded = true;
         streamManager->print(stdout);
         return true;
     } else {
-        DPRINTF(StreamProcessorArray, "Suspend request: Already done.\n");
+        DPRINTF(CudaGPU, "Suspend request: Already done.\n");
         return false;
     }
 }
 
-void StreamProcessorArray::blockThread(ThreadContext *tc, Addr signal_ptr)
+void CudaGPU::blockThread(ThreadContext *tc, Addr signal_ptr)
 {
     if (streamManager->empty()) {
         // It is common in small memcpys for the stream operation to be complete
         // by the time cudaMemcpy calls blockThread. In this case, just signal
-        DPRINTF(StreamProcessorArray, "No stream operations to block thread %p. Continuing...\n", tc);
+        DPRINTF(CudaGPU, "No stream operations to block thread %p. Continuing...\n", tc);
         signalThread(tc, signal_ptr);
         blockedThreads.erase(tc);
         unblockNeeded = false;
     } else {
-        DPRINTF(StreamProcessorArray, "Blocking thread %p for GPU syscall\n", tc);
+        DPRINTF(CudaGPU, "Blocking thread %p for GPU syscall\n", tc);
         blockedThreads[tc] = signal_ptr;
         tc->suspend();
     }
 }
 
-void StreamProcessorArray::signalThread(ThreadContext *tc, Addr signal_ptr)
+void CudaGPU::signalThread(ThreadContext *tc, Addr signal_ptr)
 {
     GPUSyscallHelper helper(tc);
     bool signal_val = true;
@@ -537,13 +536,13 @@ void StreamProcessorArray::signalThread(ThreadContext *tc, Addr signal_ptr)
     helper.writeBlob(signal_ptr, (uint8_t*)&signal_val, sizeof(bool));
 }
 
-void StreamProcessorArray::unblockThread(ThreadContext *tc)
+void CudaGPU::unblockThread(ThreadContext *tc)
 {
     if (!tc) tc = runningTC;
     if (tc->status() != ThreadContext::Suspended) return;
     assert(unblockNeeded);
 
-    DPRINTF(StreamProcessorArray, "Unblocking thread %p for GPU syscall\n", tc);
+    DPRINTF(CudaGPU, "Unblocking thread %p for GPU syscall\n", tc);
     std::map<ThreadContext*, Addr>::iterator tc_iter = blockedThreads.find(tc);
     if (tc_iter == blockedThreads.end()) {
         panic("Cannot find blocked thread!\n");
@@ -557,13 +556,13 @@ void StreamProcessorArray::unblockThread(ThreadContext *tc)
     tc->activate();
 }
 
-void StreamProcessorArray::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )
+void CudaGPU::add_binary( symbol_table *symtab, unsigned fat_cubin_handle )
 {
     m_code[fat_cubin_handle] = symtab;
     m_last_fat_cubin_handle = fat_cubin_handle;
 }
 
-void StreamProcessorArray::add_ptxinfo( const char *deviceFun, const struct gpgpu_ptx_sim_kernel_info info )
+void CudaGPU::add_ptxinfo( const char *deviceFun, const struct gpgpu_ptx_sim_kernel_info info )
 {
     symbol *s = m_code[m_last_fat_cubin_handle]->lookup(deviceFun);
     assert( s != NULL );
@@ -572,7 +571,7 @@ void StreamProcessorArray::add_ptxinfo( const char *deviceFun, const struct gpgp
     f->set_kernel_info(info);
 }
 
-void StreamProcessorArray::register_function( unsigned fat_cubin_handle, const char *hostFun, const char *deviceFun )
+void CudaGPU::register_function( unsigned fat_cubin_handle, const char *hostFun, const char *deviceFun )
 {
     if( m_code.find(fat_cubin_handle) != m_code.end() ) {
         symbol *s = m_code[fat_cubin_handle]->lookup(deviceFun);
@@ -585,14 +584,14 @@ void StreamProcessorArray::register_function( unsigned fat_cubin_handle, const c
     }
 }
 
-function_info *StreamProcessorArray::get_kernel(const char *hostFun)
+function_info *CudaGPU::get_kernel(const char *hostFun)
 {
     std::map<const void*,function_info*>::iterator i=m_kernel_lookup.find(hostFun);
     assert( i != m_kernel_lookup.end() );
     return i->second;
 }
 
-void StreamProcessorArray::setInstBaseVaddr(uint64_t addr)
+void CudaGPU::setInstBaseVaddr(uint64_t addr)
 {
     if (!instBaseVaddrSet) {
         instBaseVaddr = addr;
@@ -600,18 +599,18 @@ void StreamProcessorArray::setInstBaseVaddr(uint64_t addr)
     }
 }
 
-uint64_t StreamProcessorArray::getInstBaseVaddr()
+uint64_t CudaGPU::getInstBaseVaddr()
 {
     return instBaseVaddr;
 }
 
-Addr StreamProcessorArray::SPAPageTable::addrToPage(Addr addr)
+Addr CudaGPU::GPUPageTable::addrToPage(Addr addr)
 {
     Addr offset = addr % TheISA::PageBytes;
     return addr - offset;
 }
 
-void StreamProcessorArray::SPAPageTable::serialize(std::ostream &os)
+void CudaGPU::GPUPageTable::serialize(std::ostream &os)
 {
     unsigned int num_ptes = pageMap.size();
     unsigned int index = 0;
@@ -629,7 +628,7 @@ void StreamProcessorArray::SPAPageTable::serialize(std::ostream &os)
     delete[] pagetable_paddrs;
 }
 
-void StreamProcessorArray::SPAPageTable::unserialize(Checkpoint *cp, const std::string &section)
+void CudaGPU::GPUPageTable::unserialize(Checkpoint *cp, const std::string &section)
 {
     unsigned int num_ptes = 0;
     UNSERIALIZE_SCALAR(num_ptes);
@@ -644,10 +643,10 @@ void StreamProcessorArray::SPAPageTable::unserialize(Checkpoint *cp, const std::
     delete[] pagetable_paddrs;
 }
 
-void StreamProcessorArray::registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size)
+void CudaGPU::registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size)
 {
     if (manageGPUMemory) return;
-    DPRINTF(StreamProcessorArrayPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
+    DPRINTF(CudaGPUPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
     // Get the physical address of full memory allocation (i.e. all pages)
     Addr page_vaddr, page_paddr;
     for (ChunkGenerator gen(vaddr, size, TheISA::PageBytes); !gen.done(); gen.next()) {
@@ -661,7 +660,7 @@ void StreamProcessorArray::registerDeviceMemory(ThreadContext *tc, Addr vaddr, s
     }
 }
 
-void StreamProcessorArray::registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size)
+void CudaGPU::registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size)
 {
     if (manageGPUMemory) {
         // Allocate virtual and physical memory for the device text
@@ -673,10 +672,10 @@ void StreamProcessorArray::registerDeviceInstText(ThreadContext *tc, Addr vaddr,
     }
 }
 
-Addr StreamProcessorArray::allocateGPUMemory(size_t size)
+Addr CudaGPU::allocateGPUMemory(size_t size)
 {
     assert(manageGPUMemory);
-    DPRINTF(StreamProcessorArrayPageTable, "GPU allocating %d bytes\n", size);
+    DPRINTF(CudaGPUPageTable, "GPU allocating %d bytes\n", size);
 
     if (size == 0) return 0;
 
@@ -705,11 +704,11 @@ Addr StreamProcessorArray::allocateGPUMemory(size_t size)
         } else {
             page_paddr = base_paddr + (page_vaddr - base_vaddr);
         }
-        DPRINTF(StreamProcessorArrayPageTable, "  Trying to allocate page at vaddr %x with addr %x\n", page_vaddr, gen.addr());
+        DPRINTF(CudaGPUPageTable, "  Trying to allocate page at vaddr %x with addr %x\n", page_vaddr, gen.addr());
         pageTable.insert(page_vaddr, page_paddr);
     }
 
-    DPRINTF(StreamProcessorArrayAccess, "Allocating %d bytes for GPU at address 0x%x\n", size, base_vaddr);
+    DPRINTF(CudaGPUAccess, "Allocating %d bytes for GPU at address 0x%x\n", size, base_vaddr);
 
     return base_vaddr;
 }
@@ -724,7 +723,7 @@ void GPUExitCallback::process()
     if (!os) {
         os = simout.create(stats_filename);
     }
-    spa_obj->gpuPrintStats(*os);
+    gpu->gpuPrintStats(*os);
     *os << std::endl;
 }
 
