@@ -30,11 +30,6 @@
 #include <iostream>
 #include <map>
 
-#include "arch/tlb.hh"
-#include "arch/utility.hh"
-#include "base/chunk_generator.hh"
-#include "config/the_isa.hh"
-#include "cpu/thread_context.hh"
 #include "cpu/translation.hh"
 #include "debug/CudaCore.hh"
 #include "debug/CudaCoreAccess.hh"
@@ -46,8 +41,8 @@
 #include "mem/page_table.hh"
 #include "mem/ruby/fusion_profiler/fusion_profiler.hh"
 #include "params/CudaCore.hh"
+#include "sim/system.hh"
 
-using namespace TheISA;
 using namespace std;
 
 CudaCore::CudaCore(const Params *p) :

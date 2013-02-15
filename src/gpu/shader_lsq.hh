@@ -36,8 +36,6 @@
 #include "base/statistics.hh"
 #include "cpu/translation.hh"
 #include "mem/mem_object.hh"
-#include "mem/packet_queue.hh"
-#include "mem/port.hh"
 #include "mem/qport.hh"
 #include "params/ShaderLSQ.hh"
 

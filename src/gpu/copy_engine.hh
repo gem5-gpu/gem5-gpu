@@ -29,13 +29,10 @@
 #ifndef __GPGPU_COPY_ENGINE_HH__
 #define __GPGPU_COPY_ENGINE_HH__
 
-#include "arch/types.hh"
-#include "config/the_isa.hh"
+#include "base/callback.hh"
 #include "cpu/translation.hh"
-#include "mem/ruby/system/RubyPort.hh"
 #include "mem/mem_object.hh"
 #include "params/GPUCopyEngine.hh"
-#include "sim/process.hh"
 #include "stream_manager.h"
 
 // @TODO: Fix the dependencies between sp_array and copy_engine, and

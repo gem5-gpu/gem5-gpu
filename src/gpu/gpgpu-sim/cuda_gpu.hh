@@ -35,13 +35,9 @@
 #include <string>
 #include <vector>
 
-#include "arch/types.hh"
-#include "config/the_isa.hh"
-#include "cpu/translation.hh"
+#include "base/callback.hh"
 #include "debug/CudaGPUPageTable.hh"
 #include "gpgpu-sim/gpu-sim.h"
-#include "mem/ruby/system/RubyPort.hh"
-#include "mem/mem_object.hh"
 #include "params/CudaGPU.hh"
 #include "sim/process.hh"
 #include "sim/system.hh"

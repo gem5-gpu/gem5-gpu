@@ -32,14 +32,10 @@
 #include <string>
 #include <map>
 
-#include "arch/tlb.hh"
 #include "arch/utility.hh"
 #include "api/gpu_syscall_helper.hh"
 #include "base/chunk_generator.hh"
-#include "base/output.hh"
-#include "config/the_isa.hh"
 #include "cpu/thread_context.hh"
-#include "cpu/translation.hh"
 #include "cuda-sim/cuda-sim.h"
 #include "debug/CudaGPU.hh"
 #include "debug/CudaGPUAccess.hh"
@@ -48,11 +44,9 @@
 #include "gpgpusim_entrypoint.h"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
-#include "mem/page_table.hh"
 #include "params/CudaGPU.hh"
 #include "sim/pseudo_inst.hh"
 
-using namespace TheISA;
 using namespace std;
 
 vector<CudaGPU*> CudaGPU::gpuArray;

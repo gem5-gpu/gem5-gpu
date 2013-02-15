@@ -31,15 +31,14 @@
 #include "arch/tlb.hh"
 #include "arch/utility.hh"
 #include "base/output.hh"
-#include "config/the_isa.hh"
 #include "debug/GPUCopyEngine.hh"
 #include "gpu/copy_engine.hh"
 #include "mem/page_table.hh"
 #include "params/GPUCopyEngine.hh"
+#include "sim/system.hh"
 
 #define READ_AMOUNT 128
 
-using namespace TheISA;
 using namespace std;
 
 GPUCopyEngine::GPUCopyEngine(const Params *p) :
