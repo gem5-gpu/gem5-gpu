@@ -143,6 +143,22 @@ class CudaGPU : public SimObject
         virtual const char *description() const { return "CudaGPU tick"; }
     };
 
+    class FinishKernelEvent : public Event
+    {
+        friend class CudaGPU;
+
+    private:
+        CudaGPU *gpu;
+        int grid_id;
+    public:
+        FinishKernelEvent(CudaGPU *_gpu, int _grid_id) :
+            gpu(_gpu), grid_id(_grid_id) {}
+        void process() {
+            gpu->processFinishKernelEvent(grid_id);
+            delete this;
+        }
+    };
+
     const CudaGPUParams *_params;
     const Params * params() const { return dynamic_cast<const Params *>(_params); }
 
@@ -218,7 +234,6 @@ class CudaGPU : public SimObject
     /// For statistics
     std::vector<Tick> kernelTimes;
     Tick clearTick;
-    std::queue<kernelTermInfo> finishedKernels;
     bool dumpKernelStats;
 
     /// Pointers to GPGPU-Sim objects
@@ -331,6 +346,16 @@ class CudaGPU : public SimObject
 
     /// Called at the beginning of each kernel launch to start the statistics
     void beginRunning(Tick launchTime, struct CUstream_st *_stream);
+
+    /**
+     * Marks the kernel as complete and signals the stream manager
+     */
+    void processFinishKernelEvent(int grid_id);
+
+    /**
+     * Called from GPGPU-Sim when the kernel completes on all shaders
+     */
+    void finishKernel(int grid_id);
 
     /// Called from GPGPU-Sim next_clock_domain and schedules cycle() to be run
     /// gpuTicks (in GPPGU-Sim tick (seconds)) from now

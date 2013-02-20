@@ -288,48 +288,9 @@ void CudaGPU::gpuTick()
 {
     DPRINTF(CudaGPUTick, "GPU Tick\n");
 
-    // check if a kernel has completed
-    // TODO: Cleanup this code to schedule an event for a completed kernel
-    kernelTermInfo term_info = theGPU->finished_kernel();
-    if( term_info.grid_uid ) {
-        Tick delay = 1;
-        Tick curTime = curTick();
-        if (curTime - term_info.time < returnDelay * SimClock::Frequency ) {
-            delay = (Tick)(returnDelay * SimClock::Frequency) - (curTime - term_info.time); //delay by whatever is left over
-        }
-
-        finishedKernels.push(kernelTermInfo(term_info.grid_uid, curTick()+delay));
-        streamRequestTick(1);
-
-        running = false;
-    }
-
-    while(!finishedKernels.empty() && finishedKernels.front().time < curTick()) {
-        DPRINTF(CudaGPUTick, "GPU finished a kernel id %d\n", finishedKernels.front().grid_uid);
-
-        streamManager->register_finished_kernel(finishedKernels.front().grid_uid);
-        finishedKernels.pop();
-
-        kernelTimes.push_back(curTick());
-        if (dumpKernelStats) {
-            PseudoInst::dumpresetstats(runningTC, 0, 0);
-        }
-
-        if (unblockNeeded && streamManager->empty() && finishedKernels.empty()) {
-            DPRINTF(CudaGPU, "Stream manager is empty, unblocking\n");
-            unblockThread(runningTC);
-        }
-
-        endStreamOperation();
-    }
-
     // simulate a clock cycle on the GPU
     if( theGPU->active() ) {
         theGPU->cycle();
-    } else {
-        if(!finishedKernels.empty()) {
-            schedule(gpuTickEvent, finishedKernels.front().time + 1);
-        }
     }
     theGPU->deadlock_check();
 
@@ -393,6 +354,35 @@ void CudaGPU::beginRunning(Tick launchTime, struct CUstream_st *_stream)
     }
 
     schedule(gpuTickEvent, curTick() + delay);
+}
+
+void CudaGPU::finishKernel(int grid_id)
+{
+    FinishKernelEvent *e = new FinishKernelEvent(this, grid_id);
+    schedule(e, curTick() + returnDelay * SimClock::Frequency);
+}
+
+void CudaGPU::processFinishKernelEvent(int grid_id)
+{
+    DPRINTF(CudaGPU, "GPU finished a kernel id %d\n", grid_id);
+
+    streamManager->register_finished_kernel(grid_id);
+
+    kernelTimes.push_back(curTick());
+    if (dumpKernelStats) {
+        PseudoInst::dumpresetstats(runningTC, 0, 0);
+    }
+
+    if (unblockNeeded && streamManager->empty()) {
+        DPRINTF(CudaGPU, "Stream manager is empty, unblocking\n");
+        unblockThread(runningTC);
+    }
+
+    streamRequestTick(1);
+
+    running = false;
+
+    endStreamOperation();
 }
 
 CudaCore *CudaGPU::getCudaCore(int coreId)
