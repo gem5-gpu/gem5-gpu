@@ -89,7 +89,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l1_cntrl.sequencer = cpu_seq
 
-        exec("system.l1_cntrl_sp%02d = l1_cntrl" % i)
+        exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
         #
         # Add controllers and sequencers to the appropriate lists
         #
@@ -119,7 +119,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
     l1_cntrl.sequencer = cpu_seq
 
-    system.l1_cntrl_ce = l1_cntrl
+    ruby_system.l1_cntrl_ce = l1_cntrl
 
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)

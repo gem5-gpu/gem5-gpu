@@ -100,7 +100,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
     if piobus != None:
         gpu_ce_seq.pio_port = piobus.slave
 
-    system.l1_cntrl_gpuce = l1_cntrl
+    ruby_system.l1_cntrl_gpuce = l1_cntrl
 
     cpu_sequencers.append(gpu_ce_seq)
     topology.addController(l1_cntrl)
