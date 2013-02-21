@@ -228,6 +228,12 @@ private:
     // Latency for the coalescer
     unsigned coalescingLatency;
 
+    // True if the lsq is currently flushing
+    bool flushing;
+
+    // All of the packets that have outstanding flush requests
+    std::list<PacketPtr> flushingPackets;
+
     /**
      * These functions will insert/remvoe a coalesced request from the 
      * outgoing buffer between the LSQ and the memory sytem.
@@ -241,6 +247,8 @@ private:
      * Sets up the translation and sends it to the TLB
      */
     void beginTranslation(CoalescedRequest *request);
+
+    void finishFlush();
 
     /**
      * Coalesces the WarpRequest in this->warpRequest and inserts the generated

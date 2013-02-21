@@ -42,8 +42,8 @@ ShaderLSQ::ShaderLSQ(Params *p)
       cachePort(name() + "cache_port", this),
       requestBufferDepth(p->request_buffer_depth), tlb(p->data_tlb),
       warpSize(p->warp_size), numWarpContexts(p->warp_contexts),
-      coalescingLatency(p->coalescing_latency), coalesceEvent(this),
-      sendResponseEvent(this)
+      coalescingLatency(p->coalescing_latency), flushing(false),
+      coalesceEvent(this), sendResponseEvent(this)
 {
     // create the lane ports based on the number of connected ports
     for (int i = 0; i < p->port_lane_port_connection_count; i++) {
@@ -103,16 +103,31 @@ ShaderLSQ::LanePort::getAddrRanges() const
 bool
 ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
 {
-	// Called for each lane in the cycle that the address is read from the RF
+    // Called for each lane in the cycle that the address is read from the RF
 
-	// NOTE: If this is going to fail, it needs to fail early. The first port
-	//       in lanePorts must fail so that the lanes are in the same state
-
-    DPRINTF(ShaderLSQ, "Warp id: %d, Address 0x%llx\n",
-            pkt->req->threadId(), pkt->req->getVaddr());
+    // NOTE: If this is going to fail, it needs to fail early. The first port
+    //       in lanePorts must fail so that the lanes are in the same state
 
     // Get the cross-lane warp request from the lsq which owns this port
     ShaderLSQ &lsq = (ShaderLSQ&)owner;
+
+    if (pkt->isFlush()) {
+        assert(pkt->req->getPaddr() == Addr(0));
+        lsq.flushingPackets.push_back(pkt);
+        lsq.flushing = true;
+        if (lsq.outgoingBuffer.empty() && lsq.coalescingQueue.empty()) {
+            lsq.finishFlush();
+        }
+        return true;
+    }
+
+    // The LSQ blocks all incoming requests while flushing
+    if (lsq.flushing) {
+        return false;
+    }
+
+    DPRINTF(ShaderLSQ, "Warp id: %d, Address 0x%llx\n",
+            pkt->req->threadId(), pkt->req->getVaddr());
 
     // NOTE: pkt->threadId() is the warp/wavefront (scheduling unit) ID
     assert(pkt->req->threadId() < lsq.numWarpContexts);
@@ -412,6 +427,11 @@ ShaderLSQ::removeRequestFromBuffer(CoalescedRequest *request)
     if (coalescingQueue.size() > 0 && !coalesceEvent.scheduled()) {
         schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
     }
+
+    // if currently flushing and the flush may be done
+    if (flushing && coalescingQueue.empty() && outgoingBuffer.empty()) {
+        finishFlush();
+    }
 }
 
 void
@@ -477,6 +497,33 @@ ShaderLSQ::sendMemoryRequest(CoalescedRequest *request)
     }
     pkt->senderState = request;
     cachePort.schedTimingReq(pkt, curTick());
+}
+
+void
+ShaderLSQ::finishFlush()
+{
+    DPRINTF(ShaderLSQ, "Flush complete");
+    assert(!flushingPackets.empty());
+    assert(flushing);
+    assert(coalescingQueue.empty());
+    assert(outgoingBuffer.empty());
+    // Send response packet(s)
+    list<PacketPtr>::iterator it, next;
+    it = flushingPackets.begin();
+    while (flushingPackets.size() > 0) {
+        PacketPtr pkt = *it;
+        assert(pkt->isFlush());
+        pkt->makeTimingResponse();
+        assert(!lanePorts[0]->isBlocked);
+        if (!lanePorts[0]->sendTimingResp(pkt)) {
+            panic("Flush responses can't fail");
+        }
+        next = it;
+        next++;
+        flushingPackets.erase(it);
+        it = next;
+    }
+    flushing = false;
 }
 
 void

@@ -128,6 +128,12 @@ private:
     /// Called to begin a virtual memory access
     void accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode);
 
+    /**
+     * Flush the core of all pending instructions,
+     * This is currently used to force the LSQ to flush on kernel end
+     */
+    void flush();
+
     /// ID for this CUDA core, should match the id in GPGPU-Sim
     int id;
 
@@ -150,6 +156,9 @@ private:
 
     /// Pointer to GPGPU-Sim shader this CUDA core is a proxy for
     shader_core_ctx *shaderImpl;
+
+    /// if true then need to signal GPGPU-Sim once cleanup is done
+    bool signalKernelFinish;
 
     /// Returns the line of the address, a
     Addr addrToLine(Addr a);
@@ -201,6 +210,12 @@ public:
      * unit is cleared. If there is a lsqPort blocked, it may now try again
      */
     void writebackClear();
+
+    /**
+     * Called from GPGPU-Sim when a kernel completes on this shader
+     * Must signal back to GPGPU-Sim after all cleanup is done
+     */
+    void finishKernel();
 
     // Wrapper functions for GPGPU-Sim instruction cache accesses
     void icacheFetch(Addr a, mem_fetch *mf);

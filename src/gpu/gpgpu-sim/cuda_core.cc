@@ -59,6 +59,8 @@ CudaCore::CudaCore(const Params *p) :
 
     warpSize = cudaGPU->getWarpSize();
 
+    signalKernelFinish = false;
+
     if (p->port_lsq_port_connection_count != warpSize) {
         panic("Shader core lsq_port size != to warp size\n");
     }
@@ -317,6 +319,17 @@ CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
     DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
             idx, pkt->req->getVaddr());
 
+    if (pkt->isFlush()) {
+        DPRINTF(CudaCoreAccess, "Got flush response\n");
+        if (core->signalKernelFinish) {
+            core->shaderImpl->finish_kernel();
+            core->signalKernelFinish = false;
+        }
+        delete pkt->req;
+        delete pkt;
+        return true;
+    }
+
     assert(pkt->isRead());
 
     uint8_t data[16];
@@ -366,6 +379,30 @@ CudaCore::writebackClear()
 {
     if (writebackBlocked >= 0) lsqPorts[writebackBlocked]->sendRetry();
     writebackBlocked = -1;
+}
+
+void
+CudaCore::flush()
+{
+    int asid = 0;
+    Addr addr(0);
+    Request::Flags flags;
+    RequestPtr req = new Request(asid, addr, flags, masterId);
+    PacketPtr pkt = new Packet(req, MemCmd::FlushReq);
+
+    DPRINTF(CudaCoreAccess, "Sending flush request\n");
+    // It doesn't matter what lane to send this request as it is a control
+    // message. We'll assume all control messges go on lane 0.
+    if (!lsqPorts[0]->sendTimingReq(pkt)){
+        panic("Flush requests should never fail");
+    }
+}
+
+void
+CudaCore::finishKernel()
+{
+    signalKernelFinish = true;
+    flush();
 }
 
 CudaCore *CudaCoreParams::create() {
