@@ -163,14 +163,19 @@ def createGPU(options, gpu_mem_range):
 def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
         sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.itb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.lsq.data_tlb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
     gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    gpu.ce.host_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
     if options.split:
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+        gpu.ce.device_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
     else:
         # With a unified address space, tie both copy engine ports to the same
         # copy engine controller
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+        gpu.ce.device_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
