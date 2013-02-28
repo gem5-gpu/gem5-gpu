@@ -875,6 +875,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
                               tbe.ForwardRequestTime,
                               tbe.FirstResponseTime);
     }
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     cache_entry.Dirty := true;
   }
 

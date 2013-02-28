@@ -1287,8 +1287,11 @@ machine(Directory, "AMD Hammer-like protocol")
   action(l_queueMemoryWBRequest, "lq", desc="Write PUTX data to memory") {
     peek(unblockNetwork_in, ResponseMsg) {
       enqueue(memQueue_out, MemoryMsg, latency="1") {
+        assert(in_msg.Dirty);
+        assert(in_msg.MessageSize == MessageSizeType:Writeback_Data);
         out_msg.Address := address;
         out_msg.Type := MemoryRequestType:MEMORY_WB;
+        out_msg.DataBlk := in_msg.DataBlk;
         DPRINTF(RubySlicc, "%s\n", out_msg);
       }
     }
@@ -1311,6 +1314,8 @@ machine(Directory, "AMD Hammer-like protocol")
     peek(unblockNetwork_in, ResponseMsg) {
       assert(in_msg.Dirty == false);
       assert(in_msg.MessageSize == MessageSizeType:Writeback_Control);
+      DPRINTF(RubySlicc, "%s\n", in_msg.DataBlk);
+      DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
 
       // NOTE: The following check would not be valid in a real
       // implementation.  We include the data in the "dataless"
