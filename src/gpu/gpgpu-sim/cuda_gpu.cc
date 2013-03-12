@@ -57,8 +57,8 @@ unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_pt
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 
 CudaGPU::CudaGPU(const Params *p) :
-    SimObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
-    system(p->sys), frequency(p->frequency), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
+    ClockedObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
+    system(p->sys), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
     returnDelay(p->kernel_return_delay), ruby(p->ruby), runningTC(NULL),
     runningStream(NULL), runningTID(-1), clearTick(0),
@@ -402,8 +402,8 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
     bool kernel_active = false;
     vector<Tick>::iterator it;
 
-    out << "spa frequency: " << SimClock::Frequency/(frequency*1000000000.0) << " GHz\n";
-    out << "spa period: " << frequency << " ticks\n";
+    out << "spa frequency: " << SimClock::Frequency/(clock*1000000000.0) << " GHz\n";
+    out << "spa period: " << clock << " ticks\n";
     out << "kernel times (ticks):\n";
     out << "start, end, start, end, ..., exit\n";
     for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {

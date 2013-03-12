@@ -25,13 +25,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-
-from m5.SimObject import SimObject
+from ClockedObject import ClockedObject
 from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
-class CudaGPU(SimObject):
+class CudaGPU(ClockedObject):
     type = 'CudaGPU'
     cxx_class = 'CudaGPU'
     cxx_header = "gpu/gpgpu-sim/cuda_gpu.hh"
@@ -53,5 +52,3 @@ class CudaGPU(SimObject):
     # When using a segmented physical address space, the SPA can manage memory
     manage_gpu_memory = Param.Bool(False, "Handle all GPU memory allocations in this SPA")
     gpu_memory_range = Param.AddrRange(AddrRange('1kB'), "The address range for the GPU memory space")
-
-    frequency = Param.Clock("GPU core clock. Should match GPGPU-Sim cycle stuff")

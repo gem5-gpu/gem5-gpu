@@ -59,7 +59,7 @@ class CudaCore;
  *  Currently this class only supports a single GPU device and does not support
  *  concurrent kernels.
  */
-class CudaGPU : public SimObject
+class CudaGPU : public ClockedObject
 {
   private:
     static std::vector<CudaGPU*> gpuArray;
@@ -183,9 +183,6 @@ class CudaGPU : public SimObject
 
     /// Used to register this SPA with the system
     System *system;
-
-    /// Frequency of GPU in Hz
-    Tick frequency;
 
     /// Number of threads in each warp, also number of lanes per CUDA core
     int warpSize;
@@ -376,7 +373,7 @@ class CudaGPU : public SimObject
     /// Callback for GPGPU-Sim to get the current simulation time
     Tick getCurTick(){ return curTick(); }
 
-    Tick getFrequency() { return frequency; }
+    Tick getFrequency() { return clock; }
 
     /// Used to print stats at the end of simulation
     void gpuPrintStats(std::ostream& out);
