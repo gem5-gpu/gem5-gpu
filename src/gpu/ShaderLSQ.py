@@ -46,4 +46,5 @@ class ShaderLSQ(MemObject):
     warp_size = Param.Int(32, "Size of the warp")
     warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
 
-    coalescing_latency = Param.Int(4, "Cycles of latency for the coalescer")
+    # TODO: Fix LSQ coalescer serialization before this parameter can be adjusted
+    coalescing_latency = Param.Int(1, "Cycles of latency for the coalescer")
