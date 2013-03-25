@@ -159,7 +159,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                     number_of_TBEs = 256,
                                     ruby_system = ruby_system)
 
-
+    ruby_system.l1_cntrl_ce = ce_cntrl
     cpu_sequencers.append(cpu_seq)
 
     mainCluster = Cluster()
