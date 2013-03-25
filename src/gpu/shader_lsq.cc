@@ -43,14 +43,13 @@ ShaderLSQ::ShaderLSQ(Params *p)
       requestBufferDepth(p->request_buffer_depth), tlb(p->data_tlb),
       warpSize(p->warp_size), numWarpContexts(p->warp_contexts),
       coalescingLatency(p->coalescing_latency), flushing(false),
-      coalesceEvent(this), sendResponseEvent(this)
+      occupiedCoalescingBuffers(0), coalesceEvent(this), sendResponseEvent(this)
 {
     // create the lane ports based on the number of connected ports
     for (int i = 0; i < p->port_lane_port_connection_count; i++) {
         lanePorts.push_back(new LanePort(csprintf("%s-lane-%d", name(), i),
                                           i, this));
     }
-
     coalescingBuffers = new WarpRequest*[numWarpContexts]();
 }
 
@@ -115,7 +114,7 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
         assert(pkt->req->getPaddr() == Addr(0));
         lsq.flushingPackets.push_back(pkt);
         lsq.flushing = true;
-        if (lsq.outgoingBuffer.empty() && lsq.coalescingQueue.empty()) {
+        if (lsq.outgoingBuffer.empty() && lsq.occupiedCoalescingBuffers == 0) {
             lsq.finishFlush();
         }
         return true;
@@ -161,6 +160,7 @@ ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
             lsq.schedule(lsq.coalesceEvent, lsq.nextCycle());
         }
         lsq.coalescingQueue.push(pkt->req->threadId());
+        lsq.occupiedCoalescingBuffers++;
     }
 
     // Requests should be the same size for all lanes
@@ -286,7 +286,13 @@ ShaderLSQ::prepareResponse(PacketPtr pkt)
                 }
             }
             coalescingBuffers[warpRequest->warpId] = NULL;
+            occupiedCoalescingBuffers--;
             delete warpRequest;
+
+            // if currently flushing and the flush may be done
+            if (flushing && occupiedCoalescingBuffers == 0) {
+                finishFlush();
+            }
         }
 
     } else {
@@ -343,7 +349,13 @@ ShaderLSQ::processSendResponseEvent()
     // We have completed this warp request, now delete it and remove it from
     // its coalescing buffer.
     coalescingBuffers[warpRequest->warpId] = NULL;
+    occupiedCoalescingBuffers--;
     delete warpRequest;
+
+    // if currently flushing and the flush may be done
+    if (flushing && occupiedCoalescingBuffers == 0) {
+        finishFlush();
+    }
 
     if (!responseQueue.empty()) {
         schedule(sendResponseEvent, nextCycle());
@@ -427,11 +439,6 @@ ShaderLSQ::removeRequestFromBuffer(CoalescedRequest *request)
     if (coalescingQueue.size() > 0 && !coalesceEvent.scheduled()) {
         schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
     }
-
-    // if currently flushing and the flush may be done
-    if (flushing && coalescingQueue.empty() && outgoingBuffer.empty()) {
-        finishFlush();
-    }
 }
 
 void
@@ -505,6 +512,7 @@ ShaderLSQ::finishFlush()
     DPRINTF(ShaderLSQ, "Flush complete");
     assert(!flushingPackets.empty());
     assert(flushing);
+    assert(occupiedCoalescingBuffers == 0);
     assert(coalescingQueue.empty());
     assert(outgoingBuffer.empty());
     // Send response packet(s)

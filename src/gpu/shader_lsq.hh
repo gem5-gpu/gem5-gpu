@@ -231,6 +231,9 @@ private:
     // True if the lsq is currently flushing
     bool flushing;
 
+    // Tracks how many warp requests are currently in the coalescing buffers
+    unsigned occupiedCoalescingBuffers;
+
     // All of the packets that have outstanding flush requests
     std::list<PacketPtr> flushingPackets;
 
