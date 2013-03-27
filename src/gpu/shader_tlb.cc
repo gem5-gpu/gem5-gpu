@@ -60,7 +60,8 @@ ShaderTLB::beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translatio
             req->setPaddr(page_paddr + offset);
             translation->finish(NoFault, req, NULL, mode);
         } else {
-            panic("ShaderTLB missing translation for vaddr %x!", vaddr);
+            panic("ShaderTLB missing translation for vaddr: %p! @pc: %p",
+                    vaddr, req->getPC());
         }
     }
 }
