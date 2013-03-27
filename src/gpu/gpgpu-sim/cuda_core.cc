@@ -401,6 +401,7 @@ CudaCore::flush()
 void
 CudaCore::finishKernel()
 {
+    numKernelsCompleted++;
     signalKernelFinish = true;
     flush();
 }
@@ -500,6 +501,10 @@ CudaCore::regStats()
         ;
 
     instPerCycle = instInstances / activeCycles;
+    numKernelsCompleted
+        .name(name() + ".kernels_completed")
+        .desc("Number of kernels completed")
+        ;
 }
 
 void

@@ -244,6 +244,7 @@ public:
     Stats::Scalar notStalledCycles;
     Stats::Scalar instInstances;
     Stats::Formula instPerCycle;
+    Stats::Scalar numKernelsCompleted;
     void regStats();
 
     void record_ld(memory_space_t space);

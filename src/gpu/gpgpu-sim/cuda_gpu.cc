@@ -358,6 +358,7 @@ void CudaGPU::beginRunning(Tick launchTime, struct CUstream_st *_stream)
 
 void CudaGPU::finishKernel(int grid_id)
 {
+    numKernelsCompleted++;
     FinishKernelEvent *e = new FinishKernelEvent(this, grid_id);
     schedule(e, curTick() + returnDelay * SimClock::Frequency);
 }
@@ -695,6 +696,14 @@ Addr CudaGPU::allocateGPUMemory(size_t size)
     DPRINTF(CudaGPUAccess, "Allocating %d bytes for GPU at address 0x%x\n", size, base_vaddr);
 
     return base_vaddr;
+}
+
+void CudaGPU::regStats()
+{
+    numKernelsCompleted
+        .name(name() + ".kernels_completed")
+        .desc("Number of kernels completed")
+        ;
 }
 
 /**
