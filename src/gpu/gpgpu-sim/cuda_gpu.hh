@@ -149,13 +149,15 @@ class CudaGPU : public ClockedObject
 
     private:
         CudaGPU *gpu;
-        int grid_id;
+        int gridId;
     public:
-        FinishKernelEvent(CudaGPU *_gpu, int _grid_id) :
-            gpu(_gpu), grid_id(_grid_id) {}
+        FinishKernelEvent(CudaGPU *_gpu, int grid_id) :
+            gpu(_gpu), gridId(grid_id)
+        {
+            setFlags(Event::AutoDelete);
+        }
         void process() {
-            gpu->processFinishKernelEvent(grid_id);
-            delete this;
+            gpu->processFinishKernelEvent(gridId);
         }
     };
 
