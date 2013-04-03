@@ -45,7 +45,7 @@ GPUCopyEngine::GPUCopyEngine(const Params *p) :
     MemObject(p), hostPort(name() + ".hostPort", this, 0),
     devicePort(name() + ".devicePort", this, 0), readPort(NULL),
     writePort(NULL), tickEvent(this), masterId(p->sys->getMasterId(name())),
-    cudaGPU(p->gpu), _params(p), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
+    cudaGPU(p->gpu), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
     deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
 {
     DPRINTF(GPUCopyEngine, "Created copy engine\n");

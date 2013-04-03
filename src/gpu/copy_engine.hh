@@ -93,15 +93,11 @@ private:
         virtual const char *description() const { return "GPUCopyEngine tick"; }
     };
 
-    const Params * params() const { return dynamic_cast<const Params *>(_params);	}
-
     TickEvent tickEvent;
     MasterID masterId;
 
 private:
     CudaGPU *cudaGPU;
-
-    const GPUCopyEngineParams *_params;
 
     void tick();
 
