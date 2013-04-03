@@ -174,8 +174,9 @@ private:
     int activeCTAs;
 
 public:
-    /// Constructor
+    /// Constructor and deconstructor
     CudaCore(const Params *p);
+    ~CudaCore();
 
     /// Required for implementing MemObject
     virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);

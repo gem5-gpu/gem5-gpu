@@ -66,7 +66,7 @@ CudaCore::CudaCore(const Params *p) :
     }
 
     // create the ports
-    for (int i = 0; i < p->port_lsq_port_connection_count; ++i) {
+    for (int i = 0; i < warpSize; ++i) {
         lsqPorts.push_back(new LSQPort(csprintf("%s-lsqPort%d", name(), i),
                                     this, i));
     }
@@ -74,6 +74,14 @@ CudaCore::CudaCore(const Params *p) :
     activeCTAs = 0;
 
     DPRINTF(CudaCore, "[SC:%d] Created CUDA core\n", id);
+}
+
+CudaCore::~CudaCore()
+{
+    for (int i = 0; i < warpSize; ++i) {
+        delete lsqPorts[i];
+    }
+    lsqPorts.clear();
 }
 
 BaseMasterPort&
