@@ -44,6 +44,25 @@ class GPUCopyEngine : public MemObject
 private:
     typedef GPUCopyEngineParams Params;
 
+    class CEExitCallback : public Callback
+    {
+    private:
+        std::string statsFilename;
+        GPUCopyEngine *engine;
+
+    public:
+        virtual ~CEExitCallback() {}
+
+        CEExitCallback(GPUCopyEngine *_engine, const std::string& stats_filename)
+        {
+            statsFilename = stats_filename;
+            engine = _engine;
+        }
+
+        virtual void process();
+    };
+    CEExitCallback ceExitCB;
+
     class CEPort : public MasterPort
     {
         friend class GPUCopyEngine;
@@ -160,25 +179,6 @@ public:
     bool isSquashed() const { return false; }
 
     void cePrintStats(std::ostream& out);
-};
-
-
-class CEExitCallback : public Callback
-{
-private:
-    std::string stats_filename;
-    GPUCopyEngine *engine;
-
-public:
-    virtual ~CEExitCallback() {}
-
-    CEExitCallback(GPUCopyEngine *_engine, const std::string& _stats_filename)
-    {
-        stats_filename = _stats_filename;
-        engine = _engine;
-    }
-
-    virtual void process();
 };
 
 #endif

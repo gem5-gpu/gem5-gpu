@@ -42,7 +42,8 @@
 using namespace std;
 
 GPUCopyEngine::GPUCopyEngine(const Params *p) :
-    MemObject(p), hostPort(name() + ".hostPort", this, 0),
+    MemObject(p), ceExitCB(this, p->stats_filename),
+    hostPort(name() + ".hostPort", this, 0),
     devicePort(name() + ".devicePort", this, 0), readPort(NULL),
     writePort(NULL), tickEvent(this), masterId(p->sys->getMasterId(name())),
     cudaGPU(p->gpu), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
@@ -54,8 +55,7 @@ GPUCopyEngine::GPUCopyEngine(const Params *p) :
     needToWrite = false;
     running = false;
 
-    CEExitCallback* ceExitCB = new CEExitCallback(this, p->stats_filename);
-    registerExitCallback(ceExitCB);
+    registerExitCallback(&ceExitCB);
 
     cudaGPU->registerCopyEngine(this);
 }
@@ -461,11 +461,11 @@ void GPUCopyEngine::cePrintStats(std::ostream& out) {
     out << "\n";
 }
 
-void CEExitCallback::process()
+void GPUCopyEngine::CEExitCallback::process()
 {
-    std::ostream *os = simout.find(stats_filename);
+    std::ostream *os = simout.find(statsFilename);
     if (!os) {
-        os = simout.create(stats_filename);
+        os = simout.create(statsFilename);
     }
     engine->cePrintStats(*os);
     *os << std::endl;
