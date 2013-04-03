@@ -288,11 +288,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
             } else if (inst.is_store()) {
                 pkt = new Packet(req, MemCmd::WriteReq);
                 pkt->allocate();
-                uint8_t data[16]; // Can't have more than 16 bytes
-                shaderImpl->readRegister(inst, warpSize, lane, (char*)data);
-                // assert(inst.vectorLength == regs);
-                DPRINTF(CudaCoreAccess, "Storing %d\n", *(int*)data);
-                pkt->setData((uint8_t*)data);
+                pkt->setData(inst.get_data(lane));
             } else {
                 panic("Unsupported instruction type\n");
             }
