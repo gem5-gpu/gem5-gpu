@@ -35,6 +35,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     Ifetch,     desc="Ifetch request from processor";
     Store,      desc="Store request from processor";
     Flush_line, desc="Invalidate the line if valid";
+    FlashInv,   desc="Invalidate the line if valid";
 
     Atomic,     desc="Atomic request from processor";
 
@@ -249,20 +250,25 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   in_port(mandatoryQueue_in, RubyRequest, mandatoryQueue, desc="...") {
     if (mandatoryQueue_in.isReady()) {
       peek(mandatoryQueue_in, RubyRequest, block_on="LineAddress") {
-
         Entry cache_entry := getCacheEntry(in_msg.LineAddress);
-        // No need to replace on store since stores do not write into the cache
-        if (is_invalid(cache_entry) &&
-            cacheMemory.cacheAvail(in_msg.LineAddress) == false &&
-            in_msg.Type != RubyRequestType:ST) {
-          // make room for the block
-          trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.LineAddress),
-                  getCacheEntry(cacheMemory.cacheProbe(in_msg.LineAddress)),
-                  TBEs[cacheMemory.cacheProbe(in_msg.LineAddress)]);
-        }
-        else {
-          trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
-                  cache_entry, TBEs[in_msg.LineAddress]);
+
+        if (in_msg.Type == RubyRequestType:FLUSHALL) {
+          trigger(Event:FlashInv, in_msg.LineAddress, cache_entry,
+                  TBEs[in_msg.LineAddress]);
+        } else {
+          // No need to replace on store since stores do not write into the cache
+          if (is_invalid(cache_entry) &&
+              cacheMemory.cacheAvail(in_msg.LineAddress) == false &&
+              in_msg.Type != RubyRequestType:ST) {
+            // make room for the block
+            trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.LineAddress),
+                    getCacheEntry(cacheMemory.cacheProbe(in_msg.LineAddress)),
+                    TBEs[cacheMemory.cacheProbe(in_msg.LineAddress)]);
+          }
+          else {
+            trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
+                    cache_entry, TBEs[in_msg.LineAddress]);
+          }
         }
       }
     }
@@ -421,6 +427,14 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     tbe.DataBlk := cache_entry.DataBlk;
   }
 
+  action(f_flashInv, "fi", desc="Invalidate all lines in the cache") {
+    cacheMemory.flashInvalidate();
+  }
+
+  action(fr_flashInvEesp, "fr", desc="Ack the controller that flash inv is done") {
+    sequencer.writeCallback(address, tbe.DataBlk);
+  }
+
   action(zz_stallAndWaitMandatoryQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {
     stall_and_wait(mandatoryQueue_in, address);
   }
@@ -535,6 +549,12 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(I, Flush_line) {TagArrayRead} {
+    m_popMandatoryQueue;
+  }
+
+  transition({I,V}, FlashInv, I) {TagArrayWrite} {
+    f_flashInv;
+    fr_flashInvEesp;
     m_popMandatoryQueue;
   }
 
