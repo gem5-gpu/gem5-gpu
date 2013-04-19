@@ -90,6 +90,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits)
 
+        prefetcher = RubyPrefetcher.Prefetcher()
+
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
                                       cntrl_id = len(topology),
                                       L1IcacheMemory = l1i_cache,
@@ -97,7 +99,9 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       l2_select_num_bits = l2_bits,
                                       send_evictions = (
                                           options.cpu_type == "detailed"),
-                                      ruby_system = ruby_system)
+                                      prefetcher = prefetcher,
+                                      ruby_system = ruby_system,
+                                      enable_prefetch = False)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,
                                 icache = l1i_cache,
@@ -127,6 +131,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
     l1d_cache = L1Cache(size = "2kB", assoc = 2)
 
+    prefetcher = RubyPrefetcher.Prefetcher()
+
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
                                   cntrl_id = len(topology),
                                   send_evictions = (
@@ -134,7 +140,9 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                   L1IcacheMemory = l1i_cache,
                                   L1DcacheMemory = l1d_cache,
                                   l2_select_num_bits = l2_bits,
-                                  ruby_system = ruby_system)
+                                  prefetcher = prefetcher,
+                                  ruby_system = ruby_system,
+                                  enable_prefetch = False)
 
     #
     # Only one unified L1 cache exists.  Can cache instructions and data.
