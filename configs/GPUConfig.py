@@ -44,6 +44,7 @@ def addGPUOptions(parser):
     parser.add_option("--kernel_stats", default=False, action="store_true", help="Dump statistics on GPU kernel boundaries")
     parser.add_option("--total-mem-size", default='2GB', help="Total size of memory in system")
     parser.add_option("--gpu_l1_buf_depth", type="int", default=96, help="Number of buffered L1 requests per shader")
+    parser.add_option("--flush_kernel_end", default=False, action="store_true", help="Flush the L1s at the end of each kernel. (Only VI_hammer)")
     parser.add_option("--gpu-core-clock", default='700MHz', help="The frequency of GPU clusters (note: shaders operate at double this frequency when modeling Fermi)")
     parser.add_option("--access-host-pagetable", action="store_true", default=False)
     parser.add_option("--split", default=False, action="store_true", help="Use split CPU and GPU cache hierarchies instead of fusion")
@@ -141,6 +142,8 @@ def createGPU(options, gpu_mem_range):
 
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()
+        sc.lsq.forward_flush = (buildEnv['PROTOCOL'] == 'VI_hammer_fusion' \
+                                and options.flush_kernel_end)
         sc.lsq.warp_size = options.gpu_warp_size
         sc.lsq.request_buffer_depth = options.gpu_l1_buf_depth
         if options.gpu_threads_per_core % options.gpu_warp_size:

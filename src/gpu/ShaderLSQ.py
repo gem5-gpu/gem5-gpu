@@ -48,3 +48,8 @@ class ShaderLSQ(MemObject):
 
     # TODO: Fix LSQ coalescer serialization before this parameter can be adjusted
     coalescing_latency = Param.Int(1, "Cycles of latency for the coalescer")
+
+    # currently only VI_hammer cache protocol supports flushing.
+    # In VI_hammer only the L1 is flushed.
+    forward_flush = Param.Bool("Issue a flush all to ruby whenever the LSQ is \
+                               flushed")

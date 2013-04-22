@@ -39,7 +39,7 @@ using namespace std;
 
 ShaderLSQ::ShaderLSQ(Params *p)
 	: MemObject(p), responsePortBlocked(false),
-      cachePort(name() + "cache_port", this),
+      cachePort(name() + "cache_port", this), fwdFlush(p->forward_flush),
       requestBufferDepth(p->request_buffer_depth), tlb(p->data_tlb),
       warpSize(p->warp_size), numWarpContexts(p->warp_contexts),
       coalescingLatency(p->coalescing_latency), flushing(false),
@@ -221,6 +221,15 @@ ShaderLSQ::CachePort::recvTimingResp(PacketPtr pkt)
 bool
 ShaderLSQ::prepareResponse(PacketPtr pkt)
 {
+    if (pkt->isFlush()) {
+        assert(pkt->isResponse());
+        assert(flushing);
+        respondToFlush();
+        delete pkt->req;
+        delete pkt;
+        return true;
+    }
+
     CoalescedRequest *request =
         dynamic_cast<CoalescedRequest*>(pkt->senderState);
 
@@ -515,6 +524,21 @@ ShaderLSQ::finishFlush()
     assert(occupiedCoalescingBuffers == 0);
     assert(coalescingQueue.empty());
     assert(outgoingBuffer.empty());
+    if (fwdFlush) {
+        MasterID masterId = flushingPackets.front()->req->masterId();
+        int asid = 0;
+        Addr addr(0);
+        Request::Flags flags;
+        RequestPtr req = new Request(asid, addr, flags, masterId);
+        PacketPtr newPkt = new Packet(req, MemCmd::FlushAllReq);
+        cachePort.schedTimingReq(newPkt, curTick());
+    } else {
+        respondToFlush();
+    }
+}
+
+void ShaderLSQ::respondToFlush()
+{
     // Send response packet(s)
     list<PacketPtr>::iterator it, next;
     it = flushingPackets.begin();

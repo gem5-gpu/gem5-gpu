@@ -199,6 +199,9 @@ private:
         }
     };
 
+    // Forward flushAll request to Ruby when flushing the LSQ
+    bool fwdFlush;
+
     // There is one buffer per warp context. This forces all coalesced accesses
     // from the same warp to be serialized.
     WarpRequest **coalescingBuffers;
@@ -251,7 +254,15 @@ private:
      */
     void beginTranslation(CoalescedRequest *request);
 
+    /**
+     * Called after the LSQ has processed all requests except flush requests
+     */
     void finishFlush();
+
+    /**
+     * After the flush has completely finished, send response to the core
+     */
+    void respondToFlush();
 
     /**
      * Coalesces the WarpRequest in this->warpRequest and inserts the generated
