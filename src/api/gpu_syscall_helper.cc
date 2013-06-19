@@ -76,7 +76,7 @@ GPUSyscallHelper::readString(Addr addr, uint8_t* p, int size, ThreadContext *tc)
         if (bytes_read + read_size >= size) read_size = size - bytes_read;
         readBlob(curr_addr, &p[bytes_read], read_size, tc);
         for (int index = 0; index < read_size; ++index) {
-            if (p[index] == 0) null_not_found = false;
+            if (p[bytes_read + index] == 0) null_not_found = false;
         }
     }
 
