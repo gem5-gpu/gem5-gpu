@@ -80,7 +80,7 @@
 # stat collection
 -gpgpu_memlatency_stat 14
 -gpgpu_runtime_stat 50000
--enable_ptx_file_line_stats 1
+-enable_ptx_file_line_stats 0
 
 # enable SASS execution
 #-gpgpu_ptx_convert_to_ptxplus 1

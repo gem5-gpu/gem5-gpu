@@ -1207,6 +1207,10 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
 void
 __cudaUnregisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
 {
+    // TODO: If running multiple benchmarks in the same simulation, this will
+    // need to be updated to print as appropriate
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    cudaGPU->printPTXFileLineStats();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaUnregisterFatBinary() Faked\n");
 }
 

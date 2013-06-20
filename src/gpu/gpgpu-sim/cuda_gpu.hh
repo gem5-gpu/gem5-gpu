@@ -380,6 +380,8 @@ class CudaGPU : public ClockedObject
     /// Used to print stats at the end of simulation
     void gpuPrintStats(std::ostream& out);
 
+    void printPTXFileLineStats();
+
     /// Begins a timing memory copy from src to dst
     void memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream, stream_operation_type type);
 

@@ -37,6 +37,7 @@
 #include "base/chunk_generator.hh"
 #include "cpu/thread_context.hh"
 #include "cuda-sim/cuda-sim.h"
+#include "cuda-sim/ptx-stats.h"
 #include "debug/CudaGPU.hh"
 #include "debug/CudaGPUAccess.hh"
 #include "debug/CudaGPUPageTable.hh"
@@ -431,6 +432,13 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";
     }
+}
+
+extern char *ptx_line_stats_filename;
+
+void CudaGPU::printPTXFileLineStats() {
+    ptx_line_stats_filename = (char*)simout.resolve(ptx_line_stats_filename).c_str();
+    ptx_file_line_stats_write_file();
 }
 
 void CudaGPU::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
