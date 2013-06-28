@@ -437,7 +437,8 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
 extern char *ptx_line_stats_filename;
 
 void CudaGPU::printPTXFileLineStats() {
-    ptx_line_stats_filename = (char*)simout.resolve(ptx_line_stats_filename).c_str();
+    std::string outfile = simout.directory() + ptx_line_stats_filename;
+    ptx_line_stats_filename = (char*)outfile.c_str();
     ptx_file_line_stats_write_file();
 }
 
