@@ -41,10 +41,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
     Data,       desc="Data from network";
 
-    //Inv,        desc="Invalidate request from dir";
-
     Replacement,  desc="Replace a block";
-    Writeback_Ack,   desc="Ack from the directory for a writeback";
+    Write_Ack,  desc="Ack from the directory for a writeback";
   }
 
   enumeration(RequestType, desc="Type of request for each transition") {
@@ -236,9 +234,22 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
         TBE tbe := TBEs[in_msg.Address];
 
         if (in_msg.Type == CoherenceResponseTypeVI:DATA) {
-          trigger(Event:Data, in_msg.Address, cache_entry, tbe);
+          //
+          // NOTE: This implements late allocation of a cache data array frame
+          // and is possible since GPU L1 caches do not hold dirty data that
+          // may need to be written back. If this changes, the Replacement
+          // trigger will need to be moved back to the request side for eager
+          // cache frame allocation. 
+          //
+          if (cacheMemory.cacheAvail(in_msg.Address) == false) {
+            trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.Address),
+                    getCacheEntry(cacheMemory.cacheProbe(in_msg.Address)),
+                    TBEs[cacheMemory.cacheProbe(in_msg.Address)]);
+          } else {
+            trigger(Event:Data, in_msg.Address, cache_entry, tbe);
+          }
         } else if (in_msg.Type == CoherenceResponseTypeVI:WB_ACK) {
-          trigger(Event:Writeback_Ack, in_msg.Address, cache_entry, tbe);
+          trigger(Event:Write_Ack, in_msg.Address, cache_entry, tbe);
         } else {
           error("Unexpected message");
         }
@@ -256,19 +267,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
           trigger(Event:FlashInv, in_msg.LineAddress, cache_entry,
                   TBEs[in_msg.LineAddress]);
         } else {
-          // No need to replace on store since stores do not write into the cache
-          if (is_invalid(cache_entry) &&
-              cacheMemory.cacheAvail(in_msg.LineAddress) == false &&
-              in_msg.Type != RubyRequestType:ST) {
-            // make room for the block
-            trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.LineAddress),
-                    getCacheEntry(cacheMemory.cacheProbe(in_msg.LineAddress)),
-                    TBEs[cacheMemory.cacheProbe(in_msg.LineAddress)]);
-          }
-          else {
-            trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
-                    cache_entry, TBEs[in_msg.LineAddress]);
-          }
+          trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
+                  cache_entry, TBEs[in_msg.LineAddress]);
         }
       }
     }
@@ -479,15 +479,19 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     m_popMandatoryQueue;
   }
 
-  transition(I, {Load, Ifetch}, IV) {TagArrayRead, TagArrayWrite} {
+  transition(I, {Load, Ifetch}, IV) {TagArrayRead} {
     p_profileReadMiss;
     v_allocateTBE;
-    i_allocateL1CacheBlock;
     a_issueRequest;
     m_popMandatoryQueue;
   }
 
-  transition(IV, Data, V) {DataArrayWrite} {
+  transition(V, Replacement, I) {} {
+    h_deallocateL1CacheBlock;
+  }
+
+  transition(IV, Data, V) {TagArrayWrite, DataArrayWrite} {
+    i_allocateL1CacheBlock;
     u_writeDataToCache;
     rx_load_hit;
     w_deallocateTBE;
@@ -524,19 +528,14 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     x_copyDataFromCacheToTBE;
   }
 
-  transition({I, V}, Replacement, I) {TagArrayWrite} {
-    h_deallocateL1CacheBlock;
-    ka_wakeUpAllDependents;
-  }
-
-  transition(VI_a, Writeback_Ack, I) {} {
+  transition(VI_a, Write_Ack, I) {} {
     sx_store_hit;
     h_deallocateL1CacheBlock;
     w_deallocateTBE;
     n_popResponseQueue;
   }
 
-  transition(IA, Writeback_Ack, I) {} {
+  transition(IA, Write_Ack, I) {} {
     s_store_hit;
     w_deallocateTBE;
     n_popResponseQueue;
