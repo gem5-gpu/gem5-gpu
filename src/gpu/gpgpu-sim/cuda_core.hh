@@ -121,7 +121,8 @@ protected:
     const Params * params() const { return dynamic_cast<const Params *>(_params);	}
     const CudaCoreParams *_params;
 
-    MasterID masterId;
+    MasterID dataMasterId;
+    MasterID instMasterId;
 
 private:
 

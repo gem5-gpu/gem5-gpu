@@ -46,9 +46,9 @@
 using namespace std;
 
 CudaCore::CudaCore(const Params *p) :
-    MemObject(p),
-    instPort(name() + ".inst_port", this), _params(p),
-    masterId(p->sys->getMasterId(name())), id(p->id),
+    MemObject(p), instPort(name() + ".inst_port", this), _params(p),
+    dataMasterId(p->sys->getMasterId(name() + ".data")),
+    instMasterId(p->sys->getMasterId(name() + ".inst")), id(p->id),
     itb(p->itb), cudaGPU(p->gpu)
 {
     writebackBlocked = -1; // Writeback is not blocked
@@ -180,7 +180,7 @@ CudaCore::icacheFetch(Addr addr, mem_fetch *mf)
     Addr pc = (Addr)mf->get_pc();
     const int asid = 0;
 
-    req->setVirt(asid, line_addr, mf->size(), flags, masterId, pc);
+    req->setVirt(asid, line_addr, mf->size(), flags, instMasterId, pc);
     req->setFlags(Request::INST_FETCH);
 
     accessVirtMem(req, mf, BaseTLB::Read);
@@ -276,8 +276,8 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 
             Request::Flags flags;
             const int asid = 0;
-            RequestPtr req = new Request(asid, addr, size, flags, masterId, pc,
-                                         id, inst.warp_id());
+            RequestPtr req = new Request(asid, addr, size, flags, dataMasterId,
+                                         pc, id, inst.warp_id());
 
             PacketPtr pkt;
             if (inst.is_load()) {
@@ -391,7 +391,7 @@ CudaCore::flush()
     int asid = 0;
     Addr addr(0);
     Request::Flags flags;
-    RequestPtr req = new Request(asid, addr, flags, masterId);
+    RequestPtr req = new Request(asid, addr, flags, dataMasterId);
     PacketPtr pkt = new Packet(req, MemCmd::FlushReq);
 
     DPRINTF(CudaCoreAccess, "Sending flush request\n");
