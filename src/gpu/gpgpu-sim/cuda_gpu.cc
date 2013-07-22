@@ -437,9 +437,11 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
 extern char *ptx_line_stats_filename;
 
 void CudaGPU::printPTXFileLineStats() {
+    char *temp_ptx_line_stats_filename = ptx_line_stats_filename;
     std::string outfile = simout.directory() + ptx_line_stats_filename;
     ptx_line_stats_filename = (char*)outfile.c_str();
     ptx_file_line_stats_write_file();
+    ptx_line_stats_filename = temp_ptx_line_stats_filename;
 }
 
 void CudaGPU::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_stream, stream_operation_type type) {
