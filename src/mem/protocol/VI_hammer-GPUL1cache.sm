@@ -102,7 +102,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   int l2_select_low_bit, default="RubySystem::getBlockSizeBits()";
 
   // External functions
-  MachineID getL2ID(Address num, int num_l2, int select_bits, int select_start_bit);
+  MachineID getL2ID(Address num, int num_l2s, int select_bits, int select_start_bit);
 
   // FUNCTIONS
   Event mandatory_request_type_to_event(RubyRequestType type) {
@@ -226,10 +226,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   in_port(responseNetwork_in, ResponseMsgVI, responseToL1Cache) {
     if (responseNetwork_in.isReady()) {
-      peek(responseNetwork_in, ResponseMsgVI, block_on="Address") {
+      peek(responseNetwork_in, ResponseMsgVI, block_on="Addr") {
 
-        Entry cache_entry := getCacheEntry(in_msg.Address);
-        TBE tbe := TBEs[in_msg.Address];
+        Entry cache_entry := getCacheEntry(in_msg.Addr);
+        TBE tbe := TBEs[in_msg.Addr];
 
         if (in_msg.Type == CoherenceResponseTypeVI:DATA) {
           //
@@ -239,15 +239,15 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
           // trigger will need to be moved back to the request side for eager
           // cache frame allocation. 
           //
-          if (cache.cacheAvail(in_msg.Address) == false) {
-            trigger(Event:Replacement, cache.cacheProbe(in_msg.Address),
-                    getCacheEntry(cache.cacheProbe(in_msg.Address)),
-                    TBEs[cache.cacheProbe(in_msg.Address)]);
+          if (cache.cacheAvail(in_msg.Addr) == false) {
+            trigger(Event:Replacement, cache.cacheProbe(in_msg.Addr),
+                    getCacheEntry(cache.cacheProbe(in_msg.Addr)),
+                    TBEs[cache.cacheProbe(in_msg.Addr)]);
           } else {
-            trigger(Event:Data, in_msg.Address, cache_entry, tbe);
+            trigger(Event:Data, in_msg.Addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseTypeVI:WB_ACK) {
-          trigger(Event:Write_Ack, in_msg.Address, cache_entry, tbe);
+          trigger(Event:Write_Ack, in_msg.Addr, cache_entry, tbe);
         } else {
           error("Unexpected message");
         }
@@ -276,7 +276,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   action(a_issueRequest, "a", desc="Issue a request") {
     enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
-      out_msg.Address := address;
+      out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:GET;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
@@ -287,7 +287,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   action(b_issuePUT, "b", desc="Issue a PUT request") {
     peek(mandatoryQueue_in, RubyRequest) {
       enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
-        out_msg.Address := address;
+        out_msg.Addr := address;
         out_msg.Type := CoherenceRequestTypeVI:PUT;
         out_msg.Requestor := machineID;
         out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
@@ -303,7 +303,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   action(a_issueAtomicRequest, "aa", desc="Issue an atomic get request") {
     enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
-    out_msg.Address := address;
+    out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:GET_Atom;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
@@ -313,7 +313,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   action(b_issueAtomicPUT, "ba", desc="Issue an atomic PUT request") {
     enqueue(requestNetworkAtomic_out, RequestMsgVI, latency=issue_latency) {
-      out_msg.Address := address;
+      out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:PUT_Atom;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));

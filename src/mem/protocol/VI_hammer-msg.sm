@@ -82,7 +82,7 @@ enumeration(TriggerType, desc="...") {
 
 // TriggerMsg
 structure(TriggerMsg, desc="...", interface="Message") {
-  Address Address,             desc="Physical address for this request";
+  Address Addr,             desc="Physical address for this request";
   TriggerType Type,            desc="Type of trigger";
   bool functionalRead(Packet *pkt) {
     return false;
@@ -95,7 +95,7 @@ structure(TriggerMsg, desc="...", interface="Message") {
 
 // RequestMsg (and also forwarded requests)
 structure(RequestMsg, desc="...", interface="NetworkMessage") {
-  Address Address,             desc="Physical address for this request";
+  Address Addr,             desc="Physical address for this request";
   CoherenceRequestType Type,   desc="Type of request (GetS, GetX, PutX, etc)";
   MachineID Requestor,            desc="Node who initiated the request";
   NetDest MergedRequestors,    desc="Merge set of read requestors";
@@ -115,7 +115,7 @@ structure(RequestMsg, desc="...", interface="NetworkMessage") {
   }
 }
 structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
-    Address Address,             desc="Physical address for this request";
+    Address Addr,             desc="Physical address for this request";
     CoherenceRequestTypeVI Type,   desc="Type of request (GetS, GetX, PutX, etc)";
     MachineID Requestor,            desc="Node who initiated the request";
     NetDest Destination,             desc="Multicast destination mask";
@@ -135,7 +135,7 @@ structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
 
 // ResponseMsg (and also unblock requests)
 structure(ResponseMsg, desc="...", interface="NetworkMessage") {
-  Address Address,             desc="Physical address for this request";
+  Address Addr,             desc="Physical address for this request";
   CoherenceResponseType Type,  desc="Type of response (Ack, Data, etc)";
   MachineID Sender,               desc="Node who sent the data";
   MachineID CurOwner,      desc="current owner of the block, used for UnblockS responses";
@@ -157,7 +157,7 @@ structure(ResponseMsg, desc="...", interface="NetworkMessage") {
   }
 }
 structure(ResponseMsgVI, desc="...", interface="NetworkMessage") {
-    Address Address,             desc="Physical address for this request";
+    Address Addr,             desc="Physical address for this request";
     CoherenceResponseTypeVI Type,  desc="Type of response (Ack, Data, etc)";
     MachineID Sender,               desc="Node who sent the data";
     NetDest Destination,             desc="Node to whom the data is sent";
