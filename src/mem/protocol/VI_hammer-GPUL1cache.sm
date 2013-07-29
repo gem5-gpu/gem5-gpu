@@ -92,9 +92,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   void unset_tbe();
   void wakeUpAllBuffers();
   void wakeUpBuffers(Address a);
-
-  // for profiling
-  //void profileGPUL1Access(bool isRead, bool isHit, NodeID version);
+  void profileMsgDelay(int virtualNetworkType, Cycles b);
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", cache.lookup(address));
@@ -345,27 +343,12 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     profileMsgDelay(1, responseNetwork_in.dequeue_getDelayCycles());
   }
 
-  action(p_profileReadMiss, "g", desc="Profile cache miss") {
-    peek(mandatoryQueue_in, RubyRequest) {
-      //cache.profileMiss(in_msg);
-    }
-    // profileGPUL1Access(isRead?, isHit?, version)
-    //profileGPUL1Access(true, false, machineIDToNodeID(machineID));
+  action(p_profileMiss, "g", desc="Profile cache miss") {
+    ++cache.demand_misses;
   }
 
-  action(q_profileReadHit, "q", desc="...") {
-    // profileGPUL1Access(isRead?, isHit?, version)
-    //profileGPUL1Access(true, true, machineIDToNodeID(machineID));
-  }
-
-  action(t_profileStoreValid, "tv", desc="..." ) {
-    // profileGPUL1Access(isRead?, isHit?, version)
-    //profileGPUL1Access(false, true, machineIDToNodeID(machineID));
-  }
-
-  action(t_profileStoreInvalid, "ti", desc="..." ) {
-    // profileGPUL1Access(isRead?, isHit?, version)
-    //profileGPUL1Access(false, false, machineIDToNodeID(machineID));
+  action(q_profileHit, "q", desc="...") {
+    ++cache.demand_hits;
   }
 
   action(r_load_hit, "h", desc="Notify sequencer the load completed.") {
@@ -458,7 +441,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(V, Store, IA) {TagArrayRead, TagArrayWrite} {
-    t_profileStoreValid;
+    p_profileMiss;
     v_allocateTBE;
     b_issuePUT;
     h_deallocateL1CacheBlock;
@@ -467,20 +450,20 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   transition(I, Store, IA) {TagArrayRead} {
-    t_profileStoreInvalid;
+    p_profileMiss;
     v_allocateTBE;
     b_issuePUT;
     m_popMandatoryQueue;
   }
 
   transition(V, {Load, Ifetch}) {TagArrayRead, DataArrayRead} {
-    q_profileReadHit;
+    q_profileHit;
     r_load_hit;
     m_popMandatoryQueue;
   }
 
   transition(I, {Load, Ifetch}, IV) {TagArrayRead} {
-    p_profileReadMiss;
+    p_profileMiss;
     v_allocateTBE;
     a_issueRequest;
     m_popMandatoryQueue;
@@ -503,7 +486,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     v_allocateTBE;
     i_allocateL1CacheBlock;
     a_issueAtomicRequest;
-    p_profileReadMiss;
+    p_profileMiss;
     m_popMandatoryQueue;
   }
 

@@ -149,10 +149,6 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   void wakeUpAllBuffers();
   Cycles curCycle();
 
-  // For profiling
-  //void profileGPUL2Access(bool isRead, bool isHit);
-  //void profileGPUL2WriteMiss(GenericMachineType mach);
-
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", L2cache.lookup(address));
   }
@@ -457,8 +453,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
     }
-    // profileGPUL2Access(isRead?, isHit?)
-    //profileGPUL2Access(true, true);
+    ++L2cache.demand_hits;
   }
 
   action(ha_load_hit, "ha", desc="Send data to L1 for atomic") {
@@ -494,8 +489,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       cache_entry.DataBlk.copyPartial(in_msg.DataBlk, in_msg.Offset, in_msg.Size);
       cache_entry.Dirty := true;
     }
-    // profileGPUL2Access(isRead?, isHit?)
-    //profileGPUL2Access(false, true);
+    ++L2cache.demand_hits;
     DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
   }
 
@@ -542,6 +536,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.MessageSize := MessageSizeType:Writeback_Control;
       }
     }
+    ++L2cache.demand_hits;
   }
 
   action(as_ackStore, "as", desc="Ack the requestor that the store is complete") {
@@ -971,13 +966,11 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   }
 
   action(uu_profileWriteMiss, "uu", desc="...") {
-    // profileGPUL2Access(isRead?, isHit?)
-    //profileGPUL2Access(false, false);
+    ++L2cache.demand_misses;
   }
 
   action(vv_profileReadMiss, "vv", desc="...") {
-    // profileGPUL2Access(isRead?, isHit?)
-    //profileGPUL2Access(true, false);
+    ++L2cache.demand_misses;
   }
 
   // TRANSITIONS
