@@ -404,8 +404,8 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
     bool kernel_active = false;
     vector<Tick>::iterator it;
 
-    out << "spa frequency: " << SimClock::Frequency/(clock*1000000000.0) << " GHz\n";
-    out << "spa period: " << clock << " ticks\n";
+    out << "spa frequency: " << frequency()/1000000000.0 << " GHz\n";
+    out << "spa period: " << clockPeriod() << " ticks\n";
     out << "kernel times (ticks):\n";
     out << "start, end, start, end, ..., exit\n";
     for (it = kernelTimes.begin(); it < kernelTimes.end(); it++) {

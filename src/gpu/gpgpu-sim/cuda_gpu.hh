@@ -375,8 +375,6 @@ class CudaGPU : public ClockedObject
     /// Callback for GPGPU-Sim to get the current simulation time
     Tick getCurTick(){ return curTick(); }
 
-    Tick getFrequency() { return clock; }
-
     /// Used to print stats at the end of simulation
     void gpuPrintStats(std::ostream& out);
 

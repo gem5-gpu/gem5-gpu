@@ -12,7 +12,7 @@ FusionProfiler::FusionProfiler(const Params *p)
 {
     assert(singletonProfiler == NULL);
     singletonProfiler = this;
-    ruby_system->registerFusionProfiler(this);
+    //ruby_system->registerFusionProfiler(this);
 }
 
 void
@@ -213,7 +213,7 @@ WarpMemRequest::WarpMemRequest()
     firstFinish = 0;
     lastFinish = 0;
     // TODO: The FusionProfiler needs to flexible for multiple GPUs...
-    freq = CudaGPU::getCudaGPU(0)->getFrequency();
+    freq = 0;
 }
 
 void
