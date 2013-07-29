@@ -39,7 +39,6 @@
 #include "gpu/gpgpu-sim/cuda_core.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/page_table.hh"
-#include "mem/ruby/fusion_profiler/fusion_profiler.hh"
 #include "params/CudaCore.hh"
 #include "sim/system.hh"
 

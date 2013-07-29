@@ -37,11 +37,6 @@
 #include "mem/ruby/system/DirectoryMemory.hh"
 #include "mem/ruby/system/MachineID.hh"
 
-// In fusion_profiler
-void profileGPUL1Access(bool isRead, bool isHit, int version);
-void profileGPUL2Access(bool isRead, bool isHit);
-void profileGPUL2WriteMiss(GenericMachineType mach);
-
 inline MachineID
 getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
 {

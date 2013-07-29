@@ -160,7 +160,6 @@ GPUMemConfig.setMemoryControlOptions(system, options)
 #
 # Finalize setup and run
 #
-system.fusion_profiler = FusionProfiler(ruby_system = system.ruby, num_sc = options.num_sc)
 
 root = Root(full_system = True, system = system)
 
