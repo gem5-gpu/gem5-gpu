@@ -138,7 +138,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
                                 ruby_system = ruby_system,
-                                is_gpu = True,
                                 deadlock_threshold = 2000000)
 
         l1_cntrl.sequencer = cpu_seq
