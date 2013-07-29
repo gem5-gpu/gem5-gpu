@@ -43,7 +43,7 @@ addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
 import GPUConfig
-import MemConfig
+import GPUMemConfig
 import Options
 import Ruby
 import Simulation
@@ -55,7 +55,7 @@ from Benchmarks import *
 
 parser = optparse.OptionParser()
 GPUConfig.addGPUOptions(parser)
-MemConfig.addMemCtrlOptions(parser)
+GPUMemConfig.addMemCtrlOptions(parser)
 Options.addCommonOptions(parser)
 Options.addFSOptions(parser)
 
@@ -87,6 +87,7 @@ CPUClass.clock = options.clock
 #
 # Memory space configuration
 #
+TestMemClass = Simulation.setMemClass(options)
 (cpu_mem_range, gpu_mem_range) = GPUConfig.configureMemorySpaces(options)
 
 #
@@ -98,7 +99,8 @@ bm[0].memsize = cpu_mem_range.size()
 #
 # Instantiate system
 #
-system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
+system = makeLinuxX86System(test_mem_mode, TestMemClass, options.num_cpus,
+                            bm[0], True)
 system.cpu = [CPUClass(cpu_id = i) for i in xrange(options.num_cpus)]
 Simulation.setWorkCountOptions(system, options)
 
@@ -153,7 +155,7 @@ for (i, cpu) in enumerate(system.cpu):
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-MemConfig.setMemoryControlOptions(system, options)
+GPUMemConfig.setMemoryControlOptions(system, options)
 
 #
 # Finalize setup and run

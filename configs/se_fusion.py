@@ -43,14 +43,14 @@ addToPath('../../gem5/configs/topologies')
 addToPath('gpu_protocol')
 
 import GPUConfig
-import MemConfig
+import GPUMemConfig
 import Options
 import Ruby
 import Simulation
 
 parser = optparse.OptionParser()
 GPUConfig.addGPUOptions(parser)
-MemConfig.addMemCtrlOptions(parser)
+GPUMemConfig.addMemCtrlOptions(parser)
 Options.addCommonOptions(parser)
 Options.addSEOptions(parser)
 
@@ -151,7 +151,7 @@ for (i, cpu) in enumerate(system.cpu):
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-MemConfig.setMemoryControlOptions(system, options)
+GPUMemConfig.setMemoryControlOptions(system, options)
 
 #
 # Finalize setup and run
