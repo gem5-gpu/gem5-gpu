@@ -85,7 +85,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l1_cntrl = L1CacheVI_Controller(version = i,
                                       cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                                      cacheMemory = cache,
+                                      cache = cache,
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
                                       issue_latency = 30,
@@ -132,7 +132,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l2_cntrl = L2Cache_Controller(version = i,
                                       cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                                      L2cacheMemory = l2_cache,
+                                      L2cache = l2_cache,
                                       ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
+ * Copyright (c) 1999-2013 Mark D. Hill and David A. Wood
  * Copyright (c) 2009 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
@@ -35,12 +35,12 @@
 
 machine(L1Cache, "AMD Hammer-like protocol")
 : Sequencer * sequencer,
-  CacheMemory * L1IcacheMemory,
-  CacheMemory * L1DcacheMemory,
-  CacheMemory * L2cacheMemory,
-  int cache_response_latency = 10,
-  int issue_latency = 1,
-  int l2_cache_hit_latency = 15,
+  CacheMemory * L1Icache,
+  CacheMemory * L1Dcache,
+  CacheMemory * L2cache,
+  Cycles cache_response_latency = 10,
+  Cycles issue_latency = 1,
+  Cycles l2_cache_hit_latency = 15,
   bool no_mig_atomic = true,
   bool send_evictions
 {
@@ -161,9 +161,13 @@ machine(L1Cache, "AMD Hammer-like protocol")
     bool AppliedSilentAcks, default="false", desc="for full-bit dir, does the pending msg count reflect the silent acks";
     MachineID LastResponder, desc="last machine to send a response for this request";
     MachineID CurOwner,      desc="current owner of the block, used for UnblockS responses";
-    Time InitialRequestTime, default="0", desc="time the initial requests was sent from the L1Cache";
-    Time ForwardRequestTime, default="0", desc="time the dir forwarded the request";
-    Time FirstResponseTime, default="0", desc="the time the first response was received";
+
+    Cycles InitialRequestTime, default="Cycles(0)",
+            desc="time the initial requests was sent from the L1Cache";
+    Cycles ForwardRequestTime, default="Cycles(0)",
+            desc="time the dir forwarded the request";
+    Cycles FirstResponseTime, default="Cycles(0)",
+            desc="the time the first response was received";
   }
 
   structure(TBETable, external="yes") {
@@ -181,19 +185,20 @@ machine(L1Cache, "AMD Hammer-like protocol")
   void unset_tbe();
   void wakeUpAllBuffers();
   void wakeUpBuffers(Address a);
+  Cycles curCycle();
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
-    Entry L2cache_entry := static_cast(Entry, "pointer", L2cacheMemory.lookup(address));
+    Entry L2cache_entry := static_cast(Entry, "pointer", L2cache.lookup(address));
     if(is_valid(L2cache_entry)) {
       return L2cache_entry;
     }
 
-    Entry L1Dcache_entry := static_cast(Entry, "pointer", L1DcacheMemory.lookup(address));
+    Entry L1Dcache_entry := static_cast(Entry, "pointer", L1Dcache.lookup(address));
     if(is_valid(L1Dcache_entry)) {
       return L1Dcache_entry;
     }
 
-    Entry L1Icache_entry := static_cast(Entry, "pointer", L1IcacheMemory.lookup(address));
+    Entry L1Icache_entry := static_cast(Entry, "pointer", L1Icache.lookup(address));
     return L1Icache_entry;
   }
 
@@ -212,17 +217,17 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   Entry getL2CacheEntry(Address address), return_by_pointer="yes" {
-    Entry L2cache_entry := static_cast(Entry, "pointer", L2cacheMemory.lookup(address));
+    Entry L2cache_entry := static_cast(Entry, "pointer", L2cache.lookup(address));
     return L2cache_entry;
   }
 
   Entry getL1DCacheEntry(Address address), return_by_pointer="yes" {
-    Entry L1Dcache_entry := static_cast(Entry, "pointer", L1DcacheMemory.lookup(address));
+    Entry L1Dcache_entry := static_cast(Entry, "pointer", L1Dcache.lookup(address));
     return L1Dcache_entry;
   }
 
   Entry getL1ICacheEntry(Address address), return_by_pointer="yes" {
-    Entry L1Icache_entry := static_cast(Entry, "pointer", L1IcacheMemory.lookup(address));
+    Entry L1Icache_entry := static_cast(Entry, "pointer", L1Icache.lookup(address));
     return L1Icache_entry;
   }
 
@@ -236,9 +241,9 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   void setState(TBE tbe, Entry cache_entry, Address addr, State state) {
-    assert((L1DcacheMemory.isTagPresent(addr) && L1IcacheMemory.isTagPresent(addr)) == false);
-    assert((L1IcacheMemory.isTagPresent(addr) && L2cacheMemory.isTagPresent(addr)) == false);
-    assert((L1DcacheMemory.isTagPresent(addr) && L2cacheMemory.isTagPresent(addr)) == false);
+    assert((L1Dcache.isTagPresent(addr) && L1Icache.isTagPresent(addr)) == false);
+    assert((L1Icache.isTagPresent(addr) && L2cache.isTagPresent(addr)) == false);
+    assert((L1Dcache.isTagPresent(addr) && L2cache.isTagPresent(addr)) == false);
 
     if (is_valid(tbe)) {
       tbe.TBEState := state;
@@ -376,7 +381,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         Entry cache_entry := getCacheEntry(in_msg.Address);
         TBE tbe := TBEs[in_msg.Address];
 
-        if ((in_msg.Type == CoherenceRequestType:GETX) || (in_msg.Type == CoherenceRequestType:GETF)) {
+        if ((in_msg.Type == CoherenceRequestType:GETX) ||
+            (in_msg.Type == CoherenceRequestType:GETF)) {
           trigger(Event:Other_GETX, in_msg.Address, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:MERGED_GETS) {
           trigger(Event:Merged_GETS, in_msg.Address, cache_entry, tbe);
@@ -424,7 +430,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
           Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
           if (is_valid(L1Icache_entry)) {
-            // The tag matches for the L1, so the L1 fetches the line.  We know it can't be in the L2 due to exclusion
+            // The tag matches for the L1, so the L1 fetches the line.
+            // We know it can't be in the L2 due to exclusion
             trigger(mandatory_request_type_to_event(in_msg.Type),
                     in_msg.LineAddress, L1Icache_entry, tbe);
           } else {
@@ -432,10 +439,10 @@ machine(L1Cache, "AMD Hammer-like protocol")
             Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
             if (is_valid(L1Dcache_entry)) {
               // The block is in the wrong L1, try to write it to the L2
-              if (L2cacheMemory.cacheAvail(in_msg.LineAddress)) {
+              if (L2cache.cacheAvail(in_msg.LineAddress)) {
                 trigger(Event:L1_to_L2, in_msg.LineAddress, L1Dcache_entry, tbe);
               } else {
-                Address l2_victim_addr := L2cacheMemory.cacheProbe(in_msg.LineAddress);
+                Address l2_victim_addr := L2cache.cacheProbe(in_msg.LineAddress);
                 trigger(Event:L2_Replacement,
                         l2_victim_addr,
                         getL2CacheEntry(l2_victim_addr),
@@ -443,7 +450,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
               }
             }
 
-            if (L1IcacheMemory.cacheAvail(in_msg.LineAddress)) {
+            if (L1Icache.cacheAvail(in_msg.LineAddress)) {
               // L1 does't have the line, but we have space for it in the L1
 
               Entry L2cache_entry := getL2CacheEntry(in_msg.LineAddress);
@@ -458,15 +465,15 @@ machine(L1Cache, "AMD Hammer-like protocol")
               }
             } else {
               // No room in the L1, so we need to make room
-              Address l1i_victim_addr := L1IcacheMemory.cacheProbe(in_msg.LineAddress);
-              if (L2cacheMemory.cacheAvail(l1i_victim_addr)) {
+              Address l1i_victim_addr := L1Icache.cacheProbe(in_msg.LineAddress);
+              if (L2cache.cacheAvail(l1i_victim_addr)) {
                 // The L2 has room, so we move the line from the L1 to the L2
                 trigger(Event:L1_to_L2,
                         l1i_victim_addr,
                         getL1ICacheEntry(l1i_victim_addr),
                         TBEs[l1i_victim_addr]);
               } else {
-                Address l2_victim_addr := L2cacheMemory.cacheProbe(l1i_victim_addr);
+                Address l2_victim_addr := L2cache.cacheProbe(l1i_victim_addr);
                 // The L2 does not have room, so we replace a line from the L2
                 trigger(Event:L2_Replacement,
                         l2_victim_addr,
@@ -480,7 +487,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
           Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
           if (is_valid(L1Dcache_entry)) {
-            // The tag matches for the L1, so the L1 fetches the line.  We know it can't be in the L2 due to exclusion
+            // The tag matches for the L1, so the L1 fetches the line.
+            // We know it can't be in the L2 due to exclusion
             trigger(mandatory_request_type_to_event(in_msg.Type),
                     in_msg.LineAddress, L1Dcache_entry, tbe);
           } else {
@@ -489,10 +497,10 @@ machine(L1Cache, "AMD Hammer-like protocol")
             Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
             if (is_valid(L1Icache_entry)) {
               // The block is in the wrong L1, try to write it to the L2
-              if (L2cacheMemory.cacheAvail(in_msg.LineAddress)) {
+              if (L2cache.cacheAvail(in_msg.LineAddress)) {
                 trigger(Event:L1_to_L2, in_msg.LineAddress, L1Icache_entry, tbe);
               } else {
-                Address l2_victim_addr := L2cacheMemory.cacheProbe(in_msg.LineAddress);
+                Address l2_victim_addr := L2cache.cacheProbe(in_msg.LineAddress);
                 trigger(Event:L2_Replacement,
                         l2_victim_addr,
                         getL2CacheEntry(l2_victim_addr),
@@ -500,7 +508,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
               }
             }
 
-            if (L1DcacheMemory.cacheAvail(in_msg.LineAddress)) {
+            if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
               // L1 does't have the line, but we have space for it in the L1
               Entry L2cache_entry := getL2CacheEntry(in_msg.LineAddress);
               if (is_valid(L2cache_entry)) {
@@ -514,15 +522,15 @@ machine(L1Cache, "AMD Hammer-like protocol")
               }
             } else {
               // No room in the L1, so we need to make room
-              Address l1d_victim_addr := L1DcacheMemory.cacheProbe(in_msg.LineAddress);
-              if (L2cacheMemory.cacheAvail(l1d_victim_addr)) {
+              Address l1d_victim_addr := L1Dcache.cacheProbe(in_msg.LineAddress);
+              if (L2cache.cacheAvail(l1d_victim_addr)) {
                 // The L2 has room, so we move the line from the L1 to the L2
                 trigger(Event:L1_to_L2,
                         l1d_victim_addr,
                         getL1DCacheEntry(l1d_victim_addr),
                         TBEs[l1d_victim_addr]);
               } else {
-                Address l2_victim_addr := L2cacheMemory.cacheProbe(l1d_victim_addr);
+                Address l2_victim_addr := L2cache.cacheProbe(l1d_victim_addr);
                 // The L2 does not have room, so we replace a line from the L2
                 trigger(Event:L2_Replacement,
                         l2_victim_addr,
@@ -546,8 +554,11 @@ machine(L1Cache, "AMD Hammer-like protocol")
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
-      out_msg.InitialRequestTime := get_time();
-      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
+      out_msg.InitialRequestTime := curCycle();
+
+      // One from each other cache (n-1) plus the memory (+1)
+      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
+                            machineCount(MachineType:L2Cache);
     }
   }
 
@@ -559,9 +570,30 @@ machine(L1Cache, "AMD Hammer-like protocol")
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
-      out_msg.InitialRequestTime := get_time();
-      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
+      out_msg.InitialRequestTime := curCycle();
+
+      // One from each other cache (n-1) plus the memory (+1)
+      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
+                            machineCount(MachineType:L2Cache);
     }
+  }
+
+  action(b_issueGETXIfMoreThanOne, "bo", desc="Issue GETX") {
+    if (machineCount(MachineType:L1Cache) > 1) {
+      enqueue(requestNetwork_out, RequestMsg, latency=issue_latency) {
+        assert(is_valid(tbe));
+        out_msg.Address := address;
+        out_msg.Type := CoherenceRequestType:GETX;
+        out_msg.Requestor := machineID;
+        out_msg.Destination.add(map_Address_to_Directory(address));
+        out_msg.MessageSize := MessageSizeType:Request_Control;
+        out_msg.InitialRequestTime := curCycle();
+      }
+    }
+
+    // One from each other cache (n-1) plus the memory (+1)
+    tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
   }
 
   action(bf_issueGETF, "bf", desc="Issue GETF") {
@@ -572,8 +604,11 @@ machine(L1Cache, "AMD Hammer-like protocol")
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
-      out_msg.InitialRequestTime := get_time();
-      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
+      out_msg.InitialRequestTime := curCycle();
+
+      // One from each other cache (n-1) plus the memory (+1)
+      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
+                            machineCount(MachineType:L2Cache);
     }
   }
 
@@ -588,7 +623,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -611,7 +647,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -654,7 +691,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -678,7 +716,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := cache_entry.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -702,7 +741,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := tbe.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -725,7 +765,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
-        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+        out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -745,7 +786,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
-        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+        out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -968,7 +1010,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         tbe.ForwardRequestTime := in_msg.ForwardRequestTime;
       }
       if (tbe.FirstResponseTime == zero_time()) {
-        tbe.FirstResponseTime := get_time();
+        tbe.FirstResponseTime := curCycle();
       }
     }
   }
@@ -1027,7 +1069,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -1052,7 +1095,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -1075,7 +1119,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
         DPRINTF(RubySlicc, "%s\n", out_msg.Destination);
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
-        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+        out_msg.Acks := machineCount(MachineType:L1Cache) +
+                          machineCount(MachineType:L2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -1176,32 +1221,32 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   action(gg_deallocateL1CacheBlock, "\g", desc="Deallocate cache block.  Sets the cache to invalid, allowing a replacement in parallel with a fetch.") {
-    if (L1DcacheMemory.isTagPresent(address)) {
-      L1DcacheMemory.deallocate(address);
+    if (L1Dcache.isTagPresent(address)) {
+      L1Dcache.deallocate(address);
     } else {
-      L1IcacheMemory.deallocate(address);
+      L1Icache.deallocate(address);
     }
     unset_cache_entry();
   }
 
   action(ii_allocateL1DCacheBlock, "\i", desc="Set L1 D-cache tag equal to tag of block B.") {
     if (is_invalid(cache_entry)) {
-      set_cache_entry(L1DcacheMemory.allocate(address, new Entry));
+      set_cache_entry(L1Dcache.allocate(address, new Entry));
     }
   }
 
   action(jj_allocateL1ICacheBlock, "\j", desc="Set L1 I-cache tag equal to tag of block B.") {
     if (is_invalid(cache_entry)) {
-      set_cache_entry(L1IcacheMemory.allocate(address, new Entry));
+      set_cache_entry(L1Icache.allocate(address, new Entry));
     }
   }
 
   action(vv_allocateL2CacheBlock, "\v", desc="Set L2 cache tag equal to tag of block B.") {
-    set_cache_entry(L2cacheMemory.allocate(address, new Entry));
+    set_cache_entry(L2cache.allocate(address, new Entry));
   }
 
   action(rr_deallocateL2CacheBlock, "\r", desc="Deallocate L2 cache block.  Sets the cache to not present, allowing a replacement in parallel with a fetch.") {
-    L2cacheMemory.deallocate(address);
+    L2cache.deallocate(address);
     unset_cache_entry();
   }
 
@@ -1212,17 +1257,28 @@ machine(L1Cache, "AMD Hammer-like protocol")
     }
   }
 
-  action(uu_profileMiss, "\u", desc="Profile the demand miss") {
-    peek(mandatoryQueue_in, RubyRequest) {
-      if (L1IcacheMemory.isTagPresent(address)) {
-        L1IcacheMemory.profileMiss(in_msg);
-      } else if (L1DcacheMemory.isTagPresent(address)) {
-        L1DcacheMemory.profileMiss(in_msg);
-      }
-      if (L2cacheMemory.isTagPresent(address) == false) {
-        L2cacheMemory.profileMiss(in_msg);
-      }
-    }
+  action(uu_profileL1DataMiss, "\udm", desc="Profile the demand miss") {
+      ++L1Dcache.demand_misses;
+  }
+
+  action(uu_profileL1DataHit, "\udh", desc="Profile the demand hits") {
+      ++L1Dcache.demand_hits;
+  }
+
+  action(uu_profileL1InstMiss, "\uim", desc="Profile the demand miss") {
+      ++L1Icache.demand_misses;
+  }
+
+  action(uu_profileL1InstHit, "\uih", desc="Profile the demand hits") {
+      ++L1Icache.demand_hits;
+  }
+
+  action(uu_profileL2Miss, "\um", desc="Profile the demand miss") {
+      ++L2cache.demand_misses;
+  }
+
+  action(uu_profileL2Hit, "\uh", desc="Profile the demand hits ") {
+      ++L2cache.demand_hits;
   }
 
   action(zz_stallAndWaitMandatoryQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {
@@ -1298,7 +1354,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     ii_allocateL1DCacheBlock;
     nb_copyFromTBEToL1; // Not really needed for state I
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1309,7 +1364,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     ii_allocateL1DCacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1320,7 +1374,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     ii_allocateL1DCacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1331,7 +1384,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     ii_allocateL1DCacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1342,7 +1394,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     ii_allocateL1DCacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1353,7 +1404,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     jj_allocateL1ICacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1364,7 +1414,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     jj_allocateL1ICacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1375,7 +1424,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     jj_allocateL1ICacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1386,7 +1434,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     jj_allocateL1ICacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1397,7 +1444,6 @@ machine(L1Cache, "AMD Hammer-like protocol")
     jj_allocateL1ICacheBlock;
     nb_copyFromTBEToL1;
     s_deallocateTBE;
-    uu_profileMiss;
     zz_stallAndWaitMandatoryQueue;
     ll_L2toL1Transfer;
   }
@@ -1428,34 +1474,36 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   // Transitions from Idle
-  transition({I, IR}, Load, IS) {
+  transition({I,IR}, Load, IS) {
     ii_allocateL1DCacheBlock;
     i_allocateTBE;
     a_issueGETS;
-    uu_profileMiss;
+    uu_profileL1DataMiss;
+    uu_profileL2Miss;
     k_popMandatoryQueue;
   }
 
-  transition({I, IR}, Ifetch, IS) {
+  transition({I,IR}, Ifetch, IS) {
     jj_allocateL1ICacheBlock;
     i_allocateTBE;
     a_issueGETS;
-    uu_profileMiss;
+    uu_profileL1InstMiss;
+    uu_profileL2Miss;
     k_popMandatoryQueue;
   }
 
-  transition({I, IR}, Store, IM) {
+  transition({I,IR}, Store, IM) {
     ii_allocateL1DCacheBlock;
     i_allocateTBE;
     b_issueGETX;
-    uu_profileMiss;
+    uu_profileL1DataMiss;
+    uu_profileL2Miss;
     k_popMandatoryQueue;
   }
 
   transition({I, IR}, Flush_line, IM_F) {
     it_allocateTBE;
     bf_issueGETF;
-    uu_profileMiss;
     k_popMandatoryQueue;
   }
 
@@ -1470,28 +1518,45 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   // Transitions from Shared
-  transition({S, SM, ISM}, {Load, Ifetch}) {
+  transition({S, SM, ISM}, Load) {
     h_load_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
-  transition(SR, {Load, Ifetch}, S) {
+  transition({S, SM, ISM}, Ifetch) {
     h_load_hit;
+    uu_profileL1InstHit;
+    k_popMandatoryQueue;
+  }
+
+  transition(SR, Load, S) {
+    h_load_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
 
-  transition({S, SR}, Store, SM) {
+  transition(SR, Ifetch, S) {
+    h_load_hit;
+    uu_profileL1InstMiss;
+    uu_profileL2Hit;
+    k_popMandatoryQueue;
+    ka_wakeUpAllDependents;
+  }
+
+  transition({S,SR}, Store, SM) {
     i_allocateTBE;
     b_issueGETX;
-    uu_profileMiss;
+    uu_profileL1DataMiss;
+    uu_profileL2Miss;
     k_popMandatoryQueue;
   }
 
   transition({S, SR}, Flush_line, SM_F) {
     i_allocateTBE;
     bf_issueGETF;
-    uu_profileMiss;
     forward_eviction_to_cpu;
     gg_deallocateL1CacheBlock;
     k_popMandatoryQueue;
@@ -1515,29 +1580,47 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   // Transitions from Owned
-  transition({O, OM, SS, MM_W, M_W}, {Load, Ifetch}) {
+  transition({O, OM, SS, MM_W, M_W}, {Load}) {
     h_load_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
-  transition(OR, {Load, Ifetch}, O) {
+  transition({O, OM, SS, MM_W, M_W}, {Ifetch}) {
     h_load_hit;
+    uu_profileL1InstHit;
+    k_popMandatoryQueue;
+  }
+
+  transition(OR, Load, O) {
+    h_load_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
 
-  transition({O, OR}, Store, OM) {
+  transition(OR, Ifetch, O) {
+    h_load_hit;
+    uu_profileL1InstMiss;
+    uu_profileL2Hit;
+    k_popMandatoryQueue;
+    ka_wakeUpAllDependents;
+  }
+
+  transition({O,OR}, Store, OM) {
     i_allocateTBE;
     b_issueGETX;
     p_decrementNumberOfMessagesByOne;
-    uu_profileMiss;
+    uu_profileL1DataMiss;
+    uu_profileL2Miss;
     k_popMandatoryQueue;
   }
+
   transition({O, OR}, Flush_line, OM_F) {
     i_allocateTBE;
     bf_issueGETF;
     p_decrementNumberOfMessagesByOne;
-    uu_profileMiss;
     forward_eviction_to_cpu;
     gg_deallocateL1CacheBlock;
     k_popMandatoryQueue;
@@ -1568,24 +1651,44 @@ machine(L1Cache, "AMD Hammer-like protocol")
   }
 
   // Transitions from Modified
-  transition({MM, M}, {Load, Ifetch}) {
+  transition({MM, M}, {Ifetch}) {
     h_load_hit;
+    uu_profileL1InstHit;
+    k_popMandatoryQueue;
+  }
+
+  transition({MM, M}, {Load}) {
+    h_load_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
   transition(MM, Store) {
     hh_store_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
-  transition(MMR, {Load, Ifetch}, MM) {
+  transition(MMR, Load, MM) {
     h_load_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
+    k_popMandatoryQueue;
+    ka_wakeUpAllDependents;
+  }
+
+  transition(MMR, Ifetch, MM) {
+    h_load_hit;
+    uu_profileL1InstMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
 
   transition(MMR, Store, MM) {
     hh_store_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
@@ -1643,17 +1746,30 @@ machine(L1Cache, "AMD Hammer-like protocol")
   // Transitions from Dirty Exclusive
   transition(M, Store, MM) {
     hh_store_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
-  transition(MR, {Load, Ifetch}, M) {
+  transition(MR, Load, M) {
     h_load_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
+    k_popMandatoryQueue;
+    ka_wakeUpAllDependents;
+  }
+
+  transition(MR, Ifetch, M) {
+    h_load_hit;
+    uu_profileL1InstMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
 
   transition(MR, Store, MM) {
     hh_store_hit;
+    uu_profileL1DataMiss;
+    uu_profileL2Hit;
     k_popMandatoryQueue;
     ka_wakeUpAllDependents;
   }
@@ -1928,6 +2044,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   transition(MM_W, Store) {
     hh_store_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 
@@ -1953,6 +2070,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
   transition(M_W, Store, MM_W) {
     hh_store_hit;
+    uu_profileL1DataHit;
     k_popMandatoryQueue;
   }
 

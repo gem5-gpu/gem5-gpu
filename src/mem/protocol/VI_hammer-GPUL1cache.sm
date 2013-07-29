@@ -1,10 +1,10 @@
 
 machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 : Sequencer * sequencer,
-  CacheMemory * cacheMemory,
+  CacheMemory * cache,
   int l2_select_num_bits,
   int num_l2,
-  int issue_latency = 416,
+  Cycles issue_latency = 416,
 {
 
   // NETWORK BUFFERS
@@ -94,10 +94,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   void wakeUpBuffers(Address a);
 
   // for profiling
-  void profileGPUL1Access(bool isRead, bool isHit, NodeID version);
+  //void profileGPUL1Access(bool isRead, bool isHit, NodeID version);
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
-    return static_cast(Entry, "pointer", cacheMemory.lookup(address));
+    return static_cast(Entry, "pointer", cache.lookup(address));
   }
 
 
@@ -195,13 +195,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   void recordRequestType(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      cacheMemory.recordRequestType(CacheRequestType:DataArrayRead);
+      cache.recordRequestType(CacheRequestType:DataArrayRead);
     } else if (type == RequestType:DataArrayWrite) {
-      cacheMemory.recordRequestType(CacheRequestType:DataArrayWrite);
+      cache.recordRequestType(CacheRequestType:DataArrayWrite);
     } else if (type == RequestType:TagArrayRead) {
-      cacheMemory.recordRequestType(CacheRequestType:TagArrayRead);
+      cache.recordRequestType(CacheRequestType:TagArrayRead);
     } else if (type == RequestType:TagArrayWrite) {
-      cacheMemory.recordRequestType(CacheRequestType:TagArrayWrite);
+      cache.recordRequestType(CacheRequestType:TagArrayWrite);
     } else {
       error("Bad request type passed to recordRequestType");
     }
@@ -209,13 +209,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   bool checkResourceAvailable(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      return cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+      return cache.checkResourceAvailable(CacheResourceType:DataArray, addr);
     } else if (type == RequestType:DataArrayWrite) {
-      return cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+      return cache.checkResourceAvailable(CacheResourceType:DataArray, addr);
     } else if (type == RequestType:TagArrayRead) {
-      return cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+      return cache.checkResourceAvailable(CacheResourceType:TagArray, addr);
     } else if (type == RequestType:TagArrayWrite) {
-      return cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+      return cache.checkResourceAvailable(CacheResourceType:TagArray, addr);
     } else {
       error("Bad request type passed to checkResourceAvailable");
     }
@@ -241,10 +241,10 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
           // trigger will need to be moved back to the request side for eager
           // cache frame allocation. 
           //
-          if (cacheMemory.cacheAvail(in_msg.Address) == false) {
-            trigger(Event:Replacement, cacheMemory.cacheProbe(in_msg.Address),
-                    getCacheEntry(cacheMemory.cacheProbe(in_msg.Address)),
-                    TBEs[cacheMemory.cacheProbe(in_msg.Address)]);
+          if (cache.cacheAvail(in_msg.Address) == false) {
+            trigger(Event:Replacement, cache.cacheProbe(in_msg.Address),
+                    getCacheEntry(cache.cacheProbe(in_msg.Address)),
+                    TBEs[cache.cacheProbe(in_msg.Address)]);
           } else {
             trigger(Event:Data, in_msg.Address, cache_entry, tbe);
           }
@@ -326,13 +326,13 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   action(i_allocateL1CacheBlock, "c", desc="Allocate a cache block") {
     if (is_valid(cache_entry)) {
     } else {
-      set_cache_entry(cacheMemory.allocate(address, new Entry));
+      set_cache_entry(cache.allocate(address, new Entry));
     }
   }
 
   action(h_deallocateL1CacheBlock, "d", desc="deallocate a cache block") {
     if (is_valid(cache_entry)) {
-      cacheMemory.deallocate(address);
+      cache.deallocate(address);
       unset_cache_entry();
     }
   }
@@ -347,25 +347,25 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   action(p_profileReadMiss, "g", desc="Profile cache miss") {
     peek(mandatoryQueue_in, RubyRequest) {
-      cacheMemory.profileMiss(in_msg);
+      //cache.profileMiss(in_msg);
     }
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(true, false, machineIDToNodeID(machineID));
+    //profileGPUL1Access(true, false, machineIDToNodeID(machineID));
   }
 
   action(q_profileReadHit, "q", desc="...") {
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(true, true, machineIDToNodeID(machineID));
+    //profileGPUL1Access(true, true, machineIDToNodeID(machineID));
   }
 
   action(t_profileStoreValid, "tv", desc="..." ) {
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(false, true, machineIDToNodeID(machineID));
+    //profileGPUL1Access(false, true, machineIDToNodeID(machineID));
   }
 
   action(t_profileStoreInvalid, "ti", desc="..." ) {
     // profileGPUL1Access(isRead?, isHit?, version)
-    profileGPUL1Access(false, false, machineIDToNodeID(machineID));
+    //profileGPUL1Access(false, false, machineIDToNodeID(machineID));
   }
 
   action(r_load_hit, "h", desc="Notify sequencer the load completed.") {
@@ -428,7 +428,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   action(f_flashInv, "fi", desc="Invalidate all lines in the cache") {
-    cacheMemory.flashInvalidate();
+    cache.flashInvalidate();
   }
 
   action(fr_flashInvEesp, "fr", desc="Ack the controller that flash inv is done") {

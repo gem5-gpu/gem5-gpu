@@ -79,9 +79,9 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc + 1,
                                       cntrl_id = len(topology),
-                                      L1IcacheMemory = l1i_cache,
-                                      L1DcacheMemory = l1d_cache,
-                                      L2cacheMemory = l2_cache,
+                                      L1Icache = l1i_cache,
+                                      L1Dcache = l1d_cache,
+                                      L2cache = l2_cache,
                                       no_mig_atomic = not \
                                           options.allow_atomic_migration,
                                       send_evictions = (

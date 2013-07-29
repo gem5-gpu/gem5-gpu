@@ -146,6 +146,8 @@ for (i, cpu) in enumerate(system.cpu):
     else:
         fatal("Not sure how to connect TLB walker ports in non-x86 system!")
 
+    system.ruby._cpu_ruby_ports[i].access_phys_mem = True
+
 #
 # Connect GPU ports
 #

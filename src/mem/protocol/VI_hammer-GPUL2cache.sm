@@ -1,9 +1,9 @@
 
 machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
-  : CacheMemory * L2cacheMemory,
-  int l2_request_latency = 260,
-  int l2_response_latency = 2,
-  int cache_response_latency = 260,
+  : CacheMemory * L2cache,
+  Cycles l2_request_latency = 260,
+  Cycles l2_response_latency = 2,
+  Cycles cache_response_latency = 260,
 {
 
 //Note: we might have a problem if two Get atomics arrive from different L1's at the same time
@@ -115,9 +115,9 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     bool AppliedSilentAcks, default="false", desc="for full-bit dir, does the pending msg count reflect the silent acks";
     MachineID LastResponder, desc="last machine to send a response for this request";
     MachineID CurOwner,      desc="current owner of the block, used for UnblockS responses";
-    Time InitialRequestTime, default="0", desc="time the initial requests was sent from the L1Cache";
-    Time ForwardRequestTime, default="0", desc="time the dir forwarded the request";
-    Time FirstResponseTime, default="0", desc="the time the first response was received";
+    Cycles InitialRequestTime, default="Cycles(0)", desc="time the initial requests was sent from the L1Cache";
+    Cycles ForwardRequestTime, default="Cycles(0)", desc="time the dir forwarded the request";
+    Cycles FirstResponseTime, default="Cycles(0)", desc="the Cycles the first response was received";
 
     DataBlock DirtyDataBlk, desc="Dirty data for a write. Separate from DataBlk since that's 'clean' data from other caches";
     int Offset,             desc="Offset of write into line";
@@ -147,13 +147,14 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   // For hammer
   void wakeUpBuffers(Address a);
   void wakeUpAllBuffers();
+  Cycles curCycle();
 
   // For profiling
-  void profileGPUL2Access(bool isRead, bool isHit);
-  void profileGPUL2WriteMiss(GenericMachineType mach);
+  //void profileGPUL2Access(bool isRead, bool isHit);
+  //void profileGPUL2WriteMiss(GenericMachineType mach);
 
   Entry getCacheEntry(Address address), return_by_pointer="yes" {
-    return static_cast(Entry, "pointer", L2cacheMemory.lookup(address));
+    return static_cast(Entry, "pointer", L2cache.lookup(address));
   }
 
   State getState(TBE tbe, Entry cache_entry, Address addr) {
@@ -229,13 +230,13 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   void recordRequestType(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      L2cacheMemory.recordRequestType(CacheRequestType:DataArrayRead);
+      L2cache.recordRequestType(CacheRequestType:DataArrayRead);
     } else if (type == RequestType:DataArrayWrite) {
-      L2cacheMemory.recordRequestType(CacheRequestType:DataArrayWrite);
+      L2cache.recordRequestType(CacheRequestType:DataArrayWrite);
     } else if (type == RequestType:TagArrayRead) {
-      L2cacheMemory.recordRequestType(CacheRequestType:TagArrayRead);
+      L2cache.recordRequestType(CacheRequestType:TagArrayRead);
     } else if (type == RequestType:TagArrayWrite) {
-      L2cacheMemory.recordRequestType(CacheRequestType:TagArrayWrite);
+      L2cache.recordRequestType(CacheRequestType:TagArrayWrite);
     } else {
       error("Bad request type passed to recordRequestType");
     }
@@ -243,13 +244,13 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   bool checkResourceAvailable(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      return L2cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+      return L2cache.checkResourceAvailable(CacheResourceType:DataArray, addr);
     } else if (type == RequestType:DataArrayWrite) {
-      return L2cacheMemory.checkResourceAvailable(CacheResourceType:DataArray, addr);
+      return L2cache.checkResourceAvailable(CacheResourceType:DataArray, addr);
     } else if (type == RequestType:TagArrayRead) {
-      return L2cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+      return L2cache.checkResourceAvailable(CacheResourceType:TagArray, addr);
     } else if (type == RequestType:TagArrayWrite) {
-      return L2cacheMemory.checkResourceAvailable(CacheResourceType:TagArray, addr);
+      return L2cache.checkResourceAvailable(CacheResourceType:TagArray, addr);
     } else {
       error("Bad request type passed to checkResourceAvailable");
     }
@@ -347,11 +348,11 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
         Entry cache_entry := getCacheEntry(in_msg.Address);
         if (is_invalid(cache_entry) &&
-            L2cacheMemory.cacheAvail(in_msg.Address) == false ) {
+            L2cache.cacheAvail(in_msg.Address) == false ) {
           // make room for the block
-          trigger(Event:Replacement, L2cacheMemory.cacheProbe(in_msg.Address),
-                  getCacheEntry(L2cacheMemory.cacheProbe(in_msg.Address)),
-                  TBEs[L2cacheMemory.cacheProbe(in_msg.Address)]);
+          trigger(Event:Replacement, L2cache.cacheProbe(in_msg.Address),
+                  getCacheEntry(L2cache.cacheProbe(in_msg.Address)),
+                  TBEs[L2cache.cacheProbe(in_msg.Address)]);
         }
         else {
           trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.Address,
@@ -382,7 +383,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
-      out_msg.InitialRequestTime := get_time();
+      out_msg.InitialRequestTime := curCycle();
       tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
     }
   }
@@ -395,7 +396,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
-      out_msg.InitialRequestTime := get_time();
+      out_msg.InitialRequestTime := curCycle();
       tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
     }
   }
@@ -413,13 +414,13 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   action(ii_allocateL2CacheBlock, "\i", desc="Allocate a cache block") {
     if (is_valid(cache_entry)) {
     } else {
-      set_cache_entry(L2cacheMemory.allocate(address, new Entry));
+      set_cache_entry(L2cache.allocate(address, new Entry));
     }
   }
 
   action(rr_deallocateL2CacheBlock, "\r", desc="deallocate a cache block") {
     if (is_valid(cache_entry)) {
-      L2cacheMemory.deallocate(address);
+      L2cache.deallocate(address);
       unset_cache_entry();
     }
   }
@@ -457,7 +458,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       }
     }
     // profileGPUL2Access(isRead?, isHit?)
-    profileGPUL2Access(true, true);
+    //profileGPUL2Access(true, true);
   }
 
   action(ha_load_hit, "ha", desc="Send data to L1 for atomic") {
@@ -494,7 +495,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       cache_entry.Dirty := true;
     }
     // profileGPUL2Access(isRead?, isHit?)
-    profileGPUL2Access(false, true);
+    //profileGPUL2Access(false, true);
     DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
   }
 
@@ -505,7 +506,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     cache_entry.Dirty := true;
     peek(responseToCache_in, ResponseMsg) {
       if (machineIDToMachineType(in_msg.Sender) == MachineType:Directory) {
-        profileGPUL2WriteMiss(GenericMachineType:Directory);
+        //profileGPUL2WriteMiss(GenericMachineType:Directory);
       }
     }
     DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
@@ -519,9 +520,9 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
     cache_entry.DataBlk.copyPartial(tbe.DirtyDataBlk, tbe.Offset, tbe.Size);
     cache_entry.Dirty := true;
     if (machineIDToMachineType(tbe.LastResponder) == MachineType:Directory) {
-      profileGPUL2WriteMiss(GenericMachineType:Directory);
+      //profileGPUL2WriteMiss(GenericMachineType:Directory);
     } else if (machineIDToMachineType(tbe.LastResponder) == MachineType:L1Cache) {
-      profileGPUL2WriteMiss(GenericMachineType:L1Cache_wCC);
+      //profileGPUL2WriteMiss(GenericMachineType:L1Cache_wCC);
     } else {
       error("Only expect responses from Directory or L1Cache");
     }
@@ -640,7 +641,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         tbe.ForwardRequestTime := in_msg.ForwardRequestTime;
       }
       if (tbe.FirstResponseTime == zero_time()) {
-        tbe.FirstResponseTime := get_time();
+        tbe.FirstResponseTime := curCycle();
       }
     }
   }
@@ -971,12 +972,12 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   action(uu_profileWriteMiss, "uu", desc="...") {
     // profileGPUL2Access(isRead?, isHit?)
-    profileGPUL2Access(false, false);
+    //profileGPUL2Access(false, false);
   }
 
   action(vv_profileReadMiss, "vv", desc="...") {
     // profileGPUL2Access(isRead?, isHit?)
-    profileGPUL2Access(true, false);
+    //profileGPUL2Access(true, false);
   }
 
   // TRANSITIONS

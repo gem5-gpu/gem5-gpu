@@ -94,8 +94,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
                                       cntrl_id = len(topology),
-                                      L1IcacheMemory = l1i_cache,
-                                      L1DcacheMemory = l1d_cache,
+                                      L1Icache = l1i_cache,
+                                      L1Dcache = l1d_cache,
                                       l2_select_num_bits = l2_bits,
                                       send_evictions = (
                                           options.cpu_type == "detailed"),
@@ -137,8 +137,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                   cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
-                                  L1IcacheMemory = l1i_cache,
-                                  L1DcacheMemory = l1d_cache,
+                                  L1Icache = l1i_cache,
+                                  L1Dcache = l1d_cache,
                                   l2_select_num_bits = l2_bits,
                                   prefetcher = prefetcher,
                                   ruby_system = ruby_system,
