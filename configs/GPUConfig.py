@@ -57,6 +57,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_membank_busy_time", type="string", default=None, help="GPU memory bank busy time in ns (CL+tRP+tRCD+CAS)")
     parser.add_option("--gpu_warp_size", type="int", default=32, help="Number of threads per warp, also functional units per shader core/SM")
     parser.add_option("--gpu_threads_per_core", type="int", default=1536, help="Maximum number of threads per GPU core (SM)")
+    parser.add_option("--gpgpusim-config", type="string", default=None, help="Path to the gpgpusim.config to use. This overrides the gpgpusim.config template")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -82,13 +83,14 @@ def parseGpgpusimConfig(options):
     # First check the cwd, and if there is not a gpgpusim.config file there
     # Use the template found in gem5-fusion/configs/gpu_config and fill in
     # the missing information with command line options.
-    usingTemplate = False
-    gpgpusimconfig = os.path.join(os.getcwd(), 'gpgpusim.config')
-    if not os.path.isfile(gpgpusimconfig):
+    if options.gpgpusim_config:
+        usingTemplate = False
+        gpgpusimconfig = options.gpgpusim_config
+    else:
         gpgpusimconfig = os.path.join(os.path.dirname(__file__), 'gpu_config/gpgpusim.config.template')
         usingTemplate = True
-        if not os.path.isfile(gpgpusimconfig):
-            fatal("Unable to find gpgpusim config (%s)" % gpgpusimconfig)
+    if not os.path.isfile(gpgpusimconfig):
+        fatal("Unable to find gpgpusim config (%s)" % gpgpusimconfig)
     f = open(gpgpusimconfig, 'r')
     config = f.read()
     f.close()
