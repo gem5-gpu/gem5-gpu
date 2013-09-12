@@ -54,7 +54,7 @@ def setMemoryControlOptions(system, options):
             cntrl = eval("system.ruby.dev_dir_cntrl%d" % i)
             if options.gpu_mem_freq:
                 cntrl.memBuffer.clock = options.gpu_mem_freq
-            if options.mem_ctl_latency >= 0:
+            if options.gpu_mem_ctl_latency >= 0:
                 cntrl.memBuffer.mem_ctl_latency = options.gpu_mem_ctl_latency
             if options.membus_busy_cycles > 0:
                 cntrl.memBuffer.basic_bus_busy_time = options.gpu_membus_busy_cycles
