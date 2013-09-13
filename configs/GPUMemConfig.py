@@ -56,7 +56,7 @@ def setMemoryControlOptions(system, options):
                 cntrl.memBuffer.clock = options.gpu_mem_freq
             if options.gpu_mem_ctl_latency >= 0:
                 cntrl.memBuffer.mem_ctl_latency = options.gpu_mem_ctl_latency
-            if options.membus_busy_cycles > 0:
+            if options.gpu_membus_busy_cycles > 0:
                 cntrl.memBuffer.basic_bus_busy_time = options.gpu_membus_busy_cycles
             if options.gpu_membank_busy_time:
                 mem_cycle_seconds = float(cntrl.memBuffer.clock.period)
