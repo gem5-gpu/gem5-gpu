@@ -1,5 +1,5 @@
 
-machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
+machine(GPUL1Cache, "VI GPU L1 Cache")
 : Sequencer * sequencer,
   CacheMemory * cache,
   int l2_select_num_bits,
@@ -80,7 +80,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   // STRUCTURES
 
-  TBETable TBEs, template="<L1CacheVI_TBE>", constructor="m_number_of_TBEs";
+  TBETable TBEs, template="<GPUL1Cache_TBE>", constructor="m_number_of_TBEs";
 
   // needed for writeCallback to work. The data stored here is ignored
   DataBlock temp_store_data;
@@ -148,12 +148,12 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   AccessPermission getAccessPermission(Address addr) {
     TBE tbe := TBEs[addr];
     if(is_valid(tbe)) {
-      return L1CacheVI_State_to_permission(tbe.TBEState);
+      return GPUL1Cache_State_to_permission(tbe.TBEState);
     }
 
     Entry cache_entry := getCacheEntry(addr);
     if(is_valid(cache_entry)) {
-      return L1CacheVI_State_to_permission(cache_entry.CacheState);
+      return GPUL1Cache_State_to_permission(cache_entry.CacheState);
     }
 
     return AccessPermission:NotPresent;
@@ -161,7 +161,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
 
   void setAccessPermission(Entry cache_entry, Address addr, State state) {
     if (is_valid(cache_entry)) {
-      cache_entry.changePermission(L1CacheVI_State_to_permission(state));
+      cache_entry.changePermission(GPUL1Cache_State_to_permission(state));
     }
   }
 
@@ -177,18 +177,6 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
     }
 
     error("Missing data block");
-  }
-
-  GenericMachineType getNondirectHitMachType(MachineID sender) {
-    if (machineIDToMachineType(sender) == MachineType:L1Cache) {
-      //
-      // NOTE direct local hits should not call this
-      //
-      // return L1 with cache coherence if CPU had the data
-      return GenericMachineType:L1Cache_wCC;
-    } else {
-      return ConvertMachToGenericMach(machineIDToMachineType(sender));
-    }
   }
 
   void recordRequestType(RequestType type, Address addr) {
@@ -354,26 +342,23 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   action(r_load_hit, "h", desc="Notify sequencer the load completed.") {
     assert(is_valid(cache_entry));
     DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
-    sequencer.readCallback(address,
-                           GenericMachineType:L1Cache,
-                           cache_entry.DataBlk);
+    sequencer.readCallback(address, cache_entry.DataBlk, false,
+                           MachineType:GPUL1Cache);
   }
 
   action(rx_load_hit, "rx", desc="External load completed.") {
     peek(responseNetwork_in, ResponseMsgVI) {
       assert(is_valid(cache_entry));
       DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
-      sequencer.readCallback(address,
-                             getNondirectHitMachType(in_msg.Sender),
-                             cache_entry.DataBlk);
+      sequencer.readCallback(address, cache_entry.DataBlk, true,
+                             machineIDToMachineType(in_msg.Sender));
     }
   }
 
   action(s_store_hit, "i", desc="Notify sequencer that store completed.") {
     // To make Ruby happy. We already wrote the data to L2 in b_issuePUT
-    sequencer.writeCallback(address,
-                            GenericMachineType:L1Cache,
-                            temp_store_data);
+    sequencer.writeCallback(address, temp_store_data, false,
+                            MachineType:GPUL1Cache);
     DPRINTF(RubySlicc,"%s %s\n", address, temp_store_data);
   }
 
@@ -381,9 +366,8 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
       assert(is_valid(tbe));
       error("External store hits not supported");
       DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
-      sequencer.writeCallback(address,
-                              GenericMachineType:Directory,
-                              tbe.DataBlk);
+      sequencer.writeCallback(address, tbe.DataBlk, true,
+                              MachineType:Directory);
   }
 
   action(u_writeDataToCache, "j", desc="Write data to the cache") {
@@ -415,7 +399,7 @@ machine(L1CacheVI, "VI L1 Cache", genericType="L1Cache")
   }
 
   action(fr_flashInvEesp, "fr", desc="Ack the controller that flash inv is done") {
-    sequencer.writeCallback(address, tbe.DataBlk);
+    sequencer.writeCallback(address, tbe.DataBlk, false, MachineType:GPUL1Cache);
   }
 
   action(zz_stallAndWaitMandatoryQueue, "\z", desc="Send the head of the mandatory queue to the back of the queue.") {

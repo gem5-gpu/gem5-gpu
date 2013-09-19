@@ -33,7 +33,7 @@
  *          Brad Beckmann
  */
 
-machine(L1Cache, "AMD Hammer-like protocol")
+machine({L1Cache, L2Cache}, "AMD Hammer-like protocol")
 : Sequencer * sequencer,
   CacheMemory * L1Icache,
   CacheMemory * L1Dcache,
@@ -288,25 +288,12 @@ machine(L1Cache, "AMD Hammer-like protocol")
     }
   }
 
-  GenericMachineType getNondirectHitMachType(Address addr, MachineID sender) {
-    if (machineIDToMachineType(sender) == MachineType:L2Cache) {
-      //
-      // NOTE direct local hits should not call this
-      //
-      // return L1 with cache coherence if GPU had the data
-      return GenericMachineType:L1Cache_wCC;
-    } else {
-      return ConvertMachToGenericMach(machineIDToMachineType(sender));
-    }
-  }
-
-  GenericMachineType testAndClearLocalHit(Entry cache_entry) {
+  MachineType testAndClearLocalHit(Entry cache_entry) {
     if (is_valid(cache_entry) && cache_entry.FromL2) {
       cache_entry.FromL2 := false;
-      return GenericMachineType:L2Cache;
-    } else {
-      return GenericMachineType:L1Cache;
+      return MachineType:L2Cache;
     }
+    return MachineType:L1Cache;
   }
 
   bool IsAtomicAccessed(Entry cache_entry) {
@@ -387,7 +374,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         } else if (in_msg.Type == CoherenceRequestType:MERGED_GETS) {
           trigger(Event:Merged_GETS, in_msg.Addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
-          if (machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache) > 1) {
+          if (machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache) > 1) {
             if (is_valid(cache_entry)) {
               if (IsAtomicAccessed(cache_entry) && no_mig_atomic) {
                 trigger(Event:Other_GETS_No_Mig, in_msg.Addr, cache_entry, tbe);
@@ -558,7 +545,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
       // One from each other cache (n-1) plus the memory (+1)
       tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
-                            machineCount(MachineType:L2Cache);
+                            machineCount(MachineType:GPUL2Cache);
     }
   }
 
@@ -574,7 +561,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
       // One from each other cache (n-1) plus the memory (+1)
       tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
-                            machineCount(MachineType:L2Cache);
+                            machineCount(MachineType:GPUL2Cache);
     }
   }
 
@@ -593,7 +580,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
     // One from each other cache (n-1) plus the memory (+1)
     tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
   }
 
   action(bf_issueGETF, "bf", desc="Issue GETF") {
@@ -608,7 +595,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
 
       // One from each other cache (n-1) plus the memory (+1)
       tbe.NumPendingMsgs := machineCount(MachineType:L1Cache) +
-                            machineCount(MachineType:L2Cache);
+                            machineCount(MachineType:GPUL2Cache);
     }
   }
 
@@ -624,7 +611,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -648,7 +635,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -692,7 +679,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -717,7 +704,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -742,7 +729,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -766,7 +753,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := cache_entry.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -787,7 +774,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := tbe.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -865,8 +852,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
   action(h_load_hit, "h", desc="Notify sequencer the load completed.") {
     assert(is_valid(cache_entry));
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
-    sequencer.readCallback(address, testAndClearLocalHit(cache_entry),
-                           cache_entry.DataBlk);
+    sequencer.readCallback(address, cache_entry.DataBlk, false,
+                           testAndClearLocalHit(cache_entry));
   }
 
   action(hx_external_load_hit, "hx", desc="load required external msgs") {
@@ -875,12 +862,9 @@ machine(L1Cache, "AMD Hammer-like protocol")
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     peek(responseToCache_in, ResponseMsg) {
 
-      sequencer.readCallback(address,
-                             getNondirectHitMachType(in_msg.Addr, in_msg.Sender),
-                             cache_entry.DataBlk,
-                             tbe.InitialRequestTime,
-                             tbe.ForwardRequestTime,
-                             tbe.FirstResponseTime);
+      sequencer.readCallback(address, cache_entry.DataBlk, true,
+                 machineIDToMachineType(in_msg.Sender), tbe.InitialRequestTime,
+                 tbe.ForwardRequestTime, tbe.FirstResponseTime);
     }
   }
 
@@ -888,8 +872,8 @@ machine(L1Cache, "AMD Hammer-like protocol")
     assert(is_valid(cache_entry));
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     peek(mandatoryQueue_in, RubyRequest) {
-      sequencer.writeCallback(address, testAndClearLocalHit(cache_entry),
-                              cache_entry.DataBlk);
+      sequencer.writeCallback(address, cache_entry.DataBlk, false,
+                              testAndClearLocalHit(cache_entry));
 
       cache_entry.Dirty := true;
       if (in_msg.Type == RubyRequestType:ATOMIC) {
@@ -901,7 +885,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
   action(hh_flush_hit, "\hf", desc="Notify sequencer that flush completed.") {
     assert(is_valid(tbe));
     DPRINTF(RubySlicc, "%s\n", tbe.DataBlk);
-    sequencer.writeCallback(address, GenericMachineType:L1Cache,tbe.DataBlk);
+    sequencer.writeCallback(address, tbe.DataBlk, false, MachineType:L1Cache);
   }
 
   action(sx_external_store_hit, "sx", desc="store required external msgs.") {
@@ -910,12 +894,9 @@ machine(L1Cache, "AMD Hammer-like protocol")
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     peek(responseToCache_in, ResponseMsg) {
 
-      sequencer.writeCallback(address,
-                              getNondirectHitMachType(address, in_msg.Sender),
-                              cache_entry.DataBlk,
-                              tbe.InitialRequestTime,
-                              tbe.ForwardRequestTime,
-                              tbe.FirstResponseTime);
+      sequencer.writeCallback(address, cache_entry.DataBlk, true,
+              machineIDToMachineType(in_msg.Sender), tbe.InitialRequestTime,
+              tbe.ForwardRequestTime, tbe.FirstResponseTime);
     }
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     cache_entry.Dirty := true;
@@ -926,12 +907,9 @@ machine(L1Cache, "AMD Hammer-like protocol")
     assert(is_valid(tbe));
     DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
 
-    sequencer.writeCallback(address,
-                            getNondirectHitMachType(address, tbe.LastResponder),
-                            cache_entry.DataBlk,
-                            tbe.InitialRequestTime,
-                            tbe.ForwardRequestTime,
-                            tbe.FirstResponseTime);
+    sequencer.writeCallback(address, cache_entry.DataBlk, true,
+            machineIDToMachineType(tbe.LastResponder), tbe.InitialRequestTime,
+            tbe.ForwardRequestTime, tbe.FirstResponseTime);
 
     cache_entry.Dirty := true;
   }
@@ -1070,7 +1048,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -1096,7 +1074,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
           out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -1120,7 +1098,7 @@ machine(L1Cache, "AMD Hammer-like protocol")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         out_msg.Acks := machineCount(MachineType:L1Cache) +
-                          machineCount(MachineType:L2Cache);
+                          machineCount(MachineType:GPUL2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;

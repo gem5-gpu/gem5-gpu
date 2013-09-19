@@ -1,5 +1,5 @@
 
-machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
+machine(GPUCopyDMA, "VI Copy Engine Controller")
 : Sequencer * sequencer,
   Cycles request_latency = 6
 {
@@ -7,7 +7,7 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
   MessageBuffer responseFromDir, network="From", virtual_network="1", ordered="true", vnet_type="response";
   MessageBuffer reqToDirectory, network="To", virtual_network="0", ordered="true", vnet_type="request";
 
-  state_declaration(State, desc="CE states", default="L1CacheCE_State_READY") {
+  state_declaration(State, desc="CE states", default="GPUCopyDMA_State_READY") {
     READY, AccessPermission:Invalid, desc="Ready to accept a new request";
     BUSY_RD, AccessPermission:Busy, desc="Busy: currently processing a request";
     BUSY_WR, AccessPermission:Busy, desc="Busy: currently processing a request";
@@ -33,7 +33,7 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
     bool isPresent(Address);
     bool areNSlotsAvailable(int);
   }
-  TBETable TBEs, template="<L1CacheCE_TBE>", constructor="m_number_of_TBEs";
+  TBETable TBEs, template="<GPUCopyDMA_TBE>", constructor="m_number_of_TBEs";
 
   void set_tbe(TBE b);
   void unset_tbe();
@@ -130,14 +130,16 @@ machine(L1CacheCE, "Copy Engine Controller", genericType="DMA")
   action(s_ackCallback, "s", desc="Notify controller of store complete") {
     assert(is_valid(tbe));
     peek(dmaResponseQueue_in, DMAResponseMsg) {
-      sequencer.writeCallback(in_msg.LineAddress, tbe.DataBlk);
+      sequencer.writeCallback(in_msg.LineAddress, tbe.DataBlk, false,
+                              MachineType:GPUCopyDMA);
     }
   }
 
   action(d_dataCallback, "d", desc="Write data to dma sequencer") {
     peek(dmaResponseQueue_in, DMAResponseMsg) {
       DataBlock db := in_msg.DataBlk;
-      sequencer.readCallback(in_msg.LineAddress, db);
+      sequencer.readCallback(in_msg.LineAddress, db, false,
+                             MachineType:GPUCopyDMA);
     }
   }
 

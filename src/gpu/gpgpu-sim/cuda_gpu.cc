@@ -33,6 +33,7 @@
 #include <map>
 
 #include "arch/utility.hh"
+#include "arch/vtophys.hh"
 #include "api/gpu_syscall_helper.hh"
 #include "base/chunk_generator.hh"
 #include "cpu/thread_context.hh"

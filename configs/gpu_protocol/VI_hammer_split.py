@@ -89,7 +89,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                max_outstanding_requests = 64,
                                ruby_system = ruby_system)
 
-    cpu_ce_cntrl = L1CacheCE_Controller(version = 0,
+    cpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
                                     cntrl_id = cpu_cntrl_count,
                                     sequencer = cpu_ce_seq,
                                     number_of_TBEs = 256,
@@ -123,7 +123,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             tagAccessLatency = 4,
                             resourceStalls = True)
 
-        l1_cntrl = L1CacheVI_Controller(version = i,
+        l1_cntrl = GPUL1Cache_Controller(version = i,
                                       cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                       cache = cache,
                                       l2_select_num_bits = l2_bits,
@@ -261,7 +261,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                max_outstanding_requests = 64,
                                ruby_system = ruby_system)
 
-    gpu_ce_cntrl = L1CacheCE_Controller(version = 1,
+    gpu_ce_cntrl = GPUCopyDMA_Controller(version = 1,
                                     cntrl_id = cpu_cntrl_count+len(gpu_cluster),
                                     sequencer = gpu_ce_seq,
                                     number_of_TBEs = 256,

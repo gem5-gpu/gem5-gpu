@@ -1,5 +1,5 @@
 
-machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
+machine(GPUL2Cache, "Simple write back L2 cache")
   : CacheMemory * L2cache,
   Cycles l2_request_latency = 260,
   Cycles l2_response_latency = 2,
@@ -136,7 +136,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   // STRUCTURES
 
-  TBETable TBEs, template="<L2Cache_TBE>", constructor="m_number_of_TBEs";
+  TBETable TBEs, template="<GPUL2Cache_TBE>", constructor="m_number_of_TBEs";
 
   // PROTOTYPES
   void set_cache_entry(AbstractCacheEntry a);
@@ -178,12 +178,12 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
   AccessPermission getAccessPermission(Address addr) {
       TBE tbe := TBEs[addr];
       if(is_valid(tbe)) {
-          return L2Cache_State_to_permission(tbe.TBEState);
+          return GPUL2Cache_State_to_permission(tbe.TBEState);
       }
 
       Entry cache_entry := getCacheEntry(addr);
       if(is_valid(cache_entry)) {
-          return L2Cache_State_to_permission(cache_entry.CacheState);
+          return GPUL2Cache_State_to_permission(cache_entry.CacheState);
       }
 
       return AccessPermission:NotPresent;
@@ -191,7 +191,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
 
   void setAccessPermission(Entry cache_entry, Address addr, State state) {
       if (is_valid(cache_entry)) {
-          cache_entry.changePermission(L2Cache_State_to_permission(state));
+          cache_entry.changePermission(GPUL2Cache_State_to_permission(state));
       }
   }
 
@@ -318,7 +318,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         } else if (in_msg.Type == CoherenceRequestType:MERGED_GETS) {
           trigger(Event:Merged_GETS, in_msg.Addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
-          if (machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache) > 1) {
+          if (machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache) > 1) {
             trigger(Event:Other_GETS, in_msg.Addr, cache_entry, tbe);
           } else {
             trigger(Event:NC_DMA_GETS, in_msg.Addr, cache_entry, tbe);
@@ -380,7 +380,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
       out_msg.InitialRequestTime := curCycle();
-      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
+      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache); // One from each other cache (n-1) plus the memory (+1)
     }
   }
 
@@ -393,7 +393,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.MessageSize := MessageSizeType:Request_Control;
       out_msg.InitialRequestTime := curCycle();
-      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache); // One from each other cache (n-1) plus the memory (+1)
+      tbe.NumPendingMsgs := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache); // One from each other cache (n-1) plus the memory (+1)
     }
   }
 
@@ -731,7 +731,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -756,7 +756,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -779,7 +779,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         DPRINTF(RubySlicc, "%s\n", out_msg.Destination);
         out_msg.DataBlk := tbe.DataBlk;
         out_msg.Dirty := tbe.Dirty;
-        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
@@ -886,7 +886,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -910,7 +910,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.Dirty := cache_entry.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -933,7 +933,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         if (in_msg.DirectedProbe) {
-          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+          out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         } else {
           out_msg.Acks := 2;
         }
@@ -956,7 +956,7 @@ machine(L2Cache, "Simple write back L2 cache", genericType="L2Cache")
         out_msg.DataBlk := cache_entry.DataBlk;
         out_msg.Dirty := cache_entry.Dirty;
         DPRINTF(RubySlicc, "%s\n", out_msg.DataBlk);
-        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:L2Cache);
+        out_msg.Acks := machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache);
         out_msg.SilentAcks := in_msg.SilentAcks;
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.InitialRequestTime := in_msg.InitialRequestTime;
