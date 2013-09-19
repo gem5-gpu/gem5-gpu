@@ -129,10 +129,9 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             tagAccessLatency = 4,
                             resourceStalls = True)
 
-        l2_cntrl = L2Cache_Controller(version = i,
-                                      cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                                      L2cache = l2_cache,
-                                      ruby_system = ruby_system)
+        l2_cntrl = GPUL2Cache_Controller(version = i,
+                    cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
+                    L2cache = l2_cache, ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         gpuCluster.add(l2_cntrl)

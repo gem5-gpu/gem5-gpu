@@ -161,10 +161,9 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                            start_index_bit = l2_index_start,
                            replacement_policy = "LRU")
 
-        l2_cntrl = L2Cache_Controller(version = i,
-                                      cntrl_id = cpu_cntrl_count+len(gpu_cluster),
-                                      L2cache = l2_cache,
-                                      ruby_system = ruby_system)
+        l2_cntrl = GPUL2Cache_Controller(version = i,
+                    cntrl_id = cpu_cntrl_count+len(gpu_cluster),
+                    L2cache = l2_cache, ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         gpu_cluster.add(l2_cntrl)

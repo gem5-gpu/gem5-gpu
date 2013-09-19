@@ -139,7 +139,9 @@ def createGPU(options, gpu_mem_range):
     gpu.shader_cores = [CudaCore(id = i) for i in xrange(options.num_sc)]
     gpu.ce = GPUCopyEngine(driver_delay = 5000000)
 
-    gpu.clock = options.gpu_core_clock
+    gpu.voltage_domain = VoltageDomain()
+    gpu.clk_domain = SrcClockDomain(clock = options.gpu_core_clock,
+                                    voltage_domain = gpu.voltage_domain)
     gpu.warp_size = options.gpu_warp_size
 
     for sc in gpu.shader_cores:

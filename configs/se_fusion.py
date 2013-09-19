@@ -77,7 +77,6 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
     print "Warning: gem5-gpu only works with timing and detailed CPUs. Defaulting to timing"
     options.cpu_type = "timing"
 (CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
-CPUClass.clock = options.clock
 
 #
 # Memory space configuration
@@ -98,12 +97,33 @@ if options.output != "":
 if options.errout != "":
     process.errout = options.errout
 
+# Hard code the cache block width to 128B for now
+# TODO: Remove this if/when block size can be different than 128B
+if options.cacheline_size != 128:
+    print "Warning: Only block size currently supported is 128B. Defaulting to 128."
+    options.cacheline_size = 128
+
 #
 # Instantiate system
 #
-system = System(cpu = [CPUClass(cpu_id = i, workload = process) for i in xrange(options.num_cpus)],
-                physmem = SimpleMemory(range = cpu_mem_range))
-system.mem_mode = test_mem_mode
+global_voltage_domain = VoltageDomain(voltage = options.sys_voltage)
+cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
+                                voltage_domain = global_voltage_domain)
+system = System(cpu = [CPUClass(cpu_id = i,
+                                workload = process,
+                                clk_domain = cpu_clk_domain)
+                       for i in xrange(options.num_cpus)],
+                mem_mode = test_mem_mode,
+                mem_ranges = [cpu_mem_range],
+                cache_line_size = options.cacheline_size)
+
+system.cpu_clk_domain = cpu_clk_domain
+system.voltage_domain = global_voltage_domain
+system.clk_domain = SrcClockDomain(clock = options.sys_clock,
+                               voltage_domain = system.voltage_domain)
+mem_ctrls = [SimpleMemory(range = cpu_mem_range)]
+system.mem_ctrls = mem_ctrls
+
 Simulation.setWorkCountOptions(system, options)
 
 #
@@ -113,15 +133,17 @@ system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 
 if options.split:
     system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
+    system.mem_ranges.append(gpu_mem_range)
 
-# Hard code the cache block width to at least 128B for now
-# TODO: Remove this if/when block size can be less than 128B
-if options.cacheline_size < 128:
-    print "Warning: Minimum cache block size is currently 128B. Defaulting to 128."
-    options.cacheline_size = 128
+#
+# Setup Ruby
+#
+system.ruby_clk_domain = SrcClockDomain(clock = options.ruby_clock,
+                                        voltage_domain = system.voltage_domain)
 Ruby.create_system(options, system)
 
 system.gpu.ruby = system.ruby
+system.ruby.clk_domain = system.ruby_clk_domain
 
 #
 # Connect CPU ports

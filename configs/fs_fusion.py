@@ -82,12 +82,10 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
     print "Warning: gem5-gpu only works with timing and detailed CPUs. Defaulting to timing"
     options.cpu_type = "timing"
 (CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
-CPUClass.clock = options.clock
 
 #
 # Memory space configuration
 #
-TestMemClass = Simulation.setMemClass(options)
 (cpu_mem_range, gpu_mem_range) = GPUConfig.configureMemorySpaces(options)
 
 #
@@ -96,12 +94,25 @@ TestMemClass = Simulation.setMemClass(options)
 bm = [SysConfig()]
 bm[0].memsize = cpu_mem_range.size()
 
+# Hard code the cache block width to 128B for now
+# TODO: Remove this if/when block size can be different than 128B
+if options.cacheline_size != 128:
+    print "Warning: Only block size currently supported is 128B. Defaulting to 128."
+    options.cacheline_size = 128
+
 #
 # Instantiate system
 #
-system = makeLinuxX86System(test_mem_mode, TestMemClass, options.num_cpus,
-                            bm[0], True)
-system.cpu = [CPUClass(cpu_id = i) for i in xrange(options.num_cpus)]
+system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
+system.cache_line_size = options.cacheline_size
+system.voltage_domain = VoltageDomain(voltage = options.sys_voltage)
+system.clk_domain = SrcClockDomain(clock = options.sys_clock,
+                               voltage_domain = system.voltage_domain)
+system.cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
+                                voltage_domain = system.voltage_domain)
+system.cpu = [CPUClass(cpu_id = i, clk_domain = system.cpu_clk_domain)
+              for i in xrange(options.num_cpus)]
+
 Simulation.setWorkCountOptions(system, options)
 
 if options.kernel is not None:
@@ -115,17 +126,26 @@ if options.script is not None:
 #
 system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 
-if options.split:
-    system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
+# Create the appropriate memory controllers and connect them to the
+# PIO bus
+system.mem_ctrls = [SimpleMemory(range = r) for r in system.mem_ranges]
+for i in xrange(len(system.mem_ctrls)):
+    system.mem_ctrls[i].port = system.piobus.master
 
-# Hard code the cache block width to at least 128B for now
-# TODO: Remove this if/when block size can be less than 128B
-if options.cacheline_size < 128:
-    print "Warning: Minimum cache block size is currently 128B. Defaulting to 128."
-    options.cacheline_size = 128
+if options.split:
+    system.mem_ranges.append(gpu_mem_range)
+    system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
+    system.gpu_physmem.port = system.piobus.master
+
+#
+# Setup Ruby
+#
+system.ruby_clk_domain = SrcClockDomain(clock = options.ruby_clock,
+                                        voltage_domain = system.voltage_domain)
 Ruby.create_system(options, system, system.piobus, system._dma_ports)
 
 system.gpu.ruby = system.ruby
+system.ruby.clk_domain = system.ruby_clk_domain
 
 #
 # Connect CPU ports

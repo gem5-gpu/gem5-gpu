@@ -27,6 +27,7 @@
 # Authors: Jason Power, Joel Hestness
 
 import m5
+from m5.objects import *
 
 def addMemCtrlOptions(parser):
     parser.add_option("--mem_ctl_latency", type="int", default=-1, help="Memory controller latency in cycles")
@@ -36,16 +37,18 @@ def addMemCtrlOptions(parser):
 
 def setMemoryControlOptions(system, options):
     from m5.params import Latency
+    cpu_mem_ctl_clk = SrcClockDomain(clock = options.mem_freq,
+                                     voltage_domain = system.voltage_domain)
     for i in xrange(options.num_dirs):
         cntrl = eval("system.ruby.dir_cntrl%d" % i)
         if options.mem_freq:
-            cntrl.memBuffer.clock = options.mem_freq
+            cntrl.memBuffer.clk_domain = cpu_mem_ctl_clk
         if options.mem_ctl_latency >= 0:
             cntrl.memBuffer.mem_ctl_latency = options.mem_ctl_latency
         if options.membus_busy_cycles > 0:
             cntrl.memBuffer.basic_bus_busy_time = options.membus_busy_cycles
         if options.membank_busy_time:
-            mem_cycle_seconds = float(cntrl.memBuffer.clock.period)
+            mem_cycle_seconds = float(cntrl.memBuffer.clk_domain.clock.period)
             bank_latency_seconds = Latency(options.membank_busy_time)
             cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
 
@@ -53,12 +56,16 @@ def setMemoryControlOptions(system, options):
         for i in xrange(options.num_dev_dirs):
             cntrl = eval("system.ruby.dev_dir_cntrl%d" % i)
             if options.gpu_mem_freq:
-                cntrl.memBuffer.clock = options.gpu_mem_freq
+                gpu_mem_ctl_clk = SrcClockDomain(clock = options.gpu_mem_freq,
+                                         voltage_domain = system.voltage_domain)
+                cntrl.memBuffer.clk_domain = gpu_mem_ctl_clk
+            else:
+                cntrl.memBuffer.clk_domain = cpu_mem_ctl_clk
             if options.gpu_mem_ctl_latency >= 0:
                 cntrl.memBuffer.mem_ctl_latency = options.gpu_mem_ctl_latency
             if options.gpu_membus_busy_cycles > 0:
                 cntrl.memBuffer.basic_bus_busy_time = options.gpu_membus_busy_cycles
             if options.gpu_membank_busy_time:
-                mem_cycle_seconds = float(cntrl.memBuffer.clock.period)
+                mem_cycle_seconds = float(cntrl.memBuffer.clk_domain.clock.period)
                 bank_latency_seconds = Latency(options.gpu_membank_busy_time)
                 cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
