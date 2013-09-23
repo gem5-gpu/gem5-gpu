@@ -31,7 +31,7 @@ from m5.objects import *
 
 def addMemCtrlOptions(parser):
     parser.add_option("--mem_ctl_latency", type="int", default=-1, help="Memory controller latency in cycles")
-    parser.add_option("--mem_freq", type="string", default=None, help="Memory controller frequency")
+    parser.add_option("--mem_freq", type="string", default="400MHz", help="Memory controller frequency")
     parser.add_option("--membus_busy_cycles", type="int", default=-1, help="Memory bus busy cycles per data transfer")
     parser.add_option("--membank_busy_time", type="string", default=None, help="Memory bank busy time in ns (CL+tRP+tRCD+CAS)")
 
