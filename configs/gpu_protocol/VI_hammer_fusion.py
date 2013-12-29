@@ -29,6 +29,7 @@
 
 import math
 import m5
+import VI_hammer
 from m5.objects import *
 from m5.defines import buildEnv
 from Cluster import Cluster
@@ -50,22 +51,22 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
 
-    # Run the original protocol script
-    buildEnv['PROTOCOL'] = buildEnv['PROTOCOL'][:-7]
-    protocol = buildEnv['PROTOCOL']
-    exec "import %s" % protocol
-    try:
-        (cpu_sequencers, dir_cntrls, cpuCluster) = \
-            eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
-    except:
-        print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
-        raise
+    # Run the protocol script to setup CPU cluster, directory and DMA
+    (all_sequencers, dir_cntrls, dma_cntrls, cpu_cluster) = \
+                                        VI_hammer.create_system(options,
+                                                                system,
+                                                                piobus,
+                                                                dma_devices,
+                                                                ruby_system)
 
-    gpuCluster = Cluster()
+    cpu_cntrl_count = len(cpu_cluster) + len(dir_cntrls)
 
     #
-    # Caches for the stream processors
+    # Build GPU cluster
     #
+    gpu_cluster = Cluster(intBW = 32, extBW = 32)
+    gpu_cluster.disableConnectToParent()
+
     l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
     # This represents the L1 to L2 interconnect latency
@@ -76,9 +77,12 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         num_dance_hall_hops = 1
     l1_to_l2_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
 
+    #
+    # Caches for GPU cores
+    #
     for i in xrange(options.num_sc):
         #
-        # First create the Ruby objects associated with this cpu
+        # First create the Ruby objects associated with the GPU cores
         #
         cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
@@ -91,34 +95,34 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             resourceStalls = False)
 
         l1_cntrl = GPUL1Cache_Controller(version = i,
-                                      cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                                      cache = cache,
-                                      l2_select_num_bits = l2_bits,
-                                      num_l2 = options.num_l2caches,
-                                      issue_latency = l1_to_l2_noc_latency,
-                                      number_of_TBEs = options.gpu_l1_buf_depth,
-                                      ruby_system = ruby_system)
+                                  cntrl_id = cpu_cntrl_count + len(gpu_cluster),
+                                  cache = cache,
+                                  l2_select_num_bits = l2_bits,
+                                  num_l2 = options.num_l2caches,
+                                  issue_latency = l1_to_l2_noc_latency,
+                                  number_of_TBEs = options.gpu_l1_buf_depth,
+                                  ruby_system = ruby_system)
 
-        cpu_seq = RubySequencer(version = options.num_cpus + i,
-                                icache = cache,
-                                dcache = cache,
-                                access_phys_mem = True,
-                                max_outstanding_requests = options.gpu_l1_buf_depth,
-                                ruby_system = ruby_system,
-                                deadlock_threshold = 2000000)
+        gpu_seq = RubySequencer(version = options.num_cpus + i,
+                            icache = cache,
+                            dcache = cache,
+                            access_phys_mem = True,
+                            max_outstanding_requests = options.gpu_l1_buf_depth,
+                            ruby_system = ruby_system,
+                            deadlock_threshold = 2000000)
 
-        l1_cntrl.sequencer = cpu_seq
+        l1_cntrl.sequencer = gpu_seq
 
         if piobus != None:
-            cpu_seq.pio_port = piobus.slave
+            gpu_seq.pio_port = piobus.slave
 
         exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
         #
         # Add controllers and sequencers to the appropriate lists
         #
-        cpu_sequencers.append(cpu_seq)
-        gpuCluster.add(l1_cntrl)
+        all_sequencers.append(gpu_seq)
+        gpu_cluster.add(l1_cntrl)
 
     l2_index_start = block_size_bits + l2_bits
     # Use L2 cache and interconnect latencies to calculate protocol latencies
@@ -127,6 +131,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     l2_to_l1_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
     l2_to_mem_noc_latency = 125 # ~40 GPU cycles
 
+    l2_clusters = []
     for i in xrange(options.num_l2caches):
         #
         # First create the Ruby objects associated with this cpu
@@ -142,24 +147,26 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                            resourceStalls = options.gpu_l2_resource_stalls)
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
-                    cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                    L2cache = l2_cache,
-                    l2_response_latency = l2_cache_access_latency +
-                                          l2_to_l1_noc_latency,
-                    l2_request_latency = l2_to_mem_noc_latency,
-                    ruby_system = ruby_system)
+                                cntrl_id = cpu_cntrl_count + len(gpu_cluster),
+                                L2cache = l2_cache,
+                                l2_response_latency = l2_cache_access_latency +
+                                                      l2_to_l1_noc_latency,
+                                l2_request_latency = l2_to_mem_noc_latency,
+                                ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
-        gpuCluster.add(l2_cntrl)
+        l2_cluster = Cluster(intBW = 32, extBW = 32)
+        l2_cluster.add(l2_cntrl)
+        gpu_cluster.add(l2_cluster)
+        l2_clusters.append(l2_cluster)
 
-    ######################################################################################
-    #copy engine cache (make as small as possible, ideally 0)
+    #
+    # Create controller for the copy engine to connect to in GPU cluster
+    # Cache is unused by controller
+    #
     cache = L1Cache(size = "4096B", assoc = 2)
 
-    #
-    # Only one unified L1 cache exists.  Can cache instructions and data.
-    #
-    cpu_seq = RubySequencer(version = options.num_cpus+options.num_sc,
+    gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc,
                                icache = cache,
                                dcache = cache,
                                access_phys_mem = True,
@@ -167,21 +174,29 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                support_inst_reqs = False,
                                ruby_system = ruby_system)
 
-    ce_cntrl = GPUCopyDMA_Controller(version = 0,
-                                    cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                                    sequencer = cpu_seq,
-                                    number_of_TBEs = 256,
-                                    ruby_system = ruby_system)
+    gpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
+                                  cntrl_id = cpu_cntrl_count + len(gpu_cluster),
+                                  sequencer = gpu_ce_seq,
+                                  number_of_TBEs = 256,
+                                  ruby_system = ruby_system)
 
-    ruby_system.l1_cntrl_ce = ce_cntrl
-    cpu_sequencers.append(cpu_seq)
+    ruby_system.l1_cntrl_ce = gpu_ce_cntrl
 
-    mainCluster = Cluster()
-    mainCluster.add(ce_cntrl)
-    mainCluster.add(cpuCluster)
-    mainCluster.add(gpuCluster)
+    all_sequencers.append(gpu_ce_seq)
+
+    complete_cluster = Cluster(intBW = 32, extBW = 32)
+    complete_cluster.add(gpu_ce_cntrl)
+    complete_cluster.add(cpu_cluster)
+    complete_cluster.add(gpu_cluster)
 
     for cntrl in dir_cntrls:
-        mainCluster.add(cntrl)
+        complete_cluster.add(cntrl)
 
-    return (cpu_sequencers, dir_cntrls, mainCluster)
+    for cntrl in dma_cntrls:
+        cntrl.cntrl_id = len(complete_cluster)
+        complete_cluster.add(cntrl)
+
+    for cluster in l2_clusters:
+        complete_cluster.add(cluster)
+
+    return (all_sequencers, dir_cntrls, complete_cluster)

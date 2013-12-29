@@ -61,12 +61,12 @@ def define_options(parser):
 
 def create_system(options, system, piobus, dma_ports, ruby_system):
 
-    if buildEnv['PROTOCOL'] != 'VI_hammer':
+    if 'VI_hammer' not in buildEnv['PROTOCOL']:
         panic("This script requires the VI_hammer protocol to be built.")
 
     cpu_sequencers = []
 
-    topology = Cluster()
+    topology = Cluster(intBW = 32, extBW = 32)
 
     #
     # Must create the individual controllers before the network to ensure the
@@ -191,6 +191,7 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         cntrl_count += 1
 
+    dma_cntrl_nodes = []
     for i, dma_port in enumerate(dma_ports):
         #
         # Create the Ruby objects associated with the dma controller
@@ -205,11 +206,11 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         exec("ruby_system.dma_cntrl%d = dma_cntrl" % i)
         exec("ruby_system.dma_cntrl%d.dma_sequencer.slave = dma_port" % i)
-        topology.add(dma_cntrl)
+        dma_cntrl_nodes.append(dma_cntrl)
 
         if options.recycle_latency:
             dma_cntrl.recycle_latency = options.recycle_latency
 
         cntrl_count += 1
 
-    return (cpu_sequencers, dir_cntrl_nodes, topology)
+    return (cpu_sequencers, dir_cntrl_nodes, dma_cntrl_nodes, topology)
