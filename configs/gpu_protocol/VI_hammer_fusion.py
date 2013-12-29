@@ -68,6 +68,13 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     #
     l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
+    # This represents the L1 to L2 interconnect latency
+    # NOTE! This latency is in Ruby (cache) cycles, not SM cycles
+    per_hop_interconnect_latency = 45 # ~15 GPU cycles
+    num_dance_hall_hops = int(math.log(options.num_sc, 2))
+    if num_dance_hall_hops == 0:
+        num_dance_hall_hops = 1
+    l1_to_l2_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
 
     for i in xrange(options.num_sc):
         #
@@ -88,7 +95,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                       cache = cache,
                                       l2_select_num_bits = l2_bits,
                                       num_l2 = options.num_l2caches,
-                                      issue_latency = 30,
+                                      issue_latency = l1_to_l2_noc_latency,
                                       number_of_TBEs = options.gpu_l1_buf_depth,
                                       ruby_system = ruby_system)
 
@@ -114,6 +121,11 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         gpuCluster.add(l1_cntrl)
 
     l2_index_start = block_size_bits + l2_bits
+    # Use L2 cache and interconnect latencies to calculate protocol latencies
+    # NOTE! These latencies are in Ruby (cache) cycles, not SM cycles
+    l2_cache_access_latency = 30 # ~10 GPU cycles
+    l2_to_l1_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
+    l2_to_mem_noc_latency = 125 # ~40 GPU cycles
 
     for i in xrange(options.num_l2caches):
         #
@@ -131,7 +143,11 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
                     cntrl_id = len(cpuCluster)+len(gpuCluster)+len(dir_cntrls),
-                    L2cache = l2_cache, ruby_system = ruby_system)
+                    L2cache = l2_cache,
+                    l2_response_latency = l2_cache_access_latency +
+                                          l2_to_l1_noc_latency,
+                    l2_request_latency = l2_to_mem_noc_latency,
+                    ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         gpuCluster.add(l2_cntrl)
