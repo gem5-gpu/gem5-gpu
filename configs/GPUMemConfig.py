@@ -26,6 +26,7 @@
 #
 # Authors: Jason Power, Joel Hestness
 
+import math
 import m5
 from m5.objects import *
 
@@ -37,8 +38,16 @@ def addMemCtrlOptions(parser):
 
 def setMemoryControlOptions(system, options):
     from m5.params import Latency
+
     cpu_mem_ctl_clk = SrcClockDomain(clock = options.mem_freq,
                                      voltage_domain = system.voltage_domain)
+
+    # Setup appropriate address mappings:
+    low_dir_bit = int(math.log(options.cacheline_size, 2))
+    dir_bits = int(math.log(options.num_dirs, 2))
+    # Add 1 so that 2 consecutive cache lines are in the same bank
+    low_bank_bit = low_dir_bit + dir_bits + 1
+
     for i in xrange(options.num_dirs):
         cntrl = eval("system.ruby.dir_cntrl%d" % i)
         if options.mem_freq:
@@ -51,6 +60,17 @@ def setMemoryControlOptions(system, options):
             mem_cycle_seconds = float(cntrl.memBuffer.clk_domain.clock.period)
             bank_latency_seconds = Latency(options.membank_busy_time)
             cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+        cntrl.memBuffer.bank_bit_0 = low_bank_bit
+        bank_bits = int(math.log(cntrl.memBuffer.banks_per_rank, 2))
+        cntrl.memBuffer.rank_bit_0 = low_bank_bit + bank_bits
+        rank_bits = int(math.log(cntrl.memBuffer.ranks_per_dimm, 2))
+        cntrl.memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
+
+    dev_dir_bits = 0
+    if options.num_dev_dirs > 0:
+        dev_dir_bits = int(math.log(options.num_dev_dirs, 2))
+    # Add 1 so that 2 consecutive cache lines are in the same bank
+    low_bank_bit = low_dir_bit + dev_dir_bits + 1
 
     if options.split:
         for i in xrange(options.num_dev_dirs):
@@ -69,3 +89,9 @@ def setMemoryControlOptions(system, options):
                 mem_cycle_seconds = float(cntrl.memBuffer.clk_domain.clock.period)
                 bank_latency_seconds = Latency(options.gpu_membank_busy_time)
                 cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+
+            cntrl.memBuffer.bank_bit_0 = low_bank_bit
+            bank_bits = int(math.log(cntrl.memBuffer.banks_per_rank, 2))
+            cntrl.memBuffer.rank_bit_0 = low_bank_bit + bank_bits
+            rank_bits = int(math.log(cntrl.memBuffer.ranks_per_dimm, 2))
+            cntrl.memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
