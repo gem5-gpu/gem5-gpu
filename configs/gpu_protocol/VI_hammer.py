@@ -72,7 +72,10 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
     #
-    l2_bits = int(math.log(options.num_l2caches, 2))
+    l2_bits_float = math.log(options.num_l2caches, 2)
+    l2_bits = int(l2_bits_float)
+    if l2_bits_float > l2_bits:
+        l2_bits += 1
     block_size_bits = int(math.log(options.cacheline_size, 2))
 
     cntrl_count = 0

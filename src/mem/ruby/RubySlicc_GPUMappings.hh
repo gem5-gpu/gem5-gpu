@@ -29,6 +29,7 @@
 #ifndef __MEM_RUBY_SLICC_GPUMAPPINGS_HH__
 #define __MEM_RUBY_SLICC_GPUMAPPINGS_HH__
 
+#include <math.h>
 #include "mem/protocol/MachineType.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/Global.hh"
@@ -41,7 +42,9 @@ getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
 {
     int num = 0;
     if (select_bits) {
-        uint64 bits = addr.bitSelect(select_start_bit, select_start_bit+select_bits);
+        if (num_l2 > pow(2, select_bits))
+            fatal("Number of GPU L2 select bits set incorrectly?");
+        uint64 bits = addr.bitSelect(select_start_bit, select_start_bit + select_bits - 1);
         num = bits % num_l2;
     }
 

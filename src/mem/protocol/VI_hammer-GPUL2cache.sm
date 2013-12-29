@@ -517,8 +517,10 @@ machine(GPUL2Cache, "Simple write back L2 cache")
       //profileGPUL2WriteMiss(GenericMachineType:Directory);
     } else if (machineIDToMachineType(tbe.LastResponder) == MachineType:L1Cache) {
       //profileGPUL2WriteMiss(GenericMachineType:L1Cache_wCC);
+    } else if (machineIDToMachineType(tbe.LastResponder) == MachineType:GPUL2Cache) {
+      //profileGPUL2WriteMiss(GenericMachineType:L1Cache_wCC);
     } else {
-      error("Only expect responses from Directory or L1Cache");
+      error("Only expect responses from Directory, L1Cache or GPUL2Cache");
     }
     DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
     DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, tbe.Offset, tbe.Size);
