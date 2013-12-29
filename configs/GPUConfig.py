@@ -58,6 +58,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_warp_size", type="int", default=32, help="Number of threads per warp, also functional units per shader core/SM")
     parser.add_option("--gpu_threads_per_core", type="int", default=1536, help="Maximum number of threads per GPU core (SM)")
     parser.add_option("--gpgpusim-config", type="string", default=None, help="Path to the gpgpusim.config to use. This overrides the gpgpusim.config template")
+    parser.add_option("--gpu-l2-resource-stalls", action="store_true", default=False)
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)

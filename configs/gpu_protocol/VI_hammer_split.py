@@ -121,7 +121,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             tagArrayBanks = 4,
                             dataAccessLatency = 4,
                             tagAccessLatency = 4,
-                            resourceStalls = True)
+                            resourceStalls = False)
 
         l1_cntrl = GPUL1Cache_Controller(version = i,
                                       cntrl_id = cpu_cntrl_count+len(gpu_cluster),
@@ -159,7 +159,12 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         l2_cache = L2Cache(size = options.sc_l2_size,
                            assoc = options.sc_l2_assoc,
                            start_index_bit = l2_index_start,
-                           replacement_policy = "LRU")
+                           replacement_policy = "LRU",
+                           dataArrayBanks = 4,
+                           tagArrayBanks = 4,
+                           dataAccessLatency = 4,
+                           tagAccessLatency = 4,
+                           resourceStalls = options.gpu_l2_resource_stalls)
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
                     cntrl_id = cpu_cntrl_count+len(gpu_cluster),
