@@ -600,7 +600,9 @@ ShaderLSQ::processFlush()
         Request::Flags flags;
         RequestPtr req = new Request(asid, addr, flags, master_id);
         PacketPtr flush_pkt = new Packet(req, MemCmd::FlushAllReq);
-        assert(cachePort.sendTimingReq(flush_pkt));
+        if (!cachePort.sendTimingReq(flush_pkt)) {
+            panic("Unable to forward flush to cache!\n");
+        }
     } else {
         finalizeFlush();
     }
@@ -610,7 +612,9 @@ void ShaderLSQ::finalizeFlush()
 {
     assert(flushing && flushingPkt);
     flushingPkt->makeTimingResponse();
-    assert(lanePorts[0]->sendTimingResp(flushingPkt));
+    if (!lanePorts[0]->sendTimingResp(flushingPkt)) {
+        panic("Unable to respond to flush message!\n");
+    }
     flushingPkt = NULL;
     flushing = false;
     DPRINTF(ShaderLSQ, "Flush request complete\n");
