@@ -37,7 +37,7 @@ from Ruby import create_topology
 # Note: the L1 Cache latency is only used by the sequencer on fast path hits
 #
 class L1Cache(RubyCache):
-    latency = 2
+    latency = 1
 
 #
 # Note: the L2 Cache latency is not currently used

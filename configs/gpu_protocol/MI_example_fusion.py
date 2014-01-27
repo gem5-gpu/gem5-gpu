@@ -33,7 +33,7 @@ from m5.objects import *
 from m5.defines import buildEnv
 
 class Cache(RubyCache):
-    latency = 14
+    latency = 1
 
 def create_system(options, system, piobus, dma_devices, ruby_system):
 
