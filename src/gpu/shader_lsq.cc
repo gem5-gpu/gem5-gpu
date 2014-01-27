@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Mark D. Hill and David A. Wood
+ * Copyright (c) 2013 Mark D. Hill and David A. Wood
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,50 +24,69 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Authors: Joel Hestness, Jason Power
+ *
  */
-
-#include <deque>
-#include <list>
-#include <set>
-#include <vector>
 
 #include "debug/ShaderLSQ.hh"
 #include "gpu/shader_lsq.hh"
-#include "gpu/shader_tlb.hh"
 
 using namespace std;
 
 ShaderLSQ::ShaderLSQ(Params *p)
-	: MemObject(p), responsePortBlocked(false),
-      cachePort(name() + "cache_port", this), fwdFlush(p->forward_flush),
-      requestBufferDepth(p->request_buffer_depth), tlb(p->data_tlb),
-      warpSize(p->warp_size), numWarpContexts(p->warp_contexts),
-      coalescingLatency(p->coalescing_latency), flushing(false),
-      occupiedCoalescingBuffers(0), coalesceEvent(this), sendResponseEvent(this)
+    : MemObject(p), writebackBlocked(false),
+      cachePort(name() + ".cache_port", this), warpSize(p->warp_size),
+      maxNumWarpsPerCore(p->warp_contexts), flushing(false), flushingPkt(NULL),
+      forwardFlush(p->forward_flush),
+      warpInstBufPoolSize(p->num_warp_inst_buffers), dispatchWarpInstBuf(NULL),
+      perWarpInstructionQueues(p->warp_contexts),
+      overallLatencyCycles(p->latency), l1TagAccessCycles(p->l1_tag_cycles),
+      tlb(p->data_tlb), injectWidth(p->inject_width), mshrsFull(false),
+      ejectWidth(p->eject_width), cacheLineAddrMaskBits(-1),
+      lastWarpInstBufferChange(0), numActiveWarpInstBuffers(0),
+      dispatchInstEvent(this), injectAccessesEvent(this),
+      ejectAccessesEvent(this), commitInstEvent(this)
 {
-    // create the lane ports based on the number of connected ports
-    for (int i = 0; i < p->port_lane_port_connection_count; i++) {
-        lanePorts.push_back(new LanePort(csprintf("%s-lane-%d", name(), i),
-                                          i, this));
+    // Create the lane ports based on the number threads per warp
+    for (int i = 0; i < warpSize; i++) {
+        lanePorts.push_back(
+                new LanePort(csprintf("%s-lane-%d", name(), i), this, i));
     }
-    coalescingBuffers = new WarpRequest*[numWarpContexts]();
+
+    warpInstBufPool = new WarpInstBuffer*[warpInstBufPoolSize];
+    for (int i = 0; i < warpInstBufPoolSize; i++) {
+        warpInstBufPool[i] = new WarpInstBuffer(warpSize);
+        availableWarpInstBufs.push(warpInstBufPool[i]);
+    }
+
+    // Set the delay cycles to model appropriate memory access latency
+    // Functionally, this LSQ has 4 pipeline stages:
+    //  1) Coalesce + address translations [Always 1 cycle given TLB hits]
+    //  2) Translations complete, queued waiting to issue accesses [0+ cycles]
+    //  3) L1 access [1 cycle given uncontended L1 hit]
+    //  4) Warp instruction completion [1 cycle given no commit contention]
+    // l1TagAccessCycles replicates L1 tag access time during which subsequent
+    // instructions from the same warp cannot issue to the caches
+    assert(l1TagAccessCycles <= (Cycles(overallLatencyCycles - 4)));
+    completeCycles = Cycles(overallLatencyCycles - 4 - l1TagAccessCycles);
+    assert(completeCycles > Cycles(0));
+
+    // Set the number of bits to mask for cache line addresses
+    cacheLineAddrMaskBits = log2(p->cache_line_size);
 }
 
 ShaderLSQ::~ShaderLSQ()
 {
-    for (int i=0; i < warpSize; i++) {
+    for (int i = 0; i < warpSize; i++)
         delete lanePorts[i];
-    }
-
-    for (int i=0; i < numWarpContexts; i++) {
-        assert(coalescingBuffers[i] == NULL);
-    }
-
-    delete[] coalescingBuffers;
+    for (int i = 0; i < warpInstBufPoolSize; i++)
+        delete warpInstBufPool[i];
+    delete [] warpInstBufPool;
 }
 
 BaseMasterPort &
-ShaderLSQ::getMasterPort(const std::string &if_name, PortID idx)
+ShaderLSQ::getMasterPort(const string &if_name, PortID idx)
 {
     if (if_name == "cache_port") {
         return cachePort;
@@ -77,7 +96,7 @@ ShaderLSQ::getMasterPort(const std::string &if_name, PortID idx)
 }
 
 BaseSlavePort &
-ShaderLSQ::getSlavePort(const std::string &if_name, PortID idx)
+ShaderLSQ::getSlavePort(const string &if_name, PortID idx)
 {
     if (if_name != "lane_port") {
         // pass it along to our super class
@@ -102,78 +121,10 @@ ShaderLSQ::LanePort::getAddrRanges() const
 bool
 ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
 {
-    // Called for each lane in the cycle that the address is read from the RF
-
-    // NOTE: If this is going to fail, it needs to fail early. The first port
-    //       in lanePorts must fail so that the lanes are in the same state
-
-    // Get the cross-lane warp request from the lsq which owns this port
-    ShaderLSQ &lsq = (ShaderLSQ&)owner;
-
-    if (pkt->isFlush()) {
-        assert(pkt->req->getPaddr() == Addr(0));
-        lsq.flushingPackets.push_back(pkt);
-        lsq.flushing = true;
-        if (lsq.outgoingBuffer.empty() && lsq.occupiedCoalescingBuffers == 0) {
-            lsq.finishFlush();
-        }
-        return true;
-    }
-
-    // The LSQ blocks all incoming requests while flushing
-    if (lsq.flushing) {
-        return false;
-    }
-
-    DPRINTF(ShaderLSQ, "Warp id: %d, Address 0x%llx\n",
-            pkt->req->threadId(), pkt->req->getVaddr());
-
-    // NOTE: pkt->threadId() is the warp/wavefront (scheduling unit) ID
-    assert(pkt->req->threadId() < lsq.numWarpContexts);
-    WarpRequest* &warpRequest = lsq.coalescingBuffers[pkt->req->threadId()];
-
-    if (warpRequest && warpRequest->occupiedTick != curTick()) {
-        // There is an old request currently occupying this register
-        DPRINTF(ShaderLSQ, "Stall for coalescer\n");
-        lsq.coalescerStalls++;
-        return false;
-    }
-    if (!warpRequest) {
-        // I must be the first lane here setup cross lane info
-        warpRequest = new WarpRequest(lsq.warpSize);
-        warpRequest->occupiedCycle = lsq.curCycle();
-        warpRequest->occupiedTick = curTick();
-        warpRequest->size = pkt->req->getSize();
-        warpRequest->pc = pkt->req->getPC();
-        warpRequest->cid = pkt->req->contextId();
-        warpRequest->warpId = pkt->req->threadId();
-        warpRequest->masterId = pkt->req->masterId();
-        if (pkt->isRead()) {
-            warpRequest->read = true;
-        } else if (pkt->isWrite()) {
-            warpRequest->write = true;
-        } else {
-            panic("ShaderLSQ::LanePort::recvTimingReq only supports reads / writes\n");
-        }
-
-        if (!lsq.coalesceEvent.scheduled()) {
-            lsq.schedule(lsq.coalesceEvent, lsq.nextCycle());
-        }
-        lsq.coalescingQueue.push(pkt->req->threadId());
-        lsq.occupiedCoalescingBuffers++;
-    }
-
-    // Requests should be the same size for all lanes
-    assert(warpRequest->size == pkt->req->getSize());
-    assert(warpRequest->read ? pkt->isRead() : pkt->isWrite());
-    assert(warpRequest->write ? pkt->isWrite() : pkt->isRead());
-    assert(warpRequest->pc == pkt->req->getPC());
-    assert(warpRequest->warpId == pkt->req->threadId());
-
-    warpRequest->setValid(laneId);
-    warpRequest->laneRequests[laneId] = pkt;
-
-	return true;
+    if (pkt->isFlush())
+        return lsq->addFlushRequest(pkt);
+    else
+        return lsq->addLaneRequest(laneId, pkt);
 }
 
 Tick
@@ -192,592 +143,510 @@ ShaderLSQ::LanePort::recvFunctional(PacketPtr pkt)
 void
 ShaderLSQ::LanePort::recvRetry()
 {
-    assert(isBlocked);
-    isBlocked = false;
-
-    DPRINTF(ShaderLSQ, "RecvRetry for lane %d\n", laneId);
-
-    ShaderLSQ &lsq = (ShaderLSQ&)owner;
-    lsq.responsePortBlocked = false;
-
-    if (!lsq.sendResponseEvent.scheduled()) {
-        lsq.schedule(lsq.sendResponseEvent, curTick());
-    }
+    lsq->retryCommitWarpInst();
 }
 
 bool
 ShaderLSQ::CachePort::recvTimingResp(PacketPtr pkt)
 {
-	// Called when the RubyPort is returning data
+    return lsq->recvResponsePkt(pkt);
+}
 
-    DPRINTF(ShaderLSQ, "Received response for addr 0x%llx\n",
-            pkt->req->getVaddr());
-
-    ShaderLSQ &lsq = (ShaderLSQ&)owner;
-
-    return lsq.prepareResponse(pkt);
+void
+ShaderLSQ::CachePort::recvRetry()
+{
+    lsq->scheduleRetryInject();
 }
 
 bool
-ShaderLSQ::prepareResponse(PacketPtr pkt)
+ShaderLSQ::addFlushRequest(PacketPtr pkt)
 {
-    if (pkt->isFlush()) {
-        assert(pkt->isResponse());
-        assert(flushing);
-        respondToFlush();
-        delete pkt->req;
-        delete pkt;
-        return true;
-    }
-
-    CoalescedRequest *request =
-        dynamic_cast<CoalescedRequest*>(pkt->senderState);
-
-    assert(request);
-
-    DPRINTF(ShaderLSQ, "Got repsonse for %d threads\n", request->activeLanes.size());
-
-    WarpRequest *warpRequest = request->warpRequest;
-
-    vector<int>::iterator iter = request->activeLanes.begin();
-    for ( ; iter != request->activeLanes.end(); iter++) {
-        PacketPtr respPkt = warpRequest->laneRequests[(*iter)];
-        if (request->read) {
-            int offset = respPkt->req->getVaddr() - pkt->req->getVaddr();
-            assert(offset < pkt->getSize());
-            assert(offset >= 0);
-            memcpy(respPkt->getPtr<uint8_t>(), pkt->getPtr<uint8_t>()+offset,
-                   respPkt->getSize());
-        }
-        respPkt->makeTimingResponse();
-    }
-
-    // remove this coalesced request from the outgoing buffer
-    removeRequestFromBuffer(request);
-
-    // remove this request from the warp request
-    warpRequest->coalescedRequests.remove(request);
-
-    delete request;
-
-    delete pkt->req;
-    delete pkt;
-
-    if (warpRequest->coalescedRequests.empty()) {
-        // All coalesced requests generated for this warp request have finished
-        DPRINTF(ShaderLSQ, "Warp request (%d) completely finished!\n", warpRequest->read);
-        DPRINTF(ShaderLSQ, "Responses to send: %d\n", responseQueue.size());
-        if (warpRequest->read) {
-            warpLatencyRead.sample(curCycle() - warpRequest->occupiedCycle);
-        } else if (warpRequest->write) {
-            warpLatencyWrite.sample(curCycle() - warpRequest->occupiedCycle);
-        }
-
-        if (warpRequest->read) {
-            // For now this is an infinite queue.
-            // If it is finite in the future, then this function should return
-            // false if the queue is full.
-            responseQueue.push_front(warpRequest);
-            DPRINTF(ShaderLSQ, "Responses to send: %d\n", responseQueue.size());
-            if (!sendResponseEvent.scheduled()) {
-                schedule(sendResponseEvent, curTick());
-            }
-        } else {
-            // No need to send repsonse for writes
-            vector<PacketPtr>::iterator it = warpRequest->laneRequests.begin();
-            for (; it != warpRequest->laneRequests.end(); it++) {
-                // Should do this in the requestor, but writes don't need a
-                // response and it would take adding a new memory request to
-                // do it right. Should not set the pkt->NeedsResponse flag
-                if (*it) {
-                    delete (*it)->req;
-                    delete *it;
-                }
-            }
-            coalescingBuffers[warpRequest->warpId] = NULL;
-            occupiedCoalescingBuffers--;
-            delete warpRequest;
-
-            // if currently flushing and the flush may be done
-            if (flushing && occupiedCoalescingBuffers == 0) {
-                finishFlush();
-            }
-        }
-
-    } else {
-        // If there are other coalesced requests for this warp request, we
-        // schedule another "coalesce" event to send the next request out
-        coalescingQueue.push(warpRequest->warpId);
-        if (!coalesceEvent.scheduled()) {
-            schedule(coalesceEvent, nextCycle());
-        }
-    }
-
+    // TODO: When flush is for a particular warp (e.g. membar instruction),
+    // set a flag that blocks incoming requests to that particular warp until
+    // it is freed, and then send a response to the membar flush
+    assert(pkt->req->getPaddr() == Addr(0));
+    flushing = true;
+    flushingPkt = pkt;
+    DPRINTF(ShaderLSQ, "Received flush request\n");
+    if (numActiveWarpInstBuffers == 0) processFlush();
     return true;
 }
 
 void
-ShaderLSQ::processSendResponseEvent()
+ShaderLSQ::incrementActiveWarpInstBuffers()
 {
-    assert(!responseQueue.empty());
-
-    if (responsePortBlocked) {
-        // This may happen if a recvResp gets called multiple times in a cycle
-        DPRINTF(ShaderLSQ, "Repsonse port is blocked!\n");
-        responsePortStalls++;
-        return;
+    if (lastWarpInstBufferChange > 0) {
+        Tick sinceLastChange = curTick() - lastWarpInstBufferChange;
+        activeWarpInstBuffers.sample(numActiveWarpInstBuffers, sinceLastChange);
     }
-
-    WarpRequest *warpRequest = responseQueue.back();
-
-    assert(warpRequest->read);
-
-    DPRINTF(ShaderLSQ, "Trying to send resp\n");
-
-    for (int i=0; i<warpSize; i++) {
-        if (!warpRequest->isValid(i)) {
-            continue;
-        }
-        PacketPtr respPkt = warpRequest->laneRequests[i];
-        assert(!lanePorts[i]->isBlocked);
-        if (!lanePorts[i]->sendTimingResp(respPkt)) {
-            // Like when the shader core is sending requests to the LSQ, this
-            // must fail for the first lane if it's going to fail!
-            lanePorts[i]->isBlocked = true; // Just for sanity.
-            responsePortBlocked = true;
-            DPRINTF(ShaderLSQ, "Sending response to core failed for lane %d (0x%llx)!\n",
-                    i, respPkt->req->getVaddr());
-            return;
-        }
-    }
-
-    responseQueue.pop_back();
-    DPRINTF(ShaderLSQ, "Responses to send: %d\n", responseQueue.size());
-    assert(warpRequest == coalescingBuffers[warpRequest->warpId]);
-
-    // We have completed this warp request, now delete it and remove it from
-    // its coalescing buffer.
-    coalescingBuffers[warpRequest->warpId] = NULL;
-    occupiedCoalescingBuffers--;
-    delete warpRequest;
-
-    // if currently flushing and the flush may be done
-    if (flushing && occupiedCoalescingBuffers == 0) {
-        finishFlush();
-    }
-
-    if (!responseQueue.empty()) {
-        schedule(sendResponseEvent, nextCycle());
-    }
+    numActiveWarpInstBuffers++;
+    lastWarpInstBufferChange = curTick();
 }
 
 void
-ShaderLSQ::processCoalesceEvent()
+ShaderLSQ::decrementActiveWarpInstBuffers()
 {
-    assert(coalescingQueue.size() > 0);
-    WarpRequest *warpRequest = coalescingBuffers[coalescingQueue.front()];
-    assert(warpRequest);
-
-    list<CoalescedRequest*> &coalescedRequests =
-            warpRequest->coalescedRequests;
-
-    DPRINTF(ShaderLSQ, "Coalescing for warp %d\n", warpRequest->warpId);
-
-    if (coalescedRequests.empty()) {
-        // Haven't actually coalesced yet!
-        DPRINTF(ShaderLSQ, "Doing the coalescing\n");
-        coalesce(warpRequest);
-        warpCoalescedRequests.sample(coalescedRequests.size());
+    if (lastWarpInstBufferChange > 0) {
+        Tick sinceLastChange = curTick() - lastWarpInstBufferChange;
+        activeWarpInstBuffers.sample(numActiveWarpInstBuffers, sinceLastChange);
     }
-
-    DPRINTF(ShaderLSQ, "Have %d coalesced requests left to send\n",
-            coalescedRequests.size());
-
-    assert(coalescedRequests.size() > 0);
-
-    CoalescedRequest *req = coalescedRequests.front();
-    if (insertRequestIntoBuffer(req)) {
-        beginTranslation(req);
-        coalescedRequests.pop_front();
-        DPRINTF(ShaderLSQ, "Now have %d coalesced requests\n", coalescedRequests.size());
-
-        coalescingQueue.pop();
-        if (coalescingQueue.size() > 0) {
-            schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
-        }
-    } else {
-        // Skip this request and try again later
-        // after something has been removed from the outgoing buffer
-        requestBufferFullStalls++;
-    }
+    numActiveWarpInstBuffers--;
+    lastWarpInstBufferChange = curTick();
 }
 
 bool
-ShaderLSQ::insertRequestIntoBuffer(CoalescedRequest *request)
+ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
 {
-    // Add the request to the outgoing buffer
-    // if buffer is full return false
-    if (outgoingBuffer.size() >= requestBufferDepth) {
+    if (flushing) {
+        // ShaderLSQ does not currently support starting further requests
+        // while it is flushing at the end of a kernel
+        // TODO: If adding flush support at a finer granularity than the
+        // complete LSQ, this code path will need to be updated appropriately
+        panic("ShaderLSQ does not support adding requests while flushing\n");
         return false;
     }
 
-    // If there is already an entry in the buffer for this vaddr
-    // wait until that request has been processed
-    if (outgoingBuffer[request->req->getVaddr()] != NULL) {
-        DPRINTF(ShaderLSQ, "Stall for outgoing buffer\n");
-        assert(request->warpRequest !=
-               outgoingBuffer[request->req->getVaddr()]->warpRequest);
-        return false;
+    if (!dispatchWarpInstBuf) {
+        assert(!dispatchInstEvent.scheduled());
+        assert(pkt->req->threadId() < maxNumWarpsPerCore);
+
+        // TODO: Consider putting in a per-warp limitation on number of
+        // concurrent warp instructions in the LSQ
+        if (availableWarpInstBufs.empty()) {
+            return false;
+        }
+
+        // Allocate and initialize a warp instruction dispatch buffer to
+        // gather the requests before coalescing into cache accesses
+        dispatchWarpInstBuf = availableWarpInstBufs.front();
+        dispatchWarpInstBuf->initializeInstBuffer(pkt);
+        availableWarpInstBufs.pop();
+        incrementActiveWarpInstBuffers();
+
+        // Schedule an event for when the dispatch buffer should be handled
+        schedule(dispatchInstEvent, nextCycle());
+        DPRINTF(ShaderLSQ, "[%d: ] Starting %s instruction at tick: %llu\n",
+                pkt->req->threadId(), (pkt->isRead() ? "load" : "store"),
+                nextCycle());
     }
 
-    outgoingBuffer[request->req->getVaddr()] = request;
-    return true;
+    bool request_added = dispatchWarpInstBuf->addLaneRequest(lane_id, pkt);
+
+    if (request_added) {
+        DPRINTF(ShaderLSQ,
+                "[%d:%d] Received %s request vaddr: %p, size: %d\n",
+                pkt->req->threadId(), lane_id,
+                (pkt->isRead() ? "load" : "store"), pkt->req->getVaddr(),
+                pkt->getSize());
+    } else {
+        DPRINTF(ShaderLSQ,
+                "[%d:%d] Rejected %s request for vaddr: %p, size: %d\n",
+                pkt->req->threadId(), lane_id,
+                (pkt->isRead() ? "load" : "store"), pkt->req->getVaddr(),
+                pkt->getSize());
+    }
+
+    return request_added;
 }
 
 void
-ShaderLSQ::removeRequestFromBuffer(CoalescedRequest *request)
+ShaderLSQ::dispatchWarpInst()
 {
-    // Remove request from outgoing buffer as it has finished
-    map<Addr, CoalescedRequest*>::iterator it;
-    it = outgoingBuffer.find(request->req->getVaddr());
-    assert(it != outgoingBuffer.end());
-
-    outgoingBuffer.erase(it);
-
-    // The coalescer may be able to add something to the buffer now
-    if (coalescingQueue.size() > 0 && !coalesceEvent.scheduled()) {
-        schedule(coalesceEvent, clockEdge(Cycles(coalescingLatency)));
-    }
+    // Coalesce memory requests for the dispatched warp instruction
+    dispatchWarpInstBuf->coalesceMemRequests();
+    // Queue the warp instruction to begin issuing accesses after
+    // translations complete
+    perWarpInstructionQueues[dispatchWarpInstBuf->getWarpId()].push(dispatchWarpInstBuf);
+    // Issue translation requests for the coalesced accesses
+    issueWarpInstTranslations(dispatchWarpInstBuf);
+    // Clear the dispatch buffer
+    dispatchWarpInstBuf = NULL;
 }
 
 void
-ShaderLSQ::beginTranslation(CoalescedRequest *request)
+ShaderLSQ::issueWarpInstTranslations(WarpInstBuffer *warp_inst)
 {
     BaseTLB::Mode mode;
-    if (request->read) {
+    if (warp_inst->isLoad()) {
         mode = BaseTLB::Read;
-    } else if (request->write) {
-        mode = BaseTLB::Write;
     } else {
-        panic("ShaderLSQ::beginTranslation unknown request type\n");
+        mode = BaseTLB::Write;
     }
-    DPRINTF(ShaderLSQ, "Translating vaddr: 0x%llx\n", request->req->getVaddr());
 
-    RequestPtr req = request->req;
-    req->setExtraData((uint64_t)request);
+    const list<WarpInstBuffer::CoalescedAccess*> *coalesced_accesses =
+            warp_inst->getCoalescedAccesses();
+    warpCoalescedAccesses.sample(coalesced_accesses->size());
+    list<WarpInstBuffer::CoalescedAccess*>::const_iterator iter =
+            coalesced_accesses->begin();
+    for (; iter != coalesced_accesses->end(); iter++) {
+        WarpInstBuffer::CoalescedAccess *mem_access = *iter;
+        RequestPtr req = mem_access->req;
+        DPRINTF(ShaderLSQ, "[%d: ] Translating vaddr: %p\n",
+                mem_access->getWarpId(), req->getVaddr());
 
-    WholeTranslationState *state =
-            new WholeTranslationState(req, NULL, NULL, mode);
-    DataTranslation<ShaderLSQ*> *translation
-            = new DataTranslation<ShaderLSQ*>(this, state);
+        req->setExtraData((uint64_t)mem_access);
 
-    tlb->beginTranslateTiming(req, translation, mode);
+        WholeTranslationState *state =
+                new WholeTranslationState(req, NULL, NULL, mode);
+        DataTranslation<ShaderLSQ*> *translation
+                = new DataTranslation<ShaderLSQ*>(this, state);
+
+        tlb->beginTranslateTiming(req, translation, mode);
+    }
 }
 
 void
 ShaderLSQ::finishTranslation(WholeTranslationState *state)
 {
     if (state->getFault() != NoFault) {
+        // The ShaderLSQ and ShaderTLBs do not currently have a way to signal
+        // to a CPU core how a fault should be handled. With current
+        // organization, this should not occur unless there are bugs in GPU
+        // memory handling
         panic("Translation encountered fault (%s) for address 0x%x\n",
               state->getFault()->name(), state->mainReq->getVaddr());
     }
 
-    DPRINTF(ShaderLSQ, "Finished translation on 0x%llx paddr: 0x%llx\n",
-            state->mainReq->getVaddr(), state->mainReq->getPaddr());
+    WarpInstBuffer::CoalescedAccess *mem_access =
+        (WarpInstBuffer::CoalescedAccess*)state->mainReq->getExtraData();
 
-    CoalescedRequest *request =
-        (CoalescedRequest*)state->mainReq->getExtraData();
+    DPRINTF(ShaderLSQ,
+            "[%d: ] Finished translation for vaddr: %p, paddr: %p\n",
+            mem_access->getWarpId(), state->mainReq->getVaddr(),
+            state->mainReq->getPaddr());
+
+    // Initialize the packet using the translated access and in the case that
+    // this is a write access, set the data to be sent to cache
+    PacketPtr pkt = mem_access;
+    pkt->reinitFromRequest();
+    pkt->allocate();
+    if (pkt->isWrite())
+        pkt->setData(mem_access->getPktData());
 
     delete state;
 
-    sendMemoryRequest(request);
-}
+    WarpInstBuffer *warp_inst = mem_access->getWarpBuffer();
+    warp_inst->setTranslated(mem_access);
 
-void
-ShaderLSQ::sendMemoryRequest(CoalescedRequest *request)
-{
-
-    DPRINTF(ShaderLSQ, "About to send req to ruby for vaddr: 0x%llx\n",
-            request->req->getVaddr());
-
-    PacketPtr pkt;
-    if (request->read) {
-        pkt = new Packet(request->req, MemCmd::ReadReq);
-        pkt->allocate();
-    } else if (request->write) {
-        pkt = new Packet(request->req, MemCmd::WriteReq);
-        pkt->allocate();
-        pkt->setData(request->data);
-    } else {
-        panic("ShaderLSQ::sendRubyRequest bad request type\n");
+    if (warp_inst == perWarpInstructionQueues[warp_inst->getWarpId()].front()) {
+        pushToInjectBuffer(mem_access);
+        if (!injectAccessesEvent.scheduled() && !mshrsFull) {
+            // Schedule inject event to incur delay
+            schedule(injectAccessesEvent,
+                clockEdge(Cycles(mem_access->getInjectCycle() - curCycle())));
+        }
     }
-    pkt->senderState = request;
-    cachePort.schedTimingReq(pkt, curTick());
 }
 
 void
-ShaderLSQ::finishFlush()
+ShaderLSQ::pushToInjectBuffer(WarpInstBuffer::CoalescedAccess *mem_access)
 {
-    DPRINTF(ShaderLSQ, "Flush complete");
-    assert(!flushingPackets.empty());
-    assert(flushing);
-    assert(occupiedCoalescingBuffers == 0);
-    assert(coalescingQueue.empty());
-    assert(outgoingBuffer.empty());
-    if (fwdFlush) {
-        MasterID masterId = flushingPackets.front()->req->masterId();
+    mem_access->setInjectCycle(Cycles(curCycle() + l1TagAccessCycles));
+    injectBuffer.push_back(mem_access);
+    DPRINTF(ShaderLSQ,
+            "[%d: ] Queuing access for paddr: %p, size: %d, tick: %llu\n",
+            mem_access->getWarpId(), mem_access->req->getPaddr(),
+            mem_access->getSize(),
+            clockEdge(mem_access->getInjectCycle()));
+}
+
+void
+ShaderLSQ::injectCacheAccesses()
+{
+    assert(!mshrsFull);
+    assert(!injectBuffer.empty());
+    unsigned num_injected = 0;
+    WarpInstBuffer::CoalescedAccess *mem_access = injectBuffer.front();
+    while (!injectBuffer.empty() && num_injected < injectWidth &&
+           curCycle() >= mem_access->getInjectCycle()) {
+
+        Addr line_addr = addrToLine(mem_access->req->getPaddr());
+        if (blockedLineAddrs[line_addr]) {
+            // Unblock inject buffer by queuing access to wait for prior access
+            // NOTE: This path must inspect the CoalescedAccess to see if it
+            // can be injected. This could be counted against the injection
+            // width for this cycle, but it is not currently counted here
+            blockedAccesses[line_addr].push(mem_access);
+            injectBuffer.pop_front();
+            mshrHitQueued++;
+            DPRINTF(ShaderLSQ,
+                    "[%d: ] Line blocked %s access for paddr: %p\n",
+                    mem_access->getWarpId(),
+                    (mem_access->isRead() ? "read" : "write"),
+                    mem_access->req->getPaddr());
+        } else {
+            if (!cachePort.sendTimingReq(mem_access)) {
+                DPRINTF(ShaderLSQ,
+                        "[%d: ] MSHR blocked %s access for paddr: %p\n",
+                        mem_access->getWarpId(),
+                        (mem_access->isRead() ? "read" : "write"),
+                        mem_access->req->getPaddr());
+                mshrsFull = true;
+                mshrsFullStarted = curCycle();
+                mshrsFullCount++;
+                return;
+            } else {
+                DPRINTF(ShaderLSQ,
+                        "[%d: ] Injected %s access for paddr: %p\n",
+                        mem_access->getWarpId(),
+                        (mem_access->isRead() ? "read" : "write"),
+                        mem_access->req->getPaddr());
+                blockedLineAddrs[line_addr] = true;
+                injectBuffer.pop_front();
+                num_injected++;
+                accessesOutstandingToCache++;
+                WarpInstBuffer *warp_inst = mem_access->getWarpBuffer();
+                warp_inst->removeCoalesced(mem_access);
+                if (warp_inst->coalescedAccessesSize() == 0) {
+                    // All accesses have entered cache hierarchy, so remove
+                    // this warp instruction from the issuing position (head)
+                    // to let the next warp instruction from this warp inject
+                    perWarpInstructionQueues[warp_inst->getWarpId()].pop();
+                    if (!perWarpInstructionQueues[warp_inst->getWarpId()].empty()) {
+                        WarpInstBuffer *next_warp_inst =
+                                perWarpInstructionQueues[warp_inst->getWarpId()].front();
+                        const list<WarpInstBuffer::CoalescedAccess*> *translated_accesses =
+                                next_warp_inst->getTranslatedAccesses();
+                        list<WarpInstBuffer::CoalescedAccess*>::const_iterator iter =
+                                translated_accesses->begin();
+                        for (; iter != translated_accesses->end(); iter++) {
+                            pushToInjectBuffer(*iter);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Get the next access to check if it can also be injected
+        mem_access = injectBuffer.front();
+    }
+
+    if (!injectBuffer.empty()) {
+        assert(!mshrsFull); // Shouldn't reach this code if cache is blocked
+        WarpInstBuffer::CoalescedAccess *next_access = injectBuffer.front();
+        if (curCycle() >= next_access->getInjectCycle()) {
+            schedule(injectAccessesEvent, nextCycle());
+        } else {
+            schedule(injectAccessesEvent,
+                clockEdge(Cycles(next_access->getInjectCycle() - curCycle())));
+        }
+    }
+}
+
+void
+ShaderLSQ::scheduleRetryInject()
+{
+    assert(mshrsFull);
+    assert(!injectBuffer.empty());
+    assert(!injectAccessesEvent.scheduled());
+    mshrsFull = false;
+    mshrsFullCycles += curCycle() - mshrsFullStarted;
+    DPRINTF(ShaderLSQ, "[ : ] Unblocking MSHRs, restarting injection\n");
+    schedule(injectAccessesEvent, nextCycle());
+}
+
+bool
+ShaderLSQ::recvResponsePkt(PacketPtr pkt)
+{
+    if (pkt->isFlush()) {
+        assert(pkt->isResponse());
+        assert(forwardFlush);
+        finalizeFlush();
+        delete pkt->req;
+        delete pkt;
+        return true;
+    }
+    WarpInstBuffer::CoalescedAccess *mem_access =
+            dynamic_cast<WarpInstBuffer::CoalescedAccess*>(pkt);
+    assert(mem_access);
+
+    // Push the completed memory access into eject buffer
+    ejectBuffer.push(mem_access);
+
+    // Check for unblocked accesses, and schedule inject if possible
+    Addr line_addr = addrToLine(mem_access->req->getPaddr());
+    assert(blockedLineAddrs[line_addr]);
+    blockedLineAddrs.erase(line_addr);
+    if (blockedAccesses.count(line_addr) > 0) {
+        assert(!blockedAccesses[line_addr].empty());
+        // Previously blocked accesses get priority, so add one to the
+        // front of the inject buffer, and schedule inject event
+        // NOTE: Pushing unblocked memory accesses to the front of the inject
+        // queue constitutes an arbitration decision, which could be changed
+        // in the future. Unblocked accesses could be pushed at any point in
+        // the queue (as long as per-warp instruction ordering is preserved)
+        WarpInstBuffer::CoalescedAccess *next_access =
+                                            blockedAccesses[line_addr].front();
+        blockedAccesses[line_addr].pop();
+        if (blockedAccesses[line_addr].empty()) {
+            blockedAccesses.erase(line_addr);
+        }
+        // Assert that the unblocked access has been tried for inject previously
+        assert(curCycle() > next_access->getInjectCycle());
+        injectBuffer.push_front(next_access);
+        if (!mshrsFull) {
+            if (injectAccessesEvent.scheduled()) {
+                reschedule(injectAccessesEvent, nextCycle());
+            } else {
+                schedule(injectAccessesEvent, nextCycle());
+            }
+        }
+    }
+
+    // If not scheduled, schedule ejectResponsesEvent
+    if (!ejectAccessesEvent.scheduled()) {
+        schedule(ejectAccessesEvent, nextCycle());
+    }
+    DPRINTF(ShaderLSQ, "[%d: ] %s response for paddr: %p\n",
+            mem_access->getWarpId(),
+            (mem_access->isRead() ? "Read" : "Write"),
+            mem_access->req->getPaddr());
+    accessesOutstandingToCache--;
+    return true;
+}
+
+void
+ShaderLSQ::ejectAccessResponses()
+{
+    // TODO: Consider separating readEjectWidth from writeEjectWidth, since
+    // reads are only responses that consume bandwidth on return to the core
+    assert(!ejectBuffer.empty());
+    unsigned num_ejected = 0;
+    while (!ejectBuffer.empty() && num_ejected < ejectWidth) {
+        WarpInstBuffer::CoalescedAccess *mem_access = ejectBuffer.front();
+        WarpInstBuffer *warp_inst = mem_access->getWarpBuffer();
+        DPRINTF(ShaderLSQ,
+                "[%d: ] Ejected %s for vaddr: %p, paddr: %p\n",
+                warp_inst->getWarpId(),
+                (warp_inst->isLoad() ? "read" : "write"),
+                mem_access->req->getVaddr(), mem_access->req->getPaddr());
+        bool inst_complete = warp_inst->finishAccess(mem_access);
+        if (inst_complete) {
+            warp_inst->setCompleteTick(clockEdge(completeCycles));
+            commitInstBuffer.push(warp_inst);
+            if (!commitInstEvent.scheduled() && !writebackBlocked) {
+                assert(commitInstBuffer.size() == 1);
+                schedule(commitInstEvent, clockEdge(completeCycles));
+            }
+        }
+        ejectBuffer.pop();
+        num_ejected++;
+    }
+    if (!ejectBuffer.empty())
+        schedule(ejectAccessesEvent, nextCycle());
+}
+
+void
+ShaderLSQ::commitWarpInst()
+{
+    assert(!writebackBlocked);
+    WarpInstBuffer *warp_inst = commitInstBuffer.front();
+    if (warp_inst->isLoad()) {
+        assert(curTick() >= warp_inst->getCompleteTick());
+        PacketPtr* lane_request_pkts = warp_inst->getLaneRequestPkts();
+        for (int i = 0; i < warpSize; i++) {
+            PacketPtr pkt = lane_request_pkts[i];
+            if (pkt) {
+                if (!lanePorts[i]->sendTimingResp(pkt)) {
+                    writebackBlocked = true;
+                    writebackBlockedCycles++;
+                    return;
+                }
+                lane_request_pkts[i] = NULL;
+            }
+        }
+    }
+    DPRINTF(ShaderLSQ, "[%d: ] Completing %s instruction\n",
+            warp_inst->getWarpId(), (warp_inst->isLoad() ? "load" : "store"));
+    commitInstBuffer.pop();
+    if (!commitInstBuffer.empty()) {
+        schedule(commitInstEvent,
+                 max(commitInstBuffer.front()->getCompleteTick(), nextCycle()));
+    }
+    if (warp_inst->isLoad()) {
+        warpLatencyRead.sample(ticksToCycles(warp_inst->getLatency()));
+    } else {
+        warpLatencyWrite.sample(ticksToCycles(warp_inst->getLatency()));
+    }
+    warp_inst->resetState();
+    decrementActiveWarpInstBuffers();
+    availableWarpInstBufs.push(warp_inst);
+    if (flushing && numActiveWarpInstBuffers == 0) processFlush();
+}
+
+void
+ShaderLSQ::retryCommitWarpInst()
+{
+    writebackBlocked = false;
+    assert(!commitInstEvent.scheduled());
+    if (!commitInstBuffer.empty()) {
+        schedule(commitInstEvent, nextCycle());
+    }
+}
+
+void
+ShaderLSQ::processFlush()
+{
+    DPRINTF(ShaderLSQ, "Processing flush request\n");
+    assert(flushing && flushingPkt);
+    assert(numActiveWarpInstBuffers == 0);
+    Tick since_last_change = curTick() - lastWarpInstBufferChange;
+    activeWarpInstBuffers.sample(numActiveWarpInstBuffers, since_last_change);
+    lastWarpInstBufferChange = 0;
+    if (forwardFlush) {
+        MasterID master_id = flushingPkt->req->masterId();
         int asid = 0;
         Addr addr(0);
         Request::Flags flags;
-        RequestPtr req = new Request(asid, addr, flags, masterId);
-        PacketPtr newPkt = new Packet(req, MemCmd::FlushAllReq);
-        cachePort.schedTimingReq(newPkt, curTick());
+        RequestPtr req = new Request(asid, addr, flags, master_id);
+        PacketPtr flush_pkt = new Packet(req, MemCmd::FlushAllReq);
+        assert(cachePort.sendTimingReq(flush_pkt));
     } else {
-        respondToFlush();
+        finalizeFlush();
     }
 }
 
-void ShaderLSQ::respondToFlush()
+void ShaderLSQ::finalizeFlush()
 {
-    // Send response packet(s)
-    list<PacketPtr>::iterator it, next;
-    it = flushingPackets.begin();
-    while (flushingPackets.size() > 0) {
-        PacketPtr pkt = *it;
-        assert(pkt->isFlush());
-        pkt->makeTimingResponse();
-        assert(!lanePorts[0]->isBlocked);
-        if (!lanePorts[0]->sendTimingResp(pkt)) {
-            panic("Flush responses can't fail");
-        }
-        next = it;
-        next++;
-        flushingPackets.erase(it);
-        it = next;
-    }
+    assert(flushing && flushingPkt);
+    flushingPkt->makeTimingResponse();
+    assert(lanePorts[0]->sendTimingResp(flushingPkt));
+    flushingPkt = NULL;
     flushing = false;
-}
-
-void
-ShaderLSQ::coalesce(WarpRequest *warpRequest)
-{
-    // see the CUDA manual where it discusses coalescing rules before reading this
-    // Copied from GPGPU-Sim
-    int data_size = warpRequest->size;
-    unsigned segment_size = 0;
-    unsigned warp_parts = 2;
-    switch( data_size ) {
-    case 1: segment_size = 32; break;
-    case 2: segment_size = 64; break;
-    case 4: case 8: case 16: segment_size = 128; break;
-    }
-    unsigned subwarp_size = warpSize / warp_parts;
-
-    for( unsigned subwarp=0; subwarp <  warp_parts; subwarp++ ) {
-        std::map<Addr,transaction_info> subwarp_transactions;
-
-        // step 1: find all transactions generated by this subwarp
-        for( unsigned thread=subwarp*subwarp_size; thread<subwarp_size*(subwarp+1); thread++ ) {
-            if( !warpRequest->isValid(thread) )
-                continue;
-
-            // unsigned data_size_coales = data_size;
-            unsigned num_accesses = 1;
-
-            // if( space.get_type() == local_space || space.get_type() == param_space_local ) {
-            //    // Local memory accesses >4B were split into 4B chunks
-            //    if(data_size >= 4) {
-            //       data_size_coales = 4;
-            //       num_accesses = data_size/4;
-            //    }
-            //    // Otherwise keep the same data_size for sub-4B access to local memory
-            // }
-
-            // assert(num_accesses <= MAX_ACCESSES_PER_INSN_PER_THREAD);
-
-            for(unsigned access=0; access<num_accesses; access++) {
-                Addr addr = warpRequest->getAddr(thread);
-                Addr block_address = addr & ~((Addr)(segment_size-1));
-                unsigned chunk = (addr&127)/32; // which 32-byte chunk within in a 128-byte chunk does this thread access?
-                transaction_info &info = subwarp_transactions[block_address];
-
-                // can only write to one segment
-                assert(block_address == ((addr+data_size-1) & ~((Addr)(segment_size-1))));
-
-                info.chunks.set(chunk);
-                info.activeLanes.push_back(thread);
-                // unsigned idx = (addr&127);
-                // for( unsigned i=0; i < data_size_coales; i++ )
-                //     info.bytes.set(idx+i);
-            }
-        }
-
-        // step 2: reduce each transaction size, if possible
-        std::map< Addr, transaction_info >::iterator t;
-        for( t=subwarp_transactions.begin(); t !=subwarp_transactions.end(); t++ ) {
-            Addr addr = t->first;
-            transaction_info &info = t->second;
-
-            // memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size);
-            // Copied below.
-            assert( (addr & (segment_size-1)) == 0 );
-
-            const std::bitset<4> &q = info.chunks;
-            assert( q.count() >= 1 );
-            std::bitset<2> h; // halves (used to check if 64 byte segment can be compressed into a single 32 byte segment)
-
-            unsigned size=segment_size;
-            if( segment_size == 128 ) {
-                bool lower_half_used = q[0] || q[1];
-                bool upper_half_used = q[2] || q[3];
-                if( lower_half_used && !upper_half_used ) {
-                    // only lower 64 bytes used
-                    size = 64;
-                    if(q[0]) h.set(0);
-                    if(q[1]) h.set(1);
-                } else if ( (!lower_half_used) && upper_half_used ) {
-                    // only upper 64 bytes used
-                    addr = addr+64;
-                    size = 64;
-                    if(q[2]) h.set(0);
-                    if(q[3]) h.set(1);
-                } else {
-                    assert(lower_half_used && upper_half_used);
-                }
-            } else if( segment_size == 64 ) {
-                // need to set halves
-                if( (addr % 128) == 0 ) {
-                    if(q[0]) h.set(0);
-                    if(q[1]) h.set(1);
-                } else {
-                    assert( (addr % 128) == 64 );
-                    if(q[2]) h.set(0);
-                    if(q[3]) h.set(1);
-                }
-            }
-            if( size == 64 ) {
-                bool lower_half_used = h[0];
-                bool upper_half_used = h[1];
-                if( lower_half_used && !upper_half_used ) {
-                    size = 32;
-                } else if ( (!lower_half_used) && upper_half_used ) {
-                    addr = addr+32;
-                    size = 32;
-                } else {
-                    assert(lower_half_used && upper_half_used);
-                }
-            }
-            // m_accessq.push_back( mem_access_t(access_type,addr,size,is_write,info.active,info.bytes) );
-
-            if (warpRequest->read) {
-                // It would be good to reduce the size as much as possible to
-                // allow for flexibility in the minumum request size in caches
-                generateCoalescedRequest(addr, size, warpRequest, info.activeLanes);
-            } else {
-                // Writes must be contiguous!
-                // A map from the word of the block to the lane id
-                // Needs to be multimap since two lanes could have same addr
-                multimap<int,int> validWords;
-                vector<int>::const_iterator iter = info.activeLanes.begin();
-                for ( ; iter != info.activeLanes.end(); iter++) {
-                    Addr a = warpRequest->laneRequests[*iter]->req->getVaddr();
-                    int offset = a & (size-1);
-                    validWords.insert(pair<int,int>(offset, *iter));
-                }
-
-                multimap<int,int>::iterator it = validWords.begin();
-                while (it != validWords.end()) {
-                    Addr base = addr + it->first;
-                    vector<int> lanes;
-                    int chunkSize = warpRequest->size;
-                    // While the next offset is the current offset + size of word
-                    // Use >= because could have two requests with same offset
-                    // incr the current offset
-                    multimap<int,int>::iterator next(it);
-                    next++;
-                    do {
-                        lanes.push_back(it->second);
-                        if (next == validWords.end()) {
-                            // This was the last thread
-                            it++;
-                            break;
-                        }
-                        if (it->first + warpRequest->size == next->first) {
-                            // Only add to the chunk if the address is the next
-                            chunkSize += warpRequest->size;
-                        } else if (it->first != next->first) {
-                            // if next offset is not cur+size or cur, end of chunk
-                            it++;
-                            break;
-                        }
-                        it++;
-                        next++;
-                    } while (it != validWords.end());
-                    DPRINTF(ShaderLSQ, "Base 0x%llx, chunk %d\n", base, chunkSize);
-                    // This is a new chunk that we need to send off
-                    generateCoalescedRequest(base, chunkSize, warpRequest, lanes);
-                }
-            }
-        }
-    }
-}
-
-void
-ShaderLSQ::generateCoalescedRequest(Addr addr, size_t size,
-                                    WarpRequest *warpRequest,
-                                    vector<int> &activeLanes)
-{
-    DPRINTF(ShaderLSQ, "Generating mem access at 0x%llx for %d bytes for %d threads\n", addr, size, activeLanes.size());
-
-    Request::Flags flags;
-    int asid = 0;
-    RequestPtr req = new Request(asid, addr, size, flags,
-                                 warpRequest->masterId,
-                                 warpRequest->pc, warpRequest->cid,
-                                 warpRequest->warpId);
-
-    CoalescedRequest *request = new CoalescedRequest();
-    request->warpRequest = warpRequest;
-    request->req = req;
-    request->activeLanes = activeLanes;
-    if (warpRequest->read) {
-        request->read = true;
-    } else if (warpRequest->write) {
-        request->write = true;
-        request->data = new uint8_t[size];
-        vector<int>::iterator iter = activeLanes.begin();
-        for ( ; iter != activeLanes.end(); iter++) {
-            int offset = warpRequest->getAddr(*iter) - addr;
-            assert(offset >= 0);
-            assert(offset < size);
-            memcpy(request->data+offset, warpRequest->getData(*iter),
-                   warpRequest->size);
-        }
-    } else {
-        panic("Coalescer only supports reads and writes\n");
-    }
-    warpRequest->coalescedRequests.push_back(request);
+    DPRINTF(ShaderLSQ, "Flush request complete\n");
 }
 
 void
 ShaderLSQ::regStats()
 {
-    coalescerStalls
-        .name(name()+".coalescerStalls")
-        .desc("Number of stalls for the coalescer")
+    activeWarpInstBuffers
+        .name(name()+".warpInstBufActive")
+        .desc("Histogram of number of active warp inst buffers at a given time")
+        .init(warpInstBufPoolSize+1)
         ;
-    responsePortStalls
-        .name(name()+".responsePortStalls")
-        .desc("Number of stalls for the response port")
+    accessesOutstandingToCache
+        .name(name()+".cacheAccesses")
+        .desc("Average number of concurrent outstanding cache accesses")
         ;
-    requestBufferFullStalls
-        .name(name()+".requestBufferFullStalls")
-        .desc("Number of stalls for the request buffer")
+    writebackBlockedCycles
+        .name(name()+".writebackBlockedCycles")
+        .desc("Number of cycles blocked for core writeback stage")
         ;
-
-    warpCoalescedRequests
-        .name(name() + ".warpCoalescedRequests")
-        .desc("Number of coalesced requests for each warp")
+    mshrHitQueued
+        .name(name()+".mshrHitQueued")
+        .desc("Number of hits on blocked lines in MSHRs")
+        ;
+    mshrsFullCycles
+        .name(name()+".mshrsFullCycles")
+        .desc("Number of cycles stalled waiting for an MSHR")
+        ;
+    mshrsFullCount
+        .name(name()+".mshrsFullCount")
+        .desc("Number of times MSHRs filled")
+        ;
+    warpCoalescedAccesses
+        .name(name() + ".warpCoalescedAccesses")
+        .desc("Number of coalesced accesses per warp instruction")
         .init(33)
         ;
     warpLatencyRead

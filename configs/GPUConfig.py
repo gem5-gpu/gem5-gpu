@@ -146,7 +146,7 @@ def createGPU(options, gpu_mem_range):
     gpu.warp_size = options.gpu_warp_size
 
     for sc in gpu.shader_cores:
-        sc.lsq = NewShaderLSQ()
+        sc.lsq = ShaderLSQ()
         sc.lsq.forward_flush = (buildEnv['PROTOCOL'] == 'VI_hammer_fusion' \
                                 and options.flush_kernel_end)
         sc.lsq.warp_size = options.gpu_warp_size

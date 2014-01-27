@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Mark D. Hill and David A. Wood
+ * Copyright (c) 2012-2013 Mark D. Hill and David A. Wood
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,10 +24,13 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Authors: Joel Hestness, Jason Power
+ *
  */
 
-#ifndef __GPGPU_SHADER_LSQ_HH__
-#define __GPGPU_SHADER_LSQ_HH__
+#ifndef __GPU_SHADER_LSQ_HH__
+#define __GPU_SHADER_LSQ_HH__
 
 #include <queue>
 #include <list>
@@ -35,34 +38,63 @@
 
 #include "base/statistics.hh"
 #include "cpu/translation.hh"
+#include "gpu/lsq_warp_inst_buffer.hh"
+#include "gpu/shader_tlb.hh"
 #include "mem/mem_object.hh"
-#include "mem/qport.hh"
+#include "mem/port.hh"
 #include "params/ShaderLSQ.hh"
 
+/**
+ * The ShaderLSQ models the load-store queue for GPU shader cores. The LSQ
+ * contains a pool of warp instruction buffers, and manages the progress of
+ * active warp instructions.
+ *
+ * Each warp instruction flows through effectively 4 ShaderLSQ stages:
+ *  1) Coalesce + address translations [Always 1 cycle given TLB hits]
+ *  2) Translations complete, queued waiting to issue accesses [0+ cycles]
+ *     - Extra latency to represent L1 tag and data array access of real
+ *       hardware is added before accesses are issued to the L1 cache
+ *  3) L1 access [1 cycle given uncontended L1 hit]
+ *  4) Warp instruction commits [1 cycle given no commit contention]
+ *
+ * The ShaderLSQ responsibilities include handling requests that come from the
+ * GPU core through the LanePorts, signaling the warp instruction buffers to
+ * coalesce requests into cache accesses, issuing translations for the coalesced
+ * accesses, injecting the accesses into the cache hierarchy through the
+ * CachePort, ejecting the access responses, and sending the completed warp
+ * memory instruction back to the GPU core for commit.
+ *
+ * This LSQ is capable of maintaining sequential consistency. It does not allow
+ * writes to be read before being sent to the cache hierarchy, so it can
+ * support write atomicity as long as the cache coherence protocol also
+ * enforces write atomicity. Program order consistency is enforced by ordering
+ * warp instructions using per-warp instruction buffer queues.
+ *
+ * This LSQ has been validated to perform comparably to NVidia Fermi (GTX4XX,
+ * GTX5XX) hardware
+ */
 class ShaderLSQ : public MemObject
 {
-protected:
+  protected:
     typedef ShaderLSQParams Params;
 
-private:
-
+  private:
     /**
      * Port which receives requests from the shader core on a per-lane basis
      * and sends replies to the shader core.
      */
     class LanePort : public SlavePort
     {
-    private:
+        ShaderLSQ* lsq;
         int laneId;
 
-    public:
-        LanePort(const std::string &_name, int idx, ShaderLSQ *owner)
-        : SlavePort(_name, owner), laneId(idx), isBlocked(false) {}
+      public:
+        LanePort(const std::string &_name, ShaderLSQ *owner, int lane_id)
+            : SlavePort(_name, owner), lsq(owner), laneId(lane_id) {}
 
-        // Just for sanity
-        bool isBlocked;
+        ~LanePort() {}
 
-    protected:
+      protected:
         virtual bool recvTimingReq(PacketPtr pkt);
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
@@ -70,264 +102,183 @@ private:
         virtual AddrRangeList getAddrRanges() const;
 
     };
-    /// One lane port for each lane in the shader core
+    // One lane port for each lane in the shader core
     std::vector<LanePort*> lanePorts;
 
-    // For tracking if the port to send to the shader core is blocked
-    bool responsePortBlocked;
+    // A variable to track whether the writeback stage of the core is blocked
+    // If so, must block warp instruction commit
+    bool writebackBlocked;
 
     /**
      * Port which sends the coalesced requests to the ruby port
      */
-    class CachePort : public QueuedMasterPort
+    class CachePort : public MasterPort
     {
-    private:
-        /** A packet queue for outgoing packets. */
-        MasterPacketQueue queue;
+      private:
+        ShaderLSQ* lsq;
 
-    public:
+      public:
         CachePort(const std::string &_name, ShaderLSQ *owner)
-        : QueuedMasterPort(_name, owner, queue), queue(*owner, *this) {}
+            : MasterPort(_name, owner), lsq(owner) {}
 
         bool recvTimingResp(PacketPtr pkt);
+        void recvRetry();
     };
     CachePort cachePort;
 
-    // Should remove this when we are confident in the coalescing logic
-    // From GPGPU-Sim
-    class transaction_info {
-    public:
-        std::bitset<4> chunks; // bitmask: 32-byte chunks accessed
-        // mem_access_byte_mask_t bytes;
-        std::vector<int> activeLanes; // threads in this transaction
-
-        // bool test_bytes(unsigned start_bit, unsigned end_bit) {
-        //    for( unsigned i=start_bit; i<=end_bit; i++ )
-        //       if(bytes.test(i))
-        //          return true;
-        //    return false;
-        // }
-
-    };
-
-    // Forward definition for WarpRequest
-    class CoalescedRequest;
-
-    /**
-     * There is exactly one warp request per ld/st inst issued by the shader
-     * This object holds the information needed to respond to the shader core
-     * on a per-lane basis. It also has functions to get and set the data/addrs
-     * There is one warp request for possibly many coalesced requests
-     */
-    class WarpRequest {
-    private:
-        std::vector<bool> activeMask;
-        int warpSize;
-
-    public:
-        std::list<CoalescedRequest*> coalescedRequests;
-        std::vector<PacketPtr> laneRequests;
-        Tick occupiedTick;
-        Cycles occupiedCycle;
-        int size; // size in bytes of each lane request
-        bool read;
-        bool write;
-        Addr pc;
-        int cid;
-        int warpId;
-        MasterID masterId;
-
-        WarpRequest(int _warpSize)
-            : activeMask(_warpSize), warpSize(_warpSize),
-              laneRequests(warpSize), size(0), read(false), write(false) {}
-
-        bool isValid(int laneId) {
-            assert(laneId < warpSize);
-            return activeMask[laneId];
-        }
-
-        void setValid(int laneId) {
-            assert(laneId < warpSize);
-            activeMask[laneId] = true;
-        }
-
-        Addr getAddr(int laneId) {
-            assert(laneId < warpSize);
-            return laneRequests[laneId]->req->getVaddr();
-        }
-
-        uint8_t* getData(int laneId) {
-            assert(laneId < warpSize);
-            return laneRequests[laneId]->getPtr<uint8_t>();
-        }
-
-        void setData(int laneId, uint8_t *data) {
-            assert(laneId < warpSize);
-            return laneRequests[laneId]->setData(data);
-        }
-    };
-
-    /**
-     * There is exactly on coalesced request per request sent to Ruby/the cache
-     * This object holds the information needed to make a packet to send to
-     * ruby. This object also incapulates the information the load/store queues
-     * need to keep for each request.
-     * There are (possibly) multiple coalesced requests per warp request.
-     */
-    class CoalescedRequest : public Packet::SenderState {
-    public:
-        CoalescedRequest() : read(false), write(false), data(NULL)
-        {}
-
-        RequestPtr req;
-        WarpRequest* warpRequest;
-        std::vector<int> activeLanes;
-        int wordSize;
-        bool read;
-        bool write;
-        int bufferNum;
-        uint8_t *data;
-
-        bool valid;
-        ~CoalescedRequest() {
-            if (write) {
-                assert(data != NULL);
-                delete [] data;
-            } else {
-                assert(data == NULL);
-            }
-        }
-    };
-
-    // Forward flushAll request to Ruby when flushing the LSQ
-    bool fwdFlush;
-
-    // There is one buffer per warp context. This forces all coalesced accesses
-    // from the same warp to be serialized.
-    WarpRequest **coalescingBuffers;
-
-    // This structure emulates the behavior of he hardware buffering
-    // between the coalescer and the L1 cache
-    std::map<Addr, CoalescedRequest*> outgoingBuffer;
-    int requestBufferDepth;
-
-    // This structure simulates a age-based scheduler for arbitrating
-    // access to the coalescer for different warp contexts.
-    std::queue<int> coalescingQueue;
-
-    // Queue of warp requests which have completely finished but have not been
-    // sent to the shader core yet. This queue is currently infinite
-    std::deque<WarpRequest*> responseQueue;
-
-    // Data TLB, this does NOT perform any timing right now
-    ShaderTLB *tlb;
-
-    // Number of lanes, and number of threads active in a cycle
+    // Maximum number of lanes (threads) per warp
     unsigned warpSize;
 
-    // Number of unique warp contexts this LSQ supports simultaneously
-    unsigned numWarpContexts;
+    // Maximum number of warps that can be executing on GPU core
+    unsigned maxNumWarpsPerCore;
 
-    // Latency for the coalescer
-    unsigned coalescingLatency;
-
-    // True if the lsq is currently flushing
+    // TODO: When adding support for membars, this should be updated to track
+    // flushing status on a per-warp basis
+    // For SM-wide flush handling
     bool flushing;
+    PacketPtr flushingPkt;
+    bool forwardFlush;
 
-    // Tracks how many warp requests are currently in the coalescing buffers
-    unsigned occupiedCoalescingBuffers;
+    // The complete pool of buffers that hold warp instructions in-flight in
+    // the LSQ. Other buffers are just pointers to this physical pool.
+    WarpInstBuffer** warpInstBufPool;
 
-    // All of the packets that have outstanding flush requests
-    std::list<PacketPtr> flushingPackets;
+    // The size of the pool of warp instruction buffers
+    unsigned warpInstBufPoolSize;
 
-    /**
-     * These functions will insert/remvoe a coalesced request from the 
-     * outgoing buffer between the LSQ and the memory sytem.
-     * @return true for success, false if buffer is full
-     * (remove cannot fail)
-     */
-    bool insertRequestIntoBuffer(CoalescedRequest *request);
-    void removeRequestFromBuffer(CoalescedRequest *request);
+    // Holds pointers to buffers that are currently unoccupied
+    std::queue<WarpInstBuffer*> availableWarpInstBufs;
 
-    /**
-     * Sets up the translation and sends it to the TLB
-     */
-    void beginTranslation(CoalescedRequest *request);
+    // The warp instruction buffer pointers for different stages of the LSQ:
+    // Currently, GPGPU-Sim only supports dispatching a single warp instruction
+    // to the LSQ per cycle. This pointer holds the warp instruction currently
+    // being dispatched by the core
+    WarpInstBuffer *dispatchWarpInstBuf;
+    // After dispatch, warp instruction buffers are pushed into per-warp
+    // queues that maintain warp instruction ordering within each warp,
+    // ensuring the program order portion of the consistency model. Only the
+    // warp instruction at the head of each queue is allowed to inject accesses
+    // into cache hierarchy. Once all accesses have been injected, the warp
+    // instruction is removed from the head of the queue.
+    std::vector<std::queue<WarpInstBuffer*> > perWarpInstructionQueues;
 
-    /**
-     * Called after the LSQ has processed all requests except flush requests
-     */
-    void finishFlush();
+    // LSQ latencies:
+    // This is specified as a parameter to the LSQ and represents the dispatch
+    // to commit latency of a warp instruction that results in a single L1 hit.
+    Cycles overallLatencyCycles;
+    // This is specified as a parameter to the LSQ and represents the number of
+    // cycles during which a coalesced request is accessing the L1 tag array
+    Cycles l1TagAccessCycles;
+    // This latency is derived from the overall latency, cycles for pipeline
+    // latency and the L1 tag access latency. It represents the delay cycles
+    // after ejection of the last memory access for a warp instruction in order
+    // to model the overall request latency correctly
+    Cycles completeCycles;
 
-    /**
-     * After the flush has completely finished, send response to the core
-     */
-    void respondToFlush();
+    // Data TLB to translate coalesced virtual to physical addresses
+    ShaderTLB *tlb;
 
-    /**
-     * Coalesces the WarpRequest in this->warpRequest and inserts the generated
-     * coalesced requests into this->coalescedRequests. Later these are added
-     * to the request buffers.
-     */
-    void coalesce(WarpRequest *warpRequest);
+    // Number of accesses that can be injected into L1 cache per cycle
+    unsigned injectWidth;
+    // Buffer to hold accesses to be sent to the cache
+    std::deque<WarpInstBuffer::CoalescedAccess*> injectBuffer;
 
-    /**
-     * Actually generate the coalesced request, called from coalesce()
-     */
-    void generateCoalescedRequest(Addr addr, size_t size,
-                                  WarpRequest *warpRequest,
-                                  std::vector<int> &activeLanes);
+    // Stores whether a cache line is currently blocked by a prior access
+    std::map<Addr, bool> blockedLineAddrs;
+    // Emulate MSHR queuing of accesses to lines with outstanding accesses
+    std::map<Addr, std::queue<WarpInstBuffer::CoalescedAccess*> > blockedAccesses;
+    // Block when there are no available MSHRs to forward the request to lower
+    // levels of the cache hierarchy
+    bool mshrsFull;
+    // Track the number of cycles during which all MSHRs are full
+    Cycles mshrsFullStarted;
 
+    // The maximum number of memory accesses that the LSQ can accept from the
+    // cache hierarchy per cycle
+    unsigned ejectWidth;
+    // Buffer to hold accesses when received from the caches until they can
+    // be used to update the appropriate WarpInstBuffer
+    std::queue<WarpInstBuffer::CoalescedAccess*> ejectBuffer;
 
-public:
+    // Buffer to queue warp instruction completions to be sent to core
+    std::queue<WarpInstBuffer*> commitInstBuffer;
+
+    unsigned cacheLineAddrMaskBits;
+    inline Addr addrToLine(Addr addr) {
+        return addr & (((Addr)-1) << cacheLineAddrMaskBits);
+    }
+
+    // Helper functions and variables for tracking active warp instruction
+    // buffers for stats
+    void incrementActiveWarpInstBuffers();
+    void decrementActiveWarpInstBuffers();
+    Tick lastWarpInstBufferChange;
+    unsigned numActiveWarpInstBuffers;
+
+  public:
 
     ShaderLSQ(Params *params);
     ~ShaderLSQ();
 
-    /// Required for implementing MemObject
+    // Required for implementing MemObject
     virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);
     virtual BaseSlavePort& getSlavePort(const std::string &if_name, PortID idx = -1);
-
-    /**
-     * Creates the packet and sends the request to the memory system
-     */
-    void sendMemoryRequest(CoalescedRequest *request);
-
-    /**
-     * Prepares the per-lane packets for sending and puts them the repsonse Q
-     * Pkt is for the coalesced request so this function must 'uncoalesce'
-     */
-    bool prepareResponse(PacketPtr pkt);
-
-    /**
-     * Required for translation
-     */
     bool isSquashed() { return false; }
-
-    /**
-     * Called when translation is finished
-     */
     void finishTranslation(WholeTranslationState *state);
 
-    /**
-     * Coalesces the warp request and subsequently empties the
-     * coalesced requests into the request buffers possibly over many cycles
-     */
-    void processCoalesceEvent();
-    EventWrapper<ShaderLSQ, &ShaderLSQ::processCoalesceEvent> coalesceEvent;
+  private:
 
-    /**
-     * Sends one response to the shader core from the response queue
-     */
-    void processSendResponseEvent();
-    EventWrapper<ShaderLSQ, &ShaderLSQ::processSendResponseEvent> sendResponseEvent;
+    // Accept warp instruction and flush requests from the shader core into LSQ
+    bool addFlushRequest(PacketPtr pkt);
+    bool addLaneRequest(int lane_id, PacketPtr pkt);
+
+    // LSQ Pipeline Stage 1:
+    // Process the dispatchWarpInstBuf, which is holding requests received
+    // during the previous cycle. This includes coalescing requests into cache
+    // accesses and issuing translations for lines accessed
+    void dispatchWarpInst();
+    void issueWarpInstTranslations(WarpInstBuffer *warp_inst);
+    void pushToInjectBuffer(WarpInstBuffer::CoalescedAccess *mem_request);
+
+    // LSQ Pipeline Stage 2:
+    // After coalescing and translating addresses for cache accesses, they
+    // can be injected into the cache hierarchy
+    void injectCacheAccesses();
+    void scheduleRetryInject();
+
+    // LSQ Pipeline Stage 3:
+    // Accept cache access responses and queue them for ejection. Ejection
+    // consists of rejoining the access with its WarpInstBuffer to update
+    // threads affected by the access
+    bool recvResponsePkt(PacketPtr pkt);
+    void ejectAccessResponses();
+
+    // LSQ Pipeline Stage 4:
+    // Once a WarpInstBuffer has received responses for all cache accesses, it
+    // can be committed by signaling back to the shader core
+    void commitWarpInst();
+    void retryCommitWarpInst();
+
+    // Flush handling functions
+    void processFlush();
+    void finalizeFlush();
+
+    // Events that trigger warp instruction dispatch, cache accesses injection
+    // and ejection, and warp instruction commit pipeline stages, respectively
+    EventWrapper<ShaderLSQ, &ShaderLSQ::dispatchWarpInst> dispatchInstEvent;
+    EventWrapper<ShaderLSQ, &ShaderLSQ::injectCacheAccesses> injectAccessesEvent;
+    EventWrapper<ShaderLSQ, &ShaderLSQ::ejectAccessResponses> ejectAccessesEvent;
+    EventWrapper<ShaderLSQ, &ShaderLSQ::commitWarpInst> commitInstEvent;
 
     // Stats
-    Stats::Scalar coalescerStalls;
-    Stats::Scalar responsePortStalls;
-    Stats::Scalar requestBufferFullStalls;
+    Stats::Histogram activeWarpInstBuffers;
+    Stats::Average accessesOutstandingToCache;
+    Stats::Scalar writebackBlockedCycles;
+    Stats::Scalar mshrHitQueued;
+    Stats::Scalar mshrsFullCycles;
+    Stats::Scalar mshrsFullCount;
 
-    Stats::Histogram warpCoalescedRequests;
+    Stats::Histogram warpCoalescedAccesses;
     Stats::Histogram warpLatencyRead;
     Stats::Histogram warpLatencyWrite;
     void regStats();

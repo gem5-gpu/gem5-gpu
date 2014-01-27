@@ -29,15 +29,15 @@
 
 Import('*')
 
-SimObject('NewShaderLSQ.py')
+SimObject('ShaderLSQ.py')
 SimObject('ShaderTLB.py')
 SimObject('GPUCopyEngine.py')
 
 Source('copy_engine.cc')
 Source('lsq_warp_inst_buffer.cc')
-Source('new_shader_lsq.cc')
+Source('shader_lsq.cc')
 Source('shader_tlb.cc')
 
-DebugFlag('NewShaderLSQ')
+DebugFlag('ShaderLSQ')
 DebugFlag('ShaderTLB')
 DebugFlag('GPUCopyEngine')

@@ -41,15 +41,19 @@ class ShaderLSQ(MemObject):
 
     data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
 
-    request_buffer_depth = Param.Int(16, "Max outstanding requests to the L1 cache")
+    inject_width = Param.Int(1, "Max requests sent to L1 per cycle")
+    eject_width = Param.Int(1, "Max cache lines to receive per cycle")
 
     warp_size = Param.Int(32, "Size of the warp")
+    cache_line_size = Param.Int("Cache line size in bytes")
     warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
+    num_warp_inst_buffers = Param.Int(64, "Maximum number of in-flight warp instructions")
 
-    # TODO: Fix LSQ coalescer serialization before this parameter can be adjusted
-    coalescing_latency = Param.Int(1, "Cycles of latency for the coalescer")
+    # Notes: Fermi back-to-back dependent warp load L1 hits are 19 SM cycles
+    # GPGPU-Sim models 5 cycles between LSQ completion and next issued load
+    latency = Param.Cycles(14, "Cycles of latency for single uncontested L1 hit")
+    l1_tag_cycles = Param.Cycles(4, "Cycles of latency L1 tag access")
 
     # currently only VI_hammer cache protocol supports flushing.
     # In VI_hammer only the L1 is flushed.
-    forward_flush = Param.Bool("Issue a flush all to ruby whenever the LSQ is \
-                               flushed")
+    forward_flush = Param.Bool("Issue a flush all to caches whenever the LSQ is flushed")
