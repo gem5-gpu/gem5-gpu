@@ -146,11 +146,12 @@ def createGPU(options, gpu_mem_range):
     gpu.warp_size = options.gpu_warp_size
 
     for sc in gpu.shader_cores:
-        sc.lsq = ShaderLSQ()
+        sc.lsq = NewShaderLSQ()
         sc.lsq.forward_flush = (buildEnv['PROTOCOL'] == 'VI_hammer_fusion' \
                                 and options.flush_kernel_end)
         sc.lsq.warp_size = options.gpu_warp_size
-        sc.lsq.request_buffer_depth = options.gpu_l1_buf_depth
+        sc.lsq.cache_line_size = options.cacheline_size
+#        sc.lsq.request_buffer_depth = options.gpu_l1_buf_depth
         if options.gpu_threads_per_core % options.gpu_warp_size:
             fatal("gpu_warp_size must divide gpu_threads_per_core evenly.")
         sc.lsq.warp_contexts = options.gpu_threads_per_core / options.gpu_warp_size

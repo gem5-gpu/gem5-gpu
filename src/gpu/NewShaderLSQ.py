@@ -1,6 +1,4 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2011 Mark D. Hill and David A. Wood
+# Copyright (c) 2012 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,17 +25,35 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-Import('*')
 
-SimObject('NewShaderLSQ.py')
-SimObject('ShaderTLB.py')
-SimObject('GPUCopyEngine.py')
+from MemObject import MemObject
+from ShaderTLB import ShaderTLB
+from m5.params import *
 
-Source('copy_engine.cc')
-Source('lsq_warp_inst_buffer.cc')
-Source('new_shader_lsq.cc')
-Source('shader_tlb.cc')
+class NewShaderLSQ(MemObject):
+    type = 'NewShaderLSQ'
+    cxx_class = 'NewShaderLSQ'
+    cxx_header = "gpu/new_shader_lsq.hh"
 
-DebugFlag('NewShaderLSQ')
-DebugFlag('ShaderTLB')
-DebugFlag('GPUCopyEngine')
+    cache_port = MasterPort("The data cache port for this LSQ")
+
+    lane_port = VectorSlavePort("the ports back to the shader core")
+
+    data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
+
+    inject_width = Param.Int(1, "Max requests sent to L1 per cycle")
+    eject_width = Param.Int(1, "Max cache lines to receive per cycle")
+
+    warp_size = Param.Int(32, "Size of the warp")
+    cache_line_size = Param.Int("Cache line size in bytes")
+    warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
+    num_warp_inst_buffers = Param.Int(64, "Maximum number of in-flight warp instructions")
+
+    # Notes: Fermi back-to-back dependent warp load L1 hits are 19 SM cycles
+    # GPGPU-Sim models 5 cycles between LSQ completion and next issued load
+    latency = Param.Cycles(14, "Cycles of latency for single uncontested L1 hit")
+    l1_tag_cycles = Param.Cycles(4, "Cycles of latency L1 tag access")
+
+    # currently only VI_hammer cache protocol supports flushing.
+    # In VI_hammer only the L1 is flushed.
+    forward_flush = Param.Bool("Issue a flush all to caches whenever the LSQ is flushed")
