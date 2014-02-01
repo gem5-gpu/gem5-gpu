@@ -224,10 +224,10 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
         incrementActiveWarpInstBuffers();
 
         // Schedule an event for when the dispatch buffer should be handled
-        schedule(dispatchInstEvent, nextCycle());
+        schedule(dispatchInstEvent, clockEdge(Cycles(0)));
         DPRINTF(ShaderLSQ, "[%d: ] Starting %s instruction at tick: %llu\n",
                 pkt->req->threadId(), (pkt->isRead() ? "load" : "store"),
-                nextCycle());
+                clockEdge(Cycles(0)));
     }
 
     bool request_added = dispatchWarpInstBuf->addLaneRequest(lane_id, pkt);
@@ -442,7 +442,7 @@ ShaderLSQ::scheduleRetryInject()
     mshrsFull = false;
     mshrsFullCycles += curCycle() - mshrsFullStarted;
     DPRINTF(ShaderLSQ, "[ : ] Unblocking MSHRs, restarting injection\n");
-    schedule(injectAccessesEvent, nextCycle());
+    schedule(injectAccessesEvent, clockEdge(Cycles(0)));
 }
 
 bool
@@ -486,16 +486,16 @@ ShaderLSQ::recvResponsePkt(PacketPtr pkt)
         injectBuffer.push_front(next_access);
         if (!mshrsFull) {
             if (injectAccessesEvent.scheduled()) {
-                reschedule(injectAccessesEvent, nextCycle());
+                reschedule(injectAccessesEvent, clockEdge(Cycles(0)));
             } else {
-                schedule(injectAccessesEvent, nextCycle());
+                schedule(injectAccessesEvent, clockEdge(Cycles(0)));
             }
         }
     }
 
     // If not scheduled, schedule ejectResponsesEvent
     if (!ejectAccessesEvent.scheduled()) {
-        schedule(ejectAccessesEvent, nextCycle());
+        schedule(ejectAccessesEvent, clockEdge(Cycles(0)));
     }
     DPRINTF(ShaderLSQ, "[%d: ] %s response for paddr: %p\n",
             mem_access->getWarpId(),
@@ -580,7 +580,7 @@ ShaderLSQ::retryCommitWarpInst()
     writebackBlocked = false;
     assert(!commitInstEvent.scheduled());
     if (!commitInstBuffer.empty()) {
-        schedule(commitInstEvent, nextCycle());
+        schedule(commitInstEvent, clockEdge(Cycles(0)));
     }
 }
 
