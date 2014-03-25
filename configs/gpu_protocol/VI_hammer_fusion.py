@@ -160,13 +160,70 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         gpu_cluster.add(l2_cluster)
         l2_clusters.append(l2_cluster)
 
+    ############################################################################
+    # Pagewalk cache
+    # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
+    #       cache coherence (as the GPU L1 caches are incoherent without flushes
+    #       The L2 cache is small, and should have minimal affect on the 
+    #       performance (see Section 6.2 of Power et al. HPCA 2014).
+    cache = L1Cache(size = options.pwc_size,
+                            assoc = 16, # 64 is fully associative @ 8kB
+                            replacement_policy = "LRU",
+                            start_index_bit = block_size_bits,
+                            latency = 8,
+                            resourceStalls = False)
+    # Small cache since CPU L1 requires I and D
+    cacheI = L1Cache(size = "512B",
+                            assoc = 2,
+                            replacement_policy = "LRU",
+                            start_index_bit = block_size_bits,
+                            latency = 8,
+                            resourceStalls = False)
+
+    # Small cache since CPU L1 controller requires L2
+    l2_cache = L2Cache(size = "512B",
+                           assoc = 2,
+                           start_index_bit = block_size_bits,
+                           latency = 1,
+                           resourceStalls = False)
+
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus,
+                                  cntrl_id = len(cpu_cluster)+len(gpu_cluster)+
+                                             len(dir_cntrls),
+                                  L1Icache = cacheI,
+                                  L1Dcache = cache,
+                                  L2cache = l2_cache,
+                                  send_evictions = False,
+                                  issue_latency = l1_to_l2_noc_latency,
+                                  cache_response_latency = 1,
+                                  l2_cache_hit_latency = 1,
+                                  number_of_TBEs = options.gpu_l1_buf_depth,
+                                  ruby_system = ruby_system)
+
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+                            icache = cache,
+                            dcache = cache,
+                            access_phys_mem = True,
+                            max_outstanding_requests = options.gpu_l1_buf_depth,
+                            ruby_system = ruby_system,
+                            deadlock_threshold = 2000000)
+
+    l1_cntrl.sequencer = cpu_seq
+
+
+    ruby_system.l1_pw_cntrl = l1_cntrl
+    all_sequencers.append(cpu_seq)
+
+    gpu_cluster.add(l1_cntrl)
+
+
     #
     # Create controller for the copy engine to connect to in GPU cluster
     # Cache is unused by controller
     #
     cache = L1Cache(size = "4096B", assoc = 2)
 
-    gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+    gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc+1,
                                icache = cache,
                                dcache = cache,
                                access_phys_mem = True,

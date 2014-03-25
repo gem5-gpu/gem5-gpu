@@ -35,14 +35,14 @@
 #include "arch/x86/pagetable_walker.hh"
 #include "debug/ShaderTLB.hh"
 #include "gpu/shader_tlb.hh"
+#include "gpu/gpgpu-sim/cuda_gpu.hh"
 
 using namespace std;
 using namespace X86ISA;
 
 ShaderTLB::ShaderTLB(const Params *p) :
-    BaseTLB(p), x86tlb(p->x86tlb), numEntries(p->entries),
-    hitLatency(p->hit_latency), cudaGPU(p->gpu),
-    accessHostPageTable(p->access_host_pagetable)
+    BaseTLB(p), numEntries(p->entries), hitLatency(p->hit_latency),
+    cudaGPU(p->gpu), accessHostPageTable(p->access_host_pagetable)
 {
     if (numEntries > 0) {
         tlbMemory = new TLBMemory(p->entries, p->associativity);
@@ -125,7 +125,7 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
         misses++;
         translation->markDelayed();
 
-        mmu->handleTLBMiss(x86tlb, this, translation, req, mode, tc);
+        mmu->beginTLBMiss(this, translation, req, mode, tc);
     }
 }
 
@@ -149,14 +149,17 @@ ShaderTLB::flushAll()
 }
 
 bool
-TLBMemory::lookup(Addr vpn, Addr& ppn)
+TLBMemory::lookup(Addr vpn, Addr& ppn, bool set_mru)
 {
     int way = (vpn / TheISA::PageBytes) % ways;
     for (int i=0; i < sets; i++) {
         if (entries[way][i].vpn == vpn && !entries[way][i].free) {
             ppn = entries[way][i].ppn;
             assert(entries[way][i].mruTick > 0);
-            entries[way][i].setMRU();
+            if (set_mru) {
+                entries[way][i].setMRU();
+            }
+            entries[way][i].hits++;
             return true;
         }
     }
@@ -172,7 +175,7 @@ TLBMemory::insert(Addr vpn, Addr ppn)
         return;
     }
     int way = (vpn / TheISA::PageBytes) % ways;
-    TLBEntry* entry = NULL;
+    GPUTlbEntry* entry = NULL;
     Tick minTick = curTick();
     for (int i=0; i < sets; i++) {
         if (entries[way][i].free) {

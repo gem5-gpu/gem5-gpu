@@ -61,7 +61,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu-l2-resource-stalls", action="store_true", default=False)
     parser.add_option("--gpu_tlb_entries", type="int", default=0, help="Number of entries in GPU TLB. 0 implies infinite")
     parser.add_option("--gpu_tlb_assoc", type="int", default=0, help="Associativity of the L1 TLB. 0 implies infinite")
-    parser.add_option("--gpu_tlb_bypass_l1", default=True, action='store_true', help="Bypass the L1 cache on TLB accesses")
+    parser.add_option("--pwc_size", default="8kB", help="Capacity of the page walk cache")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -132,6 +132,13 @@ def parseGpgpusimConfig(options):
         end = config.find('\n', start)
         options.gpu_warp_size = int(config[start:end])
 
+    if options.pwc_size == "0":
+        # Bypass the shared L1 cache
+        options.gpu_tlb_bypass_l1 = True
+    else:
+        # Do not bypass the page walk cache
+        options.gpu_tlb_bypass_l1 = False
+
     return gpgpusimconfig
 
 def createGPU(options, gpu_mem_range):
@@ -177,21 +184,17 @@ def createGPU(options, gpu_mem_range):
 def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
         sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        sc.itb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
-        sc.itb.x86tlb.walker.bypass_l1 = options.gpu_tlb_bypass_l1
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        sc.lsq.data_tlb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
-        sc.lsq.data_tlb.x86tlb.walker.bypass_l1 = options.gpu_tlb_bypass_l1
 
     gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-    gpu.ce.host_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave)
     if options.split:
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
         gpu.ce.device_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave)
     else:
         # With a unified address space, tie both copy engine ports to the same
         # copy engine controller
-        gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-        gpu.ce.device_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave)
+        gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+
+    gpu.shader_mmu.setUpPagewalkers(32, ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave, options.gpu_tlb_bypass_l1)

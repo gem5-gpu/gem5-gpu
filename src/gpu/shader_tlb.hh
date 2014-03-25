@@ -30,39 +30,43 @@
 #define SHADER_TLB_HH_
 
 #include <map>
+#include <set>
 
 #include "arch/x86/tlb.hh"
 #include "base/statistics.hh"
-#include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "params/ShaderTLB.hh"
 #include "sim/tlb.hh"
 
 class ShaderMMU;
+class CudaGPU;
 
-class TlbEntry {
+class GPUTlbEntry {
 public:
     Addr vpn;
     Addr ppn;
     bool free;
     Tick mruTick;
-    TlbEntry() : vpn(0), ppn(0), free(true), mruTick(0) {}
+    uint32_t hits;
+    GPUTlbEntry() : vpn(0), ppn(0), free(true), mruTick(0), hits(0) {}
     void setMRU() { mruTick = curTick(); }
 };
 
 class BaseTLBMemory {
 public:
-    virtual bool lookup(Addr vpn, Addr& ppn) = 0;
+    virtual bool lookup(Addr vpn, Addr& ppn, bool set_mru=true) = 0;
     virtual void insert(Addr vpn, Addr ppn) = 0;
 };
 
-class TLBMemory : BaseTLBMemory {
+class TLBMemory : public BaseTLBMemory {
     int numEntries;
     int sets;
     int ways;
 
-    TlbEntry **entries;
+    GPUTlbEntry **entries;
+
 protected:
     TLBMemory() {}
+
 public:
     TLBMemory(int _numEntries, int associativity) :
         numEntries(_numEntries), sets(associativity)
@@ -72,9 +76,9 @@ public:
         }
         assert(numEntries % sets == 0);
         ways = numEntries/sets;
-        entries = new TlbEntry*[ways];
+        entries = new GPUTlbEntry*[ways];
         for (int i=0; i < ways; i++) {
-            entries[i] = new TlbEntry[sets];
+            entries[i] = new GPUTlbEntry[sets];
         }
     }
     ~TLBMemory()
@@ -85,7 +89,7 @@ public:
         delete[] entries;
     }
 
-    virtual bool lookup(Addr vpn, Addr& ppn);
+    virtual bool lookup(Addr vpn, Addr& ppn, bool set_mru=true);
     virtual void insert(Addr vpn, Addr ppn);
 };
 
@@ -95,7 +99,7 @@ public:
     InfiniteTLBMemory() {}
     ~InfiniteTLBMemory() {}
 
-    bool lookup(Addr vpn, Addr& ppn)
+    bool lookup(Addr vpn, Addr& ppn, bool set_mru=true)
     {
         auto it = entries.find(vpn);
         if (it != entries.end()) {
@@ -115,9 +119,6 @@ public:
 class ShaderTLB : public BaseTLB
 {
 private:
-
-    X86ISA::TLB *x86tlb;
-
     unsigned numEntries;
 
     Cycles hitLatency;
@@ -131,23 +132,6 @@ private:
     void translateTiming(RequestPtr req, ThreadContext *tc,
                          Translation *translation, Mode mode);
 
-    class TranslationWrapper : public BaseTLB::Translation
-    {
-    private:
-        ShaderTLB *tlb;
-        BaseTLB::Translation *wrappedTranslation;
-    public:
-        TranslationWrapper(ShaderTLB *_tlb, BaseTLB::Translation *translation)
-            : tlb(_tlb), wrappedTranslation(translation)
-        {}
-        void markDelayed() { wrappedTranslation->markDelayed(); }
-        void finish(Fault fault, RequestPtr req, ThreadContext *tc, Mode mode)
-        {
-            tlb->finishTranslation(fault, req, tc, mode, wrappedTranslation);
-            delete this;
-        }
-    };
-
     ShaderMMU *mmu;
 
 public:
@@ -157,15 +141,14 @@ public:
     // For checkpoint restore (empty unserialize)
     virtual void unserialize(Checkpoint *cp, const std::string &section);
 
-    void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode);
+    void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation,
+                              BaseTLB::Mode mode);
 
     void finishTranslation(Fault fault, RequestPtr req, ThreadContext *tc,
                            Mode mode, Translation* origTranslation);
 
     void demapPage(Addr addr, uint64_t asn);
     void flushAll();
-
-    void processRetryFaultEvent() {panic("This was called");}
 
     void insert(Addr vpn, Addr ppn);
 

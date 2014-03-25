@@ -27,13 +27,32 @@
 # Authors: Jason Power
 #
 
-from m5.SimObject import SimObject
+from ClockedObject import ClockedObject
+from X86TLB import X86TLB
 from m5.params import *
 from m5.proxy import *
 
-class ShaderMMU(SimObject):
+class ShaderMMU(ClockedObject):
     type = 'ShaderMMU'
     cxx_class = 'ShaderMMU'
     cxx_header = "gpu/shader_mmu.hh"
 
+    pagewalkers = VectorParam.X86TLB("wrapped TLB")
+
+    latency = Param.Int(20, "Round trip latency for requests from L1 TLBs")
+
+    l2_tlb_entries = Param.Int(0, "Number of entries in the L2 TLB (0=>no L2)")
+    l2_tlb_assoc = Param.Int(4, "Associativity of the L2 TLB (0 => full)")
+
+    prefetch_buffer_size = Param.Int(0, "Size of the prefetch buffer")
+
+    def setUpPagewalkers(self, num, port, bypass_l1):
+        tlbs = []
+        for i in range(num):
+            # set to only a single entry here so that all requests are misses
+            t = X86TLB(size=1)
+            t.walker.port = port
+            t.walker.bypass_l1 = bypass_l1
+            tlbs.append(t)
+        self.pagewalkers = tlbs
 

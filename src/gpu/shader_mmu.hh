@@ -32,21 +32,50 @@
 #define SHADER_MMU_HH_
 
 #include <list>
+#include <map>
 #include <queue>
+#include <set>
 
 #include "arch/x86/tlb.hh"
 #include "base/statistics.hh"
 #include "debug/ShaderMMU.hh"
 #include "params/ShaderMMU.hh"
+#include "gpu/shader_tlb.hh"
 #include "sim/faults.hh"
 #include "sim/tlb.hh"
 
-class CudaGPU;
-class ShaderTLB;
-
-class ShaderMMU : public SimObject
+class ShaderMMU : public ClockedObject
 {
 private:
+    std::vector<X86ISA::TLB*> pagewalkers;
+    std::vector<bool> activeWalkers;
+
+    // Latency for requests to reach the MMU from the L1 TLBs
+    Cycles latency;
+
+    class TLBMissEvent : public Event
+    {
+        ShaderMMU *mmu;
+        ShaderTLB *tlb;
+        BaseTLB::Translation *translation;
+        RequestPtr req;
+        BaseTLB::Mode mode;
+        ThreadContext *tc;
+    public:
+        TLBMissEvent(ShaderMMU *_mmu, ShaderTLB *_tlb,
+                     BaseTLB::Translation *_translation, RequestPtr _req,
+                     BaseTLB::Mode _mode, ThreadContext *_tc) :
+            mmu(_mmu), tlb(_tlb), translation(_translation), req(_req),
+            mode(_mode), tc(_tc)
+        {
+            setFlags(Event::AutoDelete);
+        }
+        void process() {
+            mmu->handleTLBMiss(tlb, translation, req, mode, tc);
+        }
+    };
+
+    TLBMemory *tlb;
 
     class TranslationRequest : public BaseTLB::Translation
     {
@@ -60,11 +89,14 @@ private:
         ThreadContext *tc;
         Addr vpn;
         Cycles beginFault;
+        Cycles beginWalk;
+        bool prefetch;
 
     public:
-        TranslationRequest(ShaderMMU *_mmu, ShaderTLB *_tlb, X86ISA::TLB *pw,
+        TranslationRequest(ShaderMMU *_mmu, ShaderTLB *_tlb,
                            BaseTLB::Translation *translation, RequestPtr _req,
-                           BaseTLB::Mode _mode, ThreadContext *_tc);
+                           BaseTLB::Mode _mode, ThreadContext *_tc,
+                           bool prefetch=false);
         void markDelayed() { wrappedTranslation->markDelayed(); }
         void finish(Fault fault, RequestPtr _req, ThreadContext *_tc,
                     BaseTLB::Mode _mode)
@@ -74,7 +106,11 @@ private:
             assert(_tc == tc);
             mmu->finishWalk(this, fault);
         }
-        void walk() {
+        void walk(X86ISA::TLB *walker) {
+            beginWalk = mmu->curCycle();
+            assert(walker != NULL);
+            pageWalker = walker;
+            mmu->numPagewalks++;
             pageWalker->translateTiming(req, tc, this, mode);
         }
     };
@@ -86,29 +122,48 @@ private:
         Retrying // Retrying the pagetable walk. May not be complete yet.
     };
 
+    std::queue<TranslationRequest*> pendingWalks;
+    std::map<Addr, std::list<TranslationRequest*> > outstandingWalks;
     std::queue<TranslationRequest*> pendingFaults;
 
     FaultStatus outstandingFaultStatus;
     TranslationRequest *outstandingFaultInfo;
-    std::list<TranslationRequest*> coalescedFaults;
+
+    unsigned int curOutstandingWalks;
+
+    std::map<Addr, GPUTlbEntry> prefetchBuffer;
+    int prefetchBufferSize;
+    int prefetchAheadDistance;
 
     void finalizeTranslation(TranslationRequest *translation);
 
     /// Handle a page fault from a shader TLB
     void handlePageFault(TranslationRequest *translation);
 
-    /// For stats collection
-    std::map<ShaderTLB *, unsigned int> outstandingWalks;
+    void setWalkerFree(X86ISA::TLB *walker);
+    X86ISA::TLB *getFreeWalker();
+
+    // Log the vpn of the access. If we detect a pattern issue the prefetch
+    // This is currently just a simple 1-ahead prefetcher
+    void tryPrefetch(Addr vpn, ThreadContext *tc);
+
+    // Insert prefetch into prefetch buffer
+    void insertPrefetch(Addr vpn, Addr ppn);
 
 public:
     /// Constructor
     typedef ShaderMMUParams Params;
     ShaderMMU(const Params *p);
+    ~ShaderMMU();
+
+    /// Called from TLBMissEvent after latency cycles has passed since
+    /// beginTLBMiss
+    void handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
+                       RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc);
 
     /// Called when a shader tlb has a miss
-    void handleTLBMiss(X86ISA::TLB *pw_wrapper, ShaderTLB *req_tlb,
-                       BaseTLB::Translation *translation, RequestPtr req,
-                       BaseTLB::Mode mode, ThreadContext *tc);
+    void beginTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
+                      RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc);
 
     // Called after the pagetable walk from TranslationRequest
     void finishWalk(TranslationRequest *translation, Fault fault);
@@ -120,8 +175,16 @@ public:
 
     Stats::Scalar numPagefaults;
     Stats::Scalar numPagewalks;
+    Stats::Scalar totalRequests;
+    Stats::Scalar retryFailures;
+    Stats::Scalar l2hits;
+    Stats::Scalar prefetchHits;
+    Stats::Scalar numPrefetches;
+    Stats::Scalar prefetchFaults;
+
     Stats::Histogram pagefaultLatency;
     Stats::Histogram concurrentWalks;
+    Stats::Histogram pagewalkLatency;
 };
 
 #endif // SHADER_MMU_HH_
