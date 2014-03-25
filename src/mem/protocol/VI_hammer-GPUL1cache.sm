@@ -18,7 +18,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     I, AccessPermission:Invalid, desc="Not Present/Invalid";
     V, AccessPermission:Read_Only, desc="Valid";
 
-    IA, AccessPermission:Busy, desc="Invalid, but waiting for ack from L2";
+    IA, AccessPermission:Busy, desc="Invalid, but waiting for ack or data from L2";
 
     V_a, AccessPermission:Read_Only, desc="Valid waiting for other atomic (locked & blocking)";
     VI_a, AccessPermission:Busy, desc="Modified by atomic, issued PUT";
@@ -36,6 +36,8 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     Store,      desc="Store request from processor";
     Flush_line, desc="Invalidate the line if valid";
     FlashInv,   desc="Invalidate the line if valid";
+
+    BypassLoad, desc="Just like load, but we don't allocate a line";
 
     Atomic,     desc="Atomic request from processor";
 
@@ -108,6 +110,8 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   Event mandatory_request_type_to_event(RubyRequestType type) {
    if (type == RubyRequestType:LD) {
       return Event:Load;
+    } else if (type == RubyRequestType:LD_Bypass) {
+      return Event:BypassLoad;
     } else if (type == RubyRequestType:IFETCH) {
       return Event:Ifetch;
     } else if (type == RubyRequestType:ST)  {
@@ -355,6 +359,16 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     }
   }
 
+  action(rb_load_hit, "rb", desc="Bypass load completed.") {
+    peek(responseNetwork_in, ResponseMsgVI) {
+      assert(is_valid(tbe));
+      tbe.DataBlk := in_msg.DataBlk;
+      DPRINTF(RubySlicc,"%s\n", tbe.DataBlk);
+      sequencer.readCallback(address, tbe.DataBlk, true,
+                             machineIDToMachineType(in_msg.Sender));
+    }
+  }
+
   action(s_store_hit, "i", desc="Notify sequencer that store completed.") {
     // To make Ruby happy. We already wrote the data to L2 in b_issuePUT
     sequencer.writeCallback(address, temp_store_data, false,
@@ -416,7 +430,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   // TRANSITIONS
 
-  transition({IV, IA, IV_a, VI_a}, {Load, Ifetch, Store, Flush_line, Replacement, Atomic}) {} {
+  transition({IV, IA, IV_a, VI_a}, {Load, Ifetch, Store, BypassLoad, Flush_line, Replacement, Atomic}) {} {
     zz_stallAndWaitMandatoryQueue;
   }
 
@@ -446,6 +460,14 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     m_popMandatoryQueue;
   }
 
+  transition(V, BypassLoad, IA) {TagArrayRead, TagArrayWrite, DataArrayRead} {
+    p_profileMiss;
+    v_allocateTBE;
+    h_deallocateL1CacheBlock;
+    a_issueRequest;
+    m_popMandatoryQueue;
+  }
+
   transition(I, {Load, Ifetch}, IV) {TagArrayRead} {
     p_profileMiss;
     v_allocateTBE;
@@ -455,6 +477,13 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   transition(V, Replacement, I) {} {
     h_deallocateL1CacheBlock;
+  }
+
+  transition(I, BypassLoad, IA) {TagArrayRead} {
+    p_profileMiss;
+    v_allocateTBE;
+    a_issueRequest;
+    m_popMandatoryQueue;
   }
 
   transition(IV, Data, V) {TagArrayWrite, DataArrayWrite} {
@@ -506,6 +535,13 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     s_store_hit;
     w_deallocateTBE;
     n_popResponseQueue;
+  }
+
+  transition(IA, Data, I) {
+    rb_load_hit;
+    w_deallocateTBE;
+    n_popResponseQueue;
+    ka_wakeUpAllDependents;
   }
 
   transition(V, Flush_line, I) {TagArrayRead, TagArrayWrite} {

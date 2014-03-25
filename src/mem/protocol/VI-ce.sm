@@ -71,7 +71,7 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
   in_port(dmaRequestQueue_in, RubyRequest, mandatoryQueue, desc="...") {
     if (dmaRequestQueue_in.isReady()) {
       peek(dmaRequestQueue_in, RubyRequest, block_on="LineAddress") {
-        if (in_msg.Type == RubyRequestType:LD) {
+        if (in_msg.Type == RubyRequestType:LD || in_msg.Type == RubyRequestType:LD_Bypass) {
           trigger(Event:ReadRequest, in_msg.LineAddress, TBEs[in_msg.LineAddress]);
         } else if (in_msg.Type == RubyRequestType:ST) {
           trigger(Event:WriteRequest, in_msg.LineAddress, TBEs[in_msg.LineAddress]);

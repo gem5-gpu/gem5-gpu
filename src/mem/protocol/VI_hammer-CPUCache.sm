@@ -275,7 +275,7 @@ machine({L1Cache, L2Cache}, "AMD Hammer-like protocol")
   }
 
   Event mandatory_request_type_to_event(RubyRequestType type) {
-    if (type == RubyRequestType:LD) {
+    if (type == RubyRequestType:LD || type == RubyRequestType:LD_Bypass) {
       return Event:Load;
     } else if (type == RubyRequestType:IFETCH) {
       return Event:Ifetch;
@@ -1163,6 +1163,7 @@ machine({L1Cache, L2Cache}, "AMD Hammer-like protocol")
   action(u_writeDataToCache, "u", desc="Write data to cache") {
     peek(responseToCache_in, ResponseMsg) {
       assert(is_valid(cache_entry));
+      DPRINTF(RubySlicc, "%s\n", in_msg.DataBlk);
       cache_entry.DataBlk := in_msg.DataBlk;
       cache_entry.Dirty := in_msg.Dirty;
     }
