@@ -33,6 +33,7 @@
 #include <map>
 
 #include "arch/utility.hh"
+#include "arch/x86/regs/misc.hh"
 #include "arch/vtophys.hh"
 #include "api/gpu_syscall_helper.hh"
 #include "base/chunk_generator.hh"
@@ -66,7 +67,7 @@ CudaGPU::CudaGPU(const Params *p) :
     runningStream(NULL), runningTID(-1), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
-    gpuMemoryRange(p->gpu_memory_range)
+    gpuMemoryRange(p->gpu_memory_range), shaderMMU(p->shader_mmu)
 {
     // Register this device as a CUDA-enabled GPU
     cudaDeviceID = registerCudaDevice(this);

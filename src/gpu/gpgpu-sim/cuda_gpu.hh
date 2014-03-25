@@ -42,6 +42,7 @@
 #include "sim/process.hh"
 #include "sim/system.hh"
 #include "stream_manager.h"
+#include "gpu/shader_mmu.hh"
 
 // @TODO: Fix the dependencies between sp_array and copy_engine, and
 // sort these includes into the set above as necessary
@@ -319,6 +320,8 @@ class CudaGPU : public ClockedObject
     Addr virtualGPUBrkAddr;
     std::map<Addr,size_t> allocatedGPUMemory;
 
+    ShaderMMU *shaderMMU;
+
     CudaDeviceProperties deviceProperties;
 
   public:
@@ -355,6 +358,11 @@ class CudaGPU : public ClockedObject
      * Called from GPGPU-Sim when the kernel completes on all shaders
      */
     void finishKernel(int grid_id);
+
+    void handleFinishPageFault(ThreadContext *tc)
+        { shaderMMU->handleFinishPageFault(tc); }
+
+    ShaderMMU *getMMU() { return shaderMMU; }
 
     /// Called from GPGPU-Sim next_clock_domain and schedules cycle() to be run
     /// gpuTicks (in GPPGU-Sim tick (seconds)) from now
@@ -472,7 +480,6 @@ class GPUExitCallback : public Callback
 
     virtual void process();
 };
-
 
 #endif
 

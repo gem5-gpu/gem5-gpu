@@ -37,6 +37,7 @@
 #include "params/ShaderTLB.hh"
 #include "sim/tlb.hh"
 
+class ShaderMMU;
 
 class TlbEntry {
 public:
@@ -130,8 +131,6 @@ private:
     void translateTiming(RequestPtr req, ThreadContext *tc,
                          Translation *translation, Mode mode);
 
-    void insert(Addr vpn, Addr ppn);
-
     class TranslationWrapper : public BaseTLB::Translation
     {
     private:
@@ -149,6 +148,8 @@ private:
         }
     };
 
+    ShaderMMU *mmu;
+
 public:
     typedef ShaderTLBParams Params;
     ShaderTLB(const Params *p);
@@ -163,6 +164,10 @@ public:
 
     void demapPage(Addr addr, uint64_t asn);
     void flushAll();
+
+    void processRetryFaultEvent() {panic("This was called");}
+
+    void insert(Addr vpn, Addr ppn);
 
     void regStats();
 

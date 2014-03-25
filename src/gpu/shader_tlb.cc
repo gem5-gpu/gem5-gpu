@@ -49,6 +49,7 @@ ShaderTLB::ShaderTLB(const Params *p) :
     } else {
         tlbMemory = new InfiniteTLBMemory();
     }
+    mmu = cudaGPU->getMMU();
 }
 
 void
@@ -124,27 +125,8 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
         misses++;
         translation->markDelayed();
 
-        // Wrap the translation in another class so we can catch the insertion
-        TranslationWrapper *wrapper = new TranslationWrapper(this, translation);
-
-        x86tlb->translateTiming(req, tc, wrapper, mode);
+        mmu->handleTLBMiss(x86tlb, this, translation, req, mode, tc);
     }
-}
-
-void
-ShaderTLB::finishTranslation(Fault fault, RequestPtr req, ThreadContext *tc,
-                             Mode mode, Translation* origTranslation)
-{
-    DPRINTF(ShaderTLB, "Walk finished for vaddr %#x. Paddr %#x\n",
-            req->getVaddr(), req->getPaddr());
-
-    if (fault == NoFault) {
-        Addr vpn = req->getVaddr() - req->getVaddr() % TheISA::PageBytes;
-        Addr ppn = req->getPaddr() - req->getPaddr() % TheISA::PageBytes;
-        insert(vpn, ppn);
-    }
-    // Forward the translation on
-    origTranslation->finish(fault, req, tc, mode);
 }
 
 void
