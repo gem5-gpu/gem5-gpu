@@ -61,6 +61,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu-l2-resource-stalls", action="store_true", default=False)
     parser.add_option("--gpu_tlb_entries", type="int", default=0, help="Number of entries in GPU TLB. 0 implies infinite")
     parser.add_option("--gpu_tlb_assoc", type="int", default=0, help="Associativity of the L1 TLB. 0 implies infinite")
+    parser.add_option("--gpu_tlb_bypass_l1", default=True, action='store_true', help="Bypass the L1 cache on TLB accesses")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -177,10 +178,12 @@ def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
         sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
         sc.itb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
+        sc.itb.x86tlb.walker.bypass_l1 = options.gpu_tlb_bypass_l1
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
         sc.lsq.data_tlb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
+        sc.lsq.data_tlb.x86tlb.walker.bypass_l1 = options.gpu_tlb_bypass_l1
 
     gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
     gpu.ce.host_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave)
