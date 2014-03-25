@@ -29,18 +29,127 @@
 #ifndef SHADER_TLB_HH_
 #define SHADER_TLB_HH_
 
+#include <map>
+
 #include "arch/x86/tlb.hh"
+#include "base/statistics.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "params/ShaderTLB.hh"
+#include "sim/tlb.hh"
 
-class ShaderTLB : public X86ISA::TLB
+
+class TlbEntry {
+public:
+    Addr vpn;
+    Addr ppn;
+    bool free;
+    Tick mruTick;
+    TlbEntry() : vpn(0), ppn(0), free(true), mruTick(0) {}
+    void setMRU() { mruTick = curTick(); }
+};
+
+class BaseTLBMemory {
+public:
+    virtual bool lookup(Addr vpn, Addr& ppn) = 0;
+    virtual void insert(Addr vpn, Addr ppn) = 0;
+};
+
+class TLBMemory : BaseTLBMemory {
+    int numEntries;
+    int sets;
+    int ways;
+
+    TlbEntry **entries;
+protected:
+    TLBMemory() {}
+public:
+    TLBMemory(int _numEntries, int associativity) :
+        numEntries(_numEntries), sets(associativity)
+    {
+        if (sets == 0) {
+            sets = numEntries;
+        }
+        assert(numEntries % sets == 0);
+        ways = numEntries/sets;
+        entries = new TlbEntry*[ways];
+        for (int i=0; i < ways; i++) {
+            entries[i] = new TlbEntry[sets];
+        }
+    }
+    ~TLBMemory()
+    {
+        for (int i=0; i < sets; i++) {
+            delete[] entries[i];
+        }
+        delete[] entries;
+    }
+
+    virtual bool lookup(Addr vpn, Addr& ppn);
+    virtual void insert(Addr vpn, Addr ppn);
+};
+
+class InfiniteTLBMemory : public BaseTLBMemory {
+    std::map<Addr, Addr> entries;
+public:
+    InfiniteTLBMemory() {}
+    ~InfiniteTLBMemory() {}
+
+    bool lookup(Addr vpn, Addr& ppn)
+    {
+        auto it = entries.find(vpn);
+        if (it != entries.end()) {
+            ppn = it->second;
+            return true;
+        } else {
+            ppn = Addr(0);
+            return false;
+        }
+    }
+    void insert(Addr vpn, Addr ppn)
+    {
+        entries[vpn] = ppn;
+    }
+};
+
+class ShaderTLB : public BaseTLB
 {
-  private:
+private:
+
+    X86ISA::TLB *x86tlb;
+
+    unsigned numEntries;
+
+    Cycles hitLatency;
+
     // Pointer to the SPA to access the page table
     CudaGPU* cudaGPU;
     bool accessHostPageTable;
 
-  public:
+    BaseTLBMemory *tlbMemory;
+
+    void translateTiming(RequestPtr req, ThreadContext *tc,
+                         Translation *translation, Mode mode);
+
+    void insert(Addr vpn, Addr ppn);
+
+    class TranslationWrapper : public BaseTLB::Translation
+    {
+    private:
+        ShaderTLB *tlb;
+        BaseTLB::Translation *wrappedTranslation;
+    public:
+        TranslationWrapper(ShaderTLB *_tlb, BaseTLB::Translation *translation)
+            : tlb(_tlb), wrappedTranslation(translation)
+        {}
+        void markDelayed() { wrappedTranslation->markDelayed(); }
+        void finish(Fault fault, RequestPtr req, ThreadContext *tc, Mode mode)
+        {
+            tlb->finishTranslation(fault, req, tc, mode, wrappedTranslation);
+            delete this;
+        }
+    };
+
+public:
     typedef ShaderTLBParams Params;
     ShaderTLB(const Params *p);
 
@@ -48,6 +157,18 @@ class ShaderTLB : public X86ISA::TLB
     virtual void unserialize(Checkpoint *cp, const std::string &section);
 
     void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation, BaseTLB::Mode mode);
+
+    void finishTranslation(Fault fault, RequestPtr req, ThreadContext *tc,
+                           Mode mode, Translation* origTranslation);
+
+    void demapPage(Addr addr, uint64_t asn);
+    void flushAll();
+
+    void regStats();
+
+    Stats::Scalar hits;
+    Stats::Scalar misses;
+    Stats::Formula hitRate;
 };
 
 #endif /* SHADER_TLB_HH_ */

@@ -133,6 +133,8 @@ class WarpInstBuffer {
 
         void setInjectCycle(Cycles inject_time) { injectTime = inject_time; }
         Cycles getInjectCycle() { return injectTime; }
+
+        Cycles tlbStartCycle;
     };
 
   private:

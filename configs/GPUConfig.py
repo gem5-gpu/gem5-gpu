@@ -59,6 +59,8 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_threads_per_core", type="int", default=1536, help="Maximum number of threads per GPU core (SM)")
     parser.add_option("--gpgpusim-config", type="string", default=None, help="Path to the gpgpusim.config to use. This overrides the gpgpusim.config template")
     parser.add_option("--gpu-l2-resource-stalls", action="store_true", default=False)
+    parser.add_option("--gpu_tlb_entries", type="int", default=0, help="Number of entries in GPU TLB. 0 implies infinite")
+    parser.add_option("--gpu_tlb_assoc", type="int", default=0, help="Associativity of the L1 TLB. 0 implies infinite")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -147,6 +149,7 @@ def createGPU(options, gpu_mem_range):
 
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()
+        sc.lsq.data_tlb.entries = options.gpu_tlb_entries
         sc.lsq.forward_flush = (buildEnv['PROTOCOL'] == 'VI_hammer_fusion' \
                                 and options.flush_kernel_end)
         sc.lsq.warp_size = options.gpu_warp_size
@@ -173,19 +176,19 @@ def createGPU(options, gpu_mem_range):
 def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
         sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        sc.itb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.itb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
-        sc.lsq.data_tlb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.lsq.data_tlb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+i].slave)
 
     gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-    gpu.ce.host_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    gpu.ce.host_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave)
     if options.split:
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
-        gpu.ce.device_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+        gpu.ce.device_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave)
     else:
         # With a unified address space, tie both copy engine ports to the same
         # copy engine controller
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
-        gpu.ce.device_dtb.walker.port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+        gpu.ce.device_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave)

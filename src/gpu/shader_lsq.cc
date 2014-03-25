@@ -291,6 +291,7 @@ ShaderLSQ::issueWarpInstTranslations(WarpInstBuffer *warp_inst)
         DataTranslation<ShaderLSQ*> *translation
                 = new DataTranslation<ShaderLSQ*>(this, state);
 
+        mem_access->tlbStartCycle = curCycle();
         tlb->beginTranslateTiming(req, translation, mode);
     }
 }
@@ -322,6 +323,10 @@ ShaderLSQ::finishTranslation(WholeTranslationState *state)
     pkt->allocate();
     if (pkt->isWrite())
         pkt->setData(mem_access->getPktData());
+
+    if (state->delay) {
+        tlbMissLatency.sample(curCycle() - mem_access->tlbStartCycle);
+    }
 
     delete state;
 
@@ -661,6 +666,11 @@ ShaderLSQ::regStats()
     warpLatencyWrite
         .name(name() + ".warpLatencyWrite")
         .desc("Latency in cycles for whole warp to finish the write")
+        .init(16)
+        ;
+    tlbMissLatency
+        .name(name() + ".tlbMissLatency")
+        .desc("Latency in cycles for TLB miss")
         .init(16)
         ;
 }

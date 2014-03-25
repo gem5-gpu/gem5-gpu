@@ -281,6 +281,7 @@ class ShaderLSQ : public MemObject
     Stats::Histogram warpCoalescedAccesses;
     Stats::Histogram warpLatencyRead;
     Stats::Histogram warpLatencyWrite;
+    Stats::Histogram tlbMissLatency;
     void regStats();
 
 };
