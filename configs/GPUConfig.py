@@ -191,7 +191,7 @@ def connectGPUPorts(gpu, ruby, options):
     gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
     if options.split:
         gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
-        gpu.ce.device_dtb.setWalkerPort(ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave)
+        gpu.ce.device_dtb.access_host_pagetable = False
     else:
         # With a unified address space, tie both copy engine ports to the same
         # copy engine controller

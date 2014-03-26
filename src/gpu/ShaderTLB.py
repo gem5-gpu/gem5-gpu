@@ -45,6 +45,3 @@ class ShaderTLB(BaseTLB):
 
     hit_latency = Param.Cycles(1, "number of cycles for a hit")
 
-    def setWalkerPort(self, port):
-        self.x86tlb.walker.port = port
-
