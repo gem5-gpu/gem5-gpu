@@ -125,6 +125,54 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
         cntrl_count += 1
 
+    ############################################################################
+    # Pagewalk cache
+    # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
+    #       cache coherence (as the GPU L1 caches are incoherent without flushes
+    #       The L2 cache is small, and should have minimal affect on the
+    #       performance (see Section 6.2 of Power et al. HPCA 2014).
+    pwd_cache = L1Cache(size = options.pwc_size,
+                            assoc = 16, # 64 is fully associative @ 8kB
+                            replacement_policy = "LRU",
+                            start_index_bit = block_size_bits,
+                            latency = 8,
+                            resourceStalls = False)
+    # Small cache since CPU L1 requires I and D
+    pwi_cache = L1Cache(size = "512B",
+                            assoc = 2,
+                            replacement_policy = "LRU",
+                            start_index_bit = block_size_bits,
+                            latency = 8,
+                            resourceStalls = False)
+
+    prefetcher = RubyPrefetcher.Prefetcher()
+
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
+                                  cntrl_id = len(topology),
+                                  send_evictions = False,
+                                  L1Icache = pwi_cache,
+                                  L1Dcache = pwd_cache,
+                                  l2_select_num_bits = l2_bits,
+                                  prefetcher = prefetcher,
+                                  ruby_system = ruby_system,
+                                  enable_prefetch = False)
+
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+                            icache = pwd_cache, # Never get data from pwi_cache
+                            dcache = pwd_cache,
+                            access_phys_mem = True,
+                            max_outstanding_requests = options.gpu_l1_buf_depth,
+                            ruby_system = ruby_system,
+                            deadlock_threshold = 2000000)
+
+    l1_cntrl.sequencer = cpu_seq
+
+
+    ruby_system.l1_pw_cntrl = l1_cntrl
+    cpu_sequencers.append(cpu_seq)
+
+    topology.addController(l1_cntrl)
+
 
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
@@ -132,7 +180,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
     prefetcher = RubyPrefetcher.Prefetcher()
 
-    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc+1,
                                   cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
@@ -146,7 +194,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     #
     # Only one unified L1 cache exists.  Can cache instructions and data.
     #
-    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc + 1,
                             icache = l1i_cache,
                             dcache = l1d_cache,
                             access_phys_mem = True,

@@ -166,14 +166,14 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     #       cache coherence (as the GPU L1 caches are incoherent without flushes
     #       The L2 cache is small, and should have minimal affect on the 
     #       performance (see Section 6.2 of Power et al. HPCA 2014).
-    cache = L1Cache(size = options.pwc_size,
+    pwd_cache = L1Cache(size = options.pwc_size,
                             assoc = 16, # 64 is fully associative @ 8kB
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits,
                             latency = 8,
                             resourceStalls = False)
     # Small cache since CPU L1 requires I and D
-    cacheI = L1Cache(size = "512B",
+    pwi_cache = L1Cache(size = "512B",
                             assoc = 2,
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits,
@@ -190,8 +190,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     l1_cntrl = L1Cache_Controller(version = options.num_cpus,
                                   cntrl_id = len(cpu_cluster)+len(gpu_cluster)+
                                              len(dir_cntrls),
-                                  L1Icache = cacheI,
-                                  L1Dcache = cache,
+                                  L1Icache = pwi_cache,
+                                  L1Dcache = pwd_cache,
                                   L2cache = l2_cache,
                                   send_evictions = False,
                                   issue_latency = l1_to_l2_noc_latency,
@@ -201,8 +201,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                   ruby_system = ruby_system)
 
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
-                            icache = cache,
-                            dcache = cache,
+                            icache = pwd_cache, # Never get data from pwi_cache
+                            dcache = pwd_cache,
                             access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,

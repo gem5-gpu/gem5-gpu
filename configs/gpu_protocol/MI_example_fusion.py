@@ -96,11 +96,46 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         cpu_sequencers.append(cpu_seq)
         topology.addController(l1_cntrl)
 
+    ############################################################################
+    # Pagewalk cache
+    # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
+    #       cache coherence (as the GPU L1 caches are incoherent without flushes
+    #       The L2 cache is small, and should have minimal affect on the
+    #       performance (see Section 6.2 of Power et al. HPCA 2014).
+    pw_cache = Cache(size = options.pwc_size,
+                     assoc = 16, # 64 is fully associative @ 8kB
+                     replacement_policy = "LRU",
+                     latency = 8,
+                     resourceStalls = False)
+
+    prefetcher = RubyPrefetcher.Prefetcher()
+
+    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
+                                  cntrl_id = len(topology),
+                                  send_evictions = False,
+                                  cacheMemory = pw_cache,
+                                  ruby_system = ruby_system)
+
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+                            icache = pw_cache,
+                            dcache = pw_cache,
+                            access_phys_mem = True,
+                            max_outstanding_requests = options.gpu_l1_buf_depth,
+                            ruby_system = ruby_system)
+
+    l1_cntrl.sequencer = cpu_seq
+
+
+    ruby_system.l1_pw_cntrl = l1_cntrl
+    cpu_sequencers.append(cpu_seq)
+
+    topology.addController(l1_cntrl)
 
     #copy engine cache (make as small as possible, ideally 0)
     cache = Cache(size = "4kB", assoc = 2)
 
-    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
+    l1_cntrl = L1Cache_Controller(version = \
+                                      options.num_cpus + options.num_sc + 1,
                                   cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
@@ -110,7 +145,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     #
     # Only one unified L1 cache exists.  Can cache instructions and data.
     #
-    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc + 1,
                             icache = cache,
                             dcache = cache,
                             access_phys_mem = True,
