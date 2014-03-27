@@ -188,13 +188,44 @@ def connectGPUPorts(gpu, ruby, options):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
 
-    gpu.ce.host_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+    # The total number of sequencers is equal to the number of CPU cores, plus
+    # the number of GPU cores plus any pagewalk caches and the copy engine
+    # caches. Currently, for unified address space architectures, there is one
+    # pagewalk cache and one copy engine cache (2 total), and the pagewalk cache
+    # is indexed first. For split address space architectures, there are 2 copy
+    # engine caches, and the host-side cache is indexed before the device-side.
+    assert(len(ruby._cpu_ruby_ports) == options.num_cpus + options.num_sc + 2)
+
+    # Initialize the MMU, connecting it to either the pagewalk cache port for
+    # unified address space, or the copy engine's host-side sequencer port for
+    # split address space architectures.
+    gpu.shader_mmu.setUpPagewalkers(32,
+                    ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave,
+                    options.gpu_tlb_bypass_l1)
+
     if options.split:
-        gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+        # NOTE: In split address space architectures, the MMU only provides the
+        # copy engine host-side TLB access to a page walker. This should
+        # probably be changed so that the copy engine doesn't manage
+        # translations, but only the data handling
+
+        # If inappropriately used, crash to inform MMU config problems to user:
+        if options.access_host_pagetable:
+            fatal('Cannot access host pagetable from the GPU or the copy ' \
+                  'engine\'s GPU-side port\n in split address space. Use ' \
+                  'only one of --split or --access-host-pagetable')
+
+        # Tie copy engine ports to appropriate sequencers
+        gpu.ce.host_port = \
+            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+        gpu.ce.device_port = \
+            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
         gpu.ce.device_dtb.access_host_pagetable = False
     else:
         # With a unified address space, tie both copy engine ports to the same
-        # copy engine controller
-        gpu.ce.device_port = ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
-
-    gpu.shader_mmu.setUpPagewalkers(32, ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave, options.gpu_tlb_bypass_l1)
+        # copy engine controller. NOTE: The copy engine is often unused in the
+        # unified address space
+        gpu.ce.host_port = \
+            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+        gpu.ce.device_port = \
+            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
