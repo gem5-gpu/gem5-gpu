@@ -67,8 +67,8 @@ if args:
     print "Error: script doesn't take any positional arguments"
     sys.exit(1)
 
-if buildEnv['TARGET_ISA'] != "x86":
-    fatal("gem5-gpu doesn't currently work with non-x86 system!")
+if buildEnv['TARGET_ISA'] not in ["x86", "arm"]:
+    fatal("gem5-gpu SE doesn't currently work with non-x86 or non-ARM system!")
 
 #
 # CPU type configuration
@@ -152,19 +152,17 @@ for (i, cpu) in enumerate(system.cpu):
     ruby_port = system.ruby._cpu_ruby_ports[i]
 
     cpu.createInterruptController()
-    cpu.interrupts.pio = ruby_port.master
-    cpu.interrupts.int_master = ruby_port.slave
-    cpu.interrupts.int_slave = ruby_port.master
     #
     # Tie the cpu ports to the correct ruby system ports
     #
     cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
     cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
     if buildEnv['TARGET_ISA'] == "x86":
-        cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-        cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-    else:
-        fatal("Not sure how to connect TLB walker ports in non-x86 system!")
+        cpu.interrupts.pio = ruby_port.master
+        cpu.interrupts.int_master = ruby_port.slave
+        cpu.interrupts.int_slave = ruby_port.master
 
     system.ruby._cpu_ruby_ports[i].access_phys_mem = True
 

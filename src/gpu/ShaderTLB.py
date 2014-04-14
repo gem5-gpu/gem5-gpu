@@ -28,7 +28,6 @@
 from m5.params import *
 from m5.proxy import *
 from BaseTLB import BaseTLB
-from X86TLB import X86TLB
 
 class ShaderTLB(BaseTLB):
     type = 'ShaderTLB'

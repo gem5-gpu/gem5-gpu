@@ -48,6 +48,7 @@
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
 #include "params/CudaGPU.hh"
+#include "sim/full_system.hh"
 #include "sim/pseudo_inst.hh"
 
 using namespace std;

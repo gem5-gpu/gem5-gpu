@@ -281,7 +281,7 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_devPtr = *((Addr*)helper.getParam(0));
+    Addr sim_devPtr = *((Addr*)helper.getParam(0, true));
     size_t sim_size = *((size_t*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMalloc(devPtr = %x, size = %d)\n", sim_devPtr, sim_size);
 
@@ -296,7 +296,7 @@ cudaMalloc(ThreadContext *tc, gpusyscall_t *call_params)
         return;
     } else {
         Addr addr = cudaGPU->allocateGPUMemory(sim_size);
-        helper.writeBlob(sim_devPtr, (uint8_t*)(&addr), sizeof(Addr));
+        helper.writeBlob(sim_devPtr, (uint8_t*)(&addr), sizeof(Addr), true);
         if (addr) {
             g_last_cudaError = cudaSuccess;
         } else {
@@ -310,7 +310,7 @@ void
 cudaMallocHost(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_ptr = *((Addr*)helper.getParam(0));
+    Addr sim_ptr = *((Addr*)helper.getParam(0, true));
     size_t sim_size = *((size_t*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMallocHost(ptr = %x, size = %d)\n", sim_ptr, sim_size);
 
@@ -327,7 +327,7 @@ cudaRegisterDeviceMemory(ThreadContext *tc, gpusyscall_t *call_params)
     // the GPU can do TLB lookups and if necessary, physical memory allocations
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_devicePtr = *((Addr*)helper.getParam(0));
+    Addr sim_devicePtr = *((Addr*)helper.getParam(0, true));
     size_t sim_size = *((size_t*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaRegisterDeviceMemory(devicePtr = %x, size = %d)\n", sim_devicePtr, sim_size);
 
@@ -351,7 +351,7 @@ void
 cudaFree(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_devPtr = *((Addr*)helper.getParam(0));
+    Addr sim_devPtr = *((Addr*)helper.getParam(0, true));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFree(devPtr = %x)\n", sim_devPtr);
 
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
@@ -372,7 +372,7 @@ void
 cudaFreeHost(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_ptr = *((Addr*)helper.getParam(0));
+    Addr sim_ptr = *((Addr*)helper.getParam(0, true));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFreeHost(ptr = %x)\n", sim_ptr);
 
     g_last_cudaError = cudaSuccess;
@@ -398,8 +398,8 @@ void
 cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
 
-    void* sim_dst = *((void**)helper.getParam(0));
-    const void* sim_src = *((void**)helper.getParam(1));
+    Addr sim_dst = *((Addr*)helper.getParam(0, true));
+    Addr sim_src = *((Addr*)helper.getParam(1, true));
     size_t sim_count = *((size_t*)helper.getParam(2));
     enum cudaMemcpyKind sim_kind = *((enum cudaMemcpyKind*)helper.getParam(3));
 
@@ -416,11 +416,11 @@ cudaMemcpy(ThreadContext *tc, gpusyscall_t *call_params) {
     }
 
     if (sim_kind == cudaMemcpyHostToDevice) {
-        stream_operation mem_op(sim_src, (size_t)sim_dst, sim_count, 0);
+        stream_operation mem_op((const void*)sim_src, (size_t)sim_dst, sim_count, 0);
         mem_op.setThreadContext(tc);
         g_stream_manager->push(mem_op);
     } else if (sim_kind == cudaMemcpyDeviceToHost) {
-        stream_operation mem_op((size_t)sim_src, sim_dst, sim_count, 0);
+        stream_operation mem_op((size_t)sim_src, (void*)sim_dst, sim_count, 0);
         mem_op.setThreadContext(tc);
         g_stream_manager->push(mem_op);
     } else if (sim_kind == cudaMemcpyDeviceToDevice) {
@@ -483,8 +483,8 @@ void
 cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
     GPUSyscallHelper helper(tc, call_params);
 
-    const char* sim_symbol = *((const char**)helper.getParam(0));
-    const void* sim_src = *((const void**)helper.getParam(1));
+    Addr sim_symbol = *((Addr*)helper.getParam(0, true));
+    Addr sim_src = *((Addr*)helper.getParam(1, true));
     size_t sim_count = *((size_t*)helper.getParam(2));
     size_t sim_offset = *((size_t*)helper.getParam(3));
     enum cudaMemcpyKind sim_kind = *((enum cudaMemcpyKind*)helper.getParam(4));
@@ -495,7 +495,7 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
             sim_symbol, sim_src, sim_count, sim_offset, cudaMemcpyKindStrings[sim_kind]);
 
     assert(sim_kind == cudaMemcpyHostToDevice);
-    stream_operation mem_op(sim_src, sim_symbol, sim_count, sim_offset, NULL);
+    stream_operation mem_op((const void*)sim_src, (const char*)sim_symbol, sim_count, sim_offset, NULL);
     mem_op.setThreadContext(tc);
     g_stream_manager->push(mem_op);
 
@@ -563,7 +563,7 @@ cudaBlockThread(ThreadContext *tc, gpusyscall_t *call_params)
     // Similar to futex in syscalls, except we need to track the variable to
     // be set
     GPUSyscallHelper helper(tc, call_params);
-    Addr sim_is_free_ptr = *((Addr*)helper.getParam(0));
+    Addr sim_is_free_ptr = *((Addr*)helper.getParam(0, true));
 
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaBlockThread(tc = %x, is_free_ptr = %x)\n", tc, sim_is_free_ptr);
 
@@ -582,7 +582,7 @@ cudaMemset(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_mem = *((Addr*)helper.getParam(0));
+    Addr sim_mem = *((Addr*)helper.getParam(0, true));
     int sim_c = *((int*)helper.getParam(1));
     size_t sim_count = *((size_t*)helper.getParam(2));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemset(mem = %x, c = %d, count = %d)\n", sim_mem, sim_c, sim_count);
@@ -636,7 +636,7 @@ void
 cudaGetDeviceCount(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
-    Addr sim_count = *((Addr*)helper.getParam(0));
+    Addr sim_count = *((Addr*)helper.getParam(0, true));
 
     int count = CudaGPU::getNumCudaDevices();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDeviceCount(count* = %x) = %d\n", sim_count, count);
@@ -650,7 +650,7 @@ cudaGetDeviceProperties(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_prop = *((Addr*)helper.getParam(0));
+    Addr sim_prop = *((Addr*)helper.getParam(0, true));
     int sim_device = *((int*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDeviceProperties(prop* = %x, device = %d)\n", sim_prop, sim_device);
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
@@ -691,7 +691,7 @@ cudaGetDevice(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_device = *((Addr*)helper.getParam(0));
+    Addr sim_device = *((Addr*)helper.getParam(0, true));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaGetDevice(device = 0x%x)\n", sim_device);
     if (g_active_device <= CudaGPU::getNumCudaDevices()) {
         helper.writeBlob(sim_device, (uint8_t*)&g_active_device, sizeof(int));
@@ -807,7 +807,7 @@ void
 cudaSetupArgument(ThreadContext *tc, gpusyscall_t *call_params){
     GPUSyscallHelper helper(tc, call_params);
 
-    Addr sim_arg = *((Addr*)helper.getParam(0));
+    Addr sim_arg = *((Addr*)helper.getParam(0, true));
     size_t sim_size = *((size_t*)helper.getParam(1));
     size_t sim_offset = *((size_t*)helper.getParam(2));
     const void* arg = new uint8_t[sim_size];
@@ -827,7 +827,7 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    const char* sim_hostFun = *((char**)helper.getParam(0));
+    Addr sim_hostFun = *((Addr*)helper.getParam(0, true));
 
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     char *mode = getenv("PTX_SIM_MODE_FUNC");
@@ -836,8 +836,8 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     assert(!g_cuda_launch_stack.empty());
     kernel_config config = g_cuda_launch_stack.back();
     struct CUstream_st *stream = config.get_stream();
-    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun* = %x)\n", (void*)sim_hostFun);
-    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(config.get_args(), config.grid_dim(), config.block_dim(), cudaGPU->get_kernel(sim_hostFun));
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaLaunch(hostFun* = %x)\n", sim_hostFun);
+    kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(config.get_args(), config.grid_dim(), config.block_dim(), cudaGPU->get_kernel((const char*)sim_hostFun));
     grid->set_inst_base_vaddr(cudaGPU->getInstBaseVaddr());
     std::string kname = grid->name();
     stream_operation op(grid, g_ptx_sim_mode, stream);
@@ -1033,7 +1033,33 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
 
     // Get primary arguments
     __cudaFatCudaBinary* fat_cubin = new __cudaFatCudaBinary;
+
+#ifdef TARGET_ARM
+    // Size of fat binary in 32-bit simulated system is 64B
+    #define FATBIN_PACKAGE_SIZE 64
+    // Add 4B to keep last 64-bit pointer math from reading other stack junk
+    uint8_t fatbin_package[FATBIN_PACKAGE_SIZE + 4];
+    helper->readBlob(sim_fatCubin, fatbin_package, FATBIN_PACKAGE_SIZE);
+    fat_cubin->magic = unpackData<unsigned long>(fatbin_package, 0);
+    fat_cubin->version = unpackData<unsigned long>(fatbin_package, 4);
+    fat_cubin->gpuInfoVersion = unpackData<unsigned long>(fatbin_package, 8);
+    fat_cubin->key = unpackPointer<char*>(fatbin_package, 12);
+    fat_cubin->ident = unpackPointer<char*>(fatbin_package, 16);
+    fat_cubin->usageMode = unpackPointer<char*>(fatbin_package, 20);
+    fat_cubin->ptx = unpackPointer<__cudaFatPtxEntry*>(fatbin_package, 24);
+    fat_cubin->cubin = unpackPointer<__cudaFatCubinEntry*>(fatbin_package, 28);
+    fat_cubin->debug = unpackPointer<__cudaFatDebugEntry*>(fatbin_package, 32);
+    fat_cubin->debugInfo = unpackPointer<void*>(fatbin_package, 36);
+    fat_cubin->flags = unpackData<unsigned int>(fatbin_package, 40);
+    fat_cubin->exported = unpackPointer<__cudaFatSymbol*>(fatbin_package, 44);
+    fat_cubin->imported = unpackPointer<__cudaFatSymbol*>(fatbin_package, 48);
+    fat_cubin->dependends = unpackPointer<__cudaFatCudaBinaryRec*>(fatbin_package, 52);
+    fat_cubin->characteristic = unpackData<unsigned int>(fatbin_package, 56);
+    fat_cubin->elf = unpackPointer<__cudaFatElfEntry*>(fatbin_package, 60);
+#else
+    // x86 64-bit, we can just read directly from memory
     helper->readBlob(sim_fatCubin, (uint8_t*)fat_cubin, sizeof(struct __cudaFatCudaBinaryRec));
+#endif
 
     if (sim_binSize < 0) {
         panic("Used wrong __cudaRegisterFatBinary call!!! Did you run the sizeHack.py?");
@@ -1048,11 +1074,30 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
         if (ptx_entries) {
             memcpy(temp_ptx_entry_buf, ptx_entries, sizeof(__cudaFatPtxEntry) * ptx_count);
         }
-        helper->readBlob((Addr)(fat_cubin->ptx + ptx_count), temp_ptx_entry_buf + sizeof(__cudaFatPtxEntry) * ptx_count, sizeof(__cudaFatPtxEntry));
 
+#ifdef TARGET_ARM
+        // Size of PTX entry in 32-bit simulated system is 8B
+        #define PTXENTRY_PACKAGE_SIZE 8
+        // Add 4B to keep last 64-bit pointer math from reading other stack junk
+        uint8_t ptx_entry_package[PTXENTRY_PACKAGE_SIZE + 4];
+        helper->readBlob(
+                (Addr)fat_cubin->ptx + ptx_count * PTXENTRY_PACKAGE_SIZE,
+                ptx_entry_package, PTXENTRY_PACKAGE_SIZE);
+
+        __cudaFatPtxEntry *temp_ptx_entry_ptr =
+                                    (__cudaFatPtxEntry*)temp_ptx_entry_buf;
+        temp_ptx_entry_ptr[ptx_count].gpuProfileName =
+                                    unpackPointer<char*>(ptx_entry_package, 0);
+        temp_ptx_entry_ptr[ptx_count].ptx =
+                                    unpackPointer<char*>(ptx_entry_package, 4);
+#else
+        helper->readBlob((Addr)(fat_cubin->ptx + ptx_count),
+                temp_ptx_entry_buf + sizeof(__cudaFatPtxEntry) * ptx_count,
+                sizeof(__cudaFatPtxEntry));
+#endif
         ptx_entry_ptr = (__cudaFatPtxEntry *)temp_ptx_entry_buf + ptx_count;
         if (ptx_entry_ptr->ptx != 0) {
-            DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (address_type)(Addr)ptx_entry_ptr->ptx);
+            DPRINTF(GPUSyscalls, "GPGPU-Sim PTX: Found instruction text segment: %x\n", (Addr)ptx_entry_ptr->ptx);
             cudaGPU->registerDeviceInstText(helper->getThreadContext(), (Addr)ptx_entry_ptr->ptx, sim_binSize);
             uint8_t* ptx_code = new uint8_t[sim_binSize];
             helper->readBlob((Addr)ptx_entry_ptr->ptx, ptx_code, sim_binSize);
@@ -1135,7 +1180,7 @@ __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     GPUSyscallHelper helper(tc, call_params);
 
     // Get CUDA call simulated parameters
-    Addr sim_fatCubin = *((Addr*)helper.getParam(0));
+    Addr sim_fatCubin = *((Addr*)helper.getParam(0, true));
     int sim_binSize = *((int*)helper.getParam(1));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterFatBinary(fatCubin* = %x, binSize = %d)\n", sim_fatCubin, sim_binSize);
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
@@ -1184,7 +1229,7 @@ void
 __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
-    Addr sim_alloc_ptr = *((Addr*)helper.getParam(0));
+    Addr sim_alloc_ptr = *((Addr*)helper.getParam(0, true));
 
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
@@ -1201,7 +1246,7 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
         handle = registerFatBinaryBottom(&helper, registering_allocation_ptr);
     }
 
-    helper.setReturn((uint8_t*)&handle, sizeof(void**));
+    helper.setReturn((uint8_t*)&handle, sizeof(void**), true);
 }
 
 void
@@ -1219,11 +1264,11 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    void **sim_fatCubinHandle = *((void***)helper.getParam(0));
-    const char *sim_hostFun = *((const char**)helper.getParam(1));
+    Addr sim_fatCubinHandle = *((Addr*)helper.getParam(0, true));
+    Addr sim_hostFun = *((Addr*)helper.getParam(1, true));
     Addr sim_deviceFun = *((Addr*)helper.getParam(2));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterFunction(fatCubinHandle** = %x, hostFun* = %x, deviceFun* = %x)\n",
-            sim_fatCubinHandle, (void*)sim_hostFun, (void*)sim_deviceFun);
+            sim_fatCubinHandle, sim_hostFun, sim_deviceFun);
 
     // Read device function name from simulated system memory
     char* device_fun = new char[MAX_STRING_LEN];
@@ -1232,8 +1277,8 @@ __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params)
 
     // Register function
     unsigned fat_cubin_handle = (unsigned)(unsigned long long)sim_fatCubinHandle;
-    cudaGPU->register_function(fat_cubin_handle, sim_hostFun, device_fun);
-    cudaGPU->saveFunctionNames(fat_cubin_handle, sim_hostFun, device_fun);
+    cudaGPU->register_function(fat_cubin_handle, (const char*)sim_hostFun, device_fun);
+    cudaGPU->saveFunctionNames(fat_cubin_handle, (const char*)sim_hostFun, device_fun);
     delete[] device_fun;
 }
 
@@ -1256,10 +1301,10 @@ void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    // void** sim_fatCubinHandle = *((void***)helper.getParam(0));
-    Addr sim_hostVar = *((Addr*)helper.getParam(1));
-    Addr sim_deviceAddress = *((Addr*)helper.getParam(2));
-    Addr sim_deviceName = *((Addr*)helper.getParam(3));
+    // Addr sim_fatCubinHandle = *((Addr*)helper.getParam(0, true));
+    Addr sim_hostVar = *((Addr*)helper.getParam(1, true));
+    Addr sim_deviceAddress = *((Addr*)helper.getParam(2, true));
+    Addr sim_deviceName = *((Addr*)helper.getParam(3, true));
     int sim_ext = *((int*)helper.getParam(4));
     int sim_size = *((int*)helper.getParam(5));
     int sim_constant = *((int*)helper.getParam(6));
@@ -1292,15 +1337,15 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
 {
     GPUSyscallHelper helper(tc, call_params);
 
-    // void** sim_fatCubinHandle = *((void***)helper.getParam(0));
-    const struct textureReference* sim_hostVar = *((const struct textureReference**)helper.getParam(1));
-    // Addr sim_deviceAddress = *((Addr*)helper.getParam(2));
-    Addr sim_deviceName = *((Addr*)helper.getParam(3));
+    // Addr sim_fatCubinHandle = *((Addr*)helper.getParam(0, true));
+    Addr sim_hostVar = *((Addr*)helper.getParam(1));
+    // Addr sim_deviceAddress = *((Addr*)helper.getParam(2, true));
+    Addr sim_deviceName = *((Addr*)helper.getParam(3, true));
     int sim_dim = *((int*)helper.getParam(4));
     int sim_norm = *((int*)helper.getParam(5));
     int sim_ext = *((int*)helper.getParam(6));
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaRegisterTexture(fatCubinHandle** = %x, hostVar* = %x, deviceAddress* = %x, deviceName* = %x, dim = %d, norm = %d, ext = %d)\n",
-            /*sim_fatCubinHandle*/ 0, (void*)sim_hostVar, /*sim_deviceAddress*/ 0,
+            /*sim_fatCubinHandle*/ 0, sim_hostVar, /*sim_deviceAddress*/ 0,
             sim_deviceName, sim_dim, sim_norm, sim_ext);
 
     const char* deviceName = new char[MAX_STRING_LEN];
@@ -1308,7 +1353,7 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
     gpgpu_t *gpu = cudaGPU->getTheGPU();
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
 
-    gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, sim_hostVar);
+    gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, (const struct textureReference*)sim_hostVar);
     warn("__cudaRegisterTexture implementation is not complete!");
 }
 

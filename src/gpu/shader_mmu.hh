@@ -36,18 +36,19 @@
 #include <queue>
 #include <set>
 
-#include "arch/x86/tlb.hh"
+#include "arch/tlb.hh"
 #include "base/statistics.hh"
 #include "debug/ShaderMMU.hh"
 #include "params/ShaderMMU.hh"
 #include "gpu/shader_tlb.hh"
+#include "sim/clocked_object.hh"
 #include "sim/faults.hh"
 #include "sim/tlb.hh"
 
 class ShaderMMU : public ClockedObject
 {
 private:
-    std::vector<X86ISA::TLB*> pagewalkers;
+    std::vector<TheISA::TLB*> pagewalkers;
     std::vector<bool> activeWalkers;
 
     // Latency for requests to reach the MMU from the L1 TLBs
@@ -82,7 +83,7 @@ private:
     public:
         ShaderMMU *mmu;
         ShaderTLB *origTLB;
-        X86ISA::TLB *pageWalker;
+        TheISA::TLB *pageWalker;
         BaseTLB::Translation *wrappedTranslation;
         RequestPtr req;
         BaseTLB::Mode mode;
@@ -106,7 +107,7 @@ private:
             assert(_tc == tc);
             mmu->finishWalk(this, fault);
         }
-        void walk(X86ISA::TLB *walker) {
+        void walk(TheISA::TLB *walker) {
             beginWalk = mmu->curCycle();
             assert(walker != NULL);
             pageWalker = walker;
@@ -140,8 +141,8 @@ private:
     /// Handle a page fault from a shader TLB
     void handlePageFault(TranslationRequest *translation);
 
-    void setWalkerFree(X86ISA::TLB *walker);
-    X86ISA::TLB *getFreeWalker();
+    void setWalkerFree(TheISA::TLB *walker);
+    TheISA::TLB *getFreeWalker();
 
     // Log the vpn of the access. If we detect a pattern issue the prefetch
     // This is currently just a simple 1-ahead prefetcher

@@ -400,8 +400,8 @@ class CudaGPU : public ClockedObject
     /// Called by the copy engine when a memcpy or memset is complete
     void finishCopyOperation();
 
-    /// Called from shader TLB to be used for X86TLB lookups
-    // TODO: Remove this when we remove shader TLB access to X86TLB
+    /// Called from shader TLB to be used for TLB lookups
+    /// TODO: Move the thread context handling to GPU context when we get there
     ThreadContext *getThreadContext() { return runningTC; }
 
     /// Used when blocking and signaling threads

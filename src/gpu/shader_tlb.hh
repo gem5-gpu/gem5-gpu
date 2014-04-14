@@ -32,7 +32,6 @@
 #include <map>
 #include <set>
 
-#include "arch/x86/tlb.hh"
 #include "base/statistics.hh"
 #include "params/ShaderTLB.hh"
 #include "sim/tlb.hh"

@@ -28,17 +28,20 @@
 
 #include <map>
 
-#include "arch/x86/insts/microldstop.hh"
-#include "arch/x86/regs/misc.hh"
-#include "arch/x86/regs/msr.hh"
-#include "arch/x86/faults.hh"
-#include "arch/x86/pagetable_walker.hh"
+#include "arch/isa.hh"
 #include "debug/ShaderTLB.hh"
 #include "gpu/shader_tlb.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 
+#ifdef TARGET_ARM
+    // May need to include appropriate files for fault handling
+#else // x86_64
+    #include "arch/x86/insts/microldstop.hh"
+    #include "arch/x86/regs/misc.hh"
+#endif
+
 using namespace std;
-using namespace X86ISA;
+using namespace TheISA;
 
 ShaderTLB::ShaderTLB(const Params *p) :
     BaseTLB(p), numEntries(p->entries), hitLatency(p->hit_latency),
@@ -92,6 +95,20 @@ void
 ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
                            Translation *translation, Mode mode)
 {
+
+#ifdef TARGET_ARM
+    // @TODO: Currently, translateTiming should only be called for translating
+    // the copy engine's host-side addresses under ARM. These should not raise
+    // page faults under SE mode, but it would still be good to check that the
+    // CPU thread's state is correct for handling the translation
+    warn_once("Should add sanity check for access-host-pagetable under ARM!\n");
+
+    // For some reason, this request flag must be set to verify that data
+    // accesses are aligned properly (note: not required for inst fetches)
+    req->setFlags(TLB::MustBeOne);
+#else // x86_64
+
+    // Include some sanity checking
     uint32_t flags = req->getFlags();
 
     // If this is true, we're dealing with a request to a non-memory address
@@ -100,16 +117,16 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
         panic("GPU TLB cannot deal with non-memory addresses");
     }
 
-    Addr vaddr = req->getVaddr();
-    DPRINTF(ShaderTLB, "Translating vaddr %#x.\n", vaddr);
-
     HandyM5Reg m5Reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
-
     assert(m5Reg.prot); // Cannot deal with unprotected mode
     assert(m5Reg.mode == LongMode); // must be in long mode
     assert(m5Reg.submode == SixtyFourBitMode); // Assuming 64-bit mode
     assert(m5Reg.paging); // Paging better be enabled!
 
+#endif
+
+    Addr vaddr = req->getVaddr();
+    DPRINTF(ShaderTLB, "Translating vaddr %#x.\n", vaddr);
     Addr offset = vaddr % TheISA::PageBytes;
     Addr vpn = vaddr - offset;
     Addr ppn;
@@ -120,7 +137,7 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
         req->setPaddr(ppn + offset);
         translation->finish(NoFault, req, tc, mode);
     } else {
-        // TLB miss! Let the x86 TLB handle the walk, etc
+        // TLB miss! Let the TLB handle the walk, etc
         DPRINTF(ShaderTLB, "TLB miss for addr %#x\n", vaddr);
         misses++;
         translation->markDelayed();

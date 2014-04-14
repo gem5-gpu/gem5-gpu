@@ -34,21 +34,19 @@
 
 GPUSyscallHelper::GPUSyscallHelper(ThreadContext *_tc, gpusyscall_t* _call_params)
     : tc(_tc), sim_params_ptr((Addr)_call_params), arg_lengths(NULL),
-      args(NULL), total_bytes(0)
+      args(NULL), total_bytes(0), live_param(NULL)
 {
+    sim_params_ptr = sim_params_ptr & __POINTER_MASK__;
+    if (!sim_params_ptr)
+        return;
     decode_package();
-}
-
-GPUSyscallHelper::GPUSyscallHelper(ThreadContext *_tc)
-    : tc(_tc), sim_params_ptr(0), arg_lengths(NULL),
-      args(NULL), total_bytes(0)
-{
-
 }
 
 void
 GPUSyscallHelper::readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc)
 {
+    assert(addr == (addr & __POINTER_MASK__));
+
     if (FullSystem) {
         tc->getVirtProxy().readBlob(addr, p, size);
     } else {
@@ -59,6 +57,8 @@ GPUSyscallHelper::readBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc)
 void
 GPUSyscallHelper::readString(Addr addr, uint8_t* p, int size, ThreadContext *tc)
 {
+    assert(addr == (addr & __POINTER_MASK__));
+
     // Ensure that the memory buffer is cleared
     memset(p, 0, size);
 
@@ -84,8 +84,12 @@ GPUSyscallHelper::readString(Addr addr, uint8_t* p, int size, ThreadContext *tc)
 }
 
 void
-GPUSyscallHelper::writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc)
+GPUSyscallHelper::writeBlob(Addr addr, uint8_t* p, int size, ThreadContext *tc, bool is_ptr)
 {
+    assert(addr == (addr & __POINTER_MASK__));
+
+    if (is_ptr)
+        size = __POINTER_SIZE__;
     if (FullSystem) {
         tc->getVirtProxy().writeBlob(addr, p, size);
     } else {
@@ -98,13 +102,28 @@ GPUSyscallHelper::decode_package()
 {
     assert(sim_params_ptr);
 
+#ifdef TARGET_ARM
+    // Size of sim_params in 32-bit simulated system is 20B
+    #define SIM_PARAMS_SIZE 20 // 4B each for 5 members of gpusyscall_t
+    // Add 4B to keep last 64-bit pointer math from reading other stack junk
+    uint8_t params_package[SIM_PARAMS_SIZE + 4];
+    readBlob(sim_params_ptr, params_package, SIM_PARAMS_SIZE);
+    sim_params.total_bytes = unpackData<int>(params_package, 0);
+    sim_params.num_args = unpackData<int>(params_package, 4);
+    sim_params.arg_lengths = unpackPointer<Addr>(params_package, 8);
+    sim_params.args = unpackPointer<Addr>(params_package, 12);
+    sim_params.ret = unpackPointer<Addr>(params_package, 16);
+#else
+    // NOTE: sizeof() call assumes gem5-gpu built on 64-bit machine
     readBlob(sim_params_ptr, (unsigned char*)&sim_params, sizeof(gpusyscall_t));
+#endif
 
     arg_lengths = new int[sim_params.num_args];
-    readBlob((Addr)sim_params.arg_lengths, (unsigned char*)arg_lengths, sim_params.num_args * sizeof(int));
+    readBlob(sim_params.arg_lengths, (unsigned char*)arg_lengths, sim_params.num_args * sizeof(int));
 
     args = new unsigned char[sim_params.total_bytes];
-    readBlob((Addr)sim_params.args, args, sim_params.total_bytes);
+    readBlob(sim_params.args, args, sim_params.total_bytes);
+
 }
 
 GPUSyscallHelper::~GPUSyscallHelper()
@@ -115,20 +134,46 @@ GPUSyscallHelper::~GPUSyscallHelper()
     if (args) {
         delete[] args;
     }
+    if (live_param) {
+        delete[] live_param;
+    }
 }
 
+// TODO: Make this function a template based on the requested data type in order
+// to alleviate the need for the caller to cast and dereference. This function
+// should return the requested type based on the template parameter.
 void*
-GPUSyscallHelper::getParam(int index)
+GPUSyscallHelper::getParam(int index, bool is_ptr)
 {
+    // Temporarily hold the requested parameter value in the live_param
+    // allocation. If a previously requested parameter is sitting in the
+    // live_param, delete it to make room for currently requested param
+    if (live_param) {
+        delete[] live_param;
+    }
+    size_t live_param_size = arg_lengths[index];
+    if (is_ptr) {
+        assert(live_param_size <= sizeof(Addr));
+        live_param_size = sizeof(Addr);
+    }
+    live_param = new unsigned char[live_param_size];
+    memset(live_param, 0, live_param_size);
     int arg_index = 0;
     for (int i = 0; i < index; i++) {
         arg_index += arg_lengths[i];
     }
-    return (void*)&args[arg_index];
+    size_t offset = live_param_size - arg_lengths[index];
+    for (int i = 0; i < arg_lengths[index]; i++) {
+        live_param[i] = args[i+arg_index];
+    }
+    if (is_ptr)
+        return (void*)live_param;
+    else
+        return (void*)&live_param[offset];
 }
 
 void
-GPUSyscallHelper::setReturn(unsigned char* retValue, size_t size)
+GPUSyscallHelper::setReturn(unsigned char* retValue, size_t size, bool is_ptr)
 {
-    writeBlob((uint64_t)sim_params.ret, retValue, size);
+    writeBlob((uint64_t)sim_params.ret, retValue, size, is_ptr);
 }

@@ -28,7 +28,6 @@
 
 #include <iostream>
 
-#include "arch/tlb.hh"
 #include "arch/utility.hh"
 #include "base/output.hh"
 #include "debug/GPUCopyEngine.hh"

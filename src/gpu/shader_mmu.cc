@@ -30,15 +30,22 @@
 
 #include <list>
 
-#include "debug/ShaderMMU.hh"
-#include "arch/x86/generated/decoder.hh"
-#include "arch/x86/regs/misc.hh"
+#include "arch/isa.hh"
 #include "cpu/base.hh"
+#include "debug/ShaderMMU.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "gpu/shader_mmu.hh"
 #include "params/ShaderMMU.hh"
 
+#ifdef TARGET_ARM
+    // TODO: To enable full-system mode ARM interrupts may require including
+    // an ARM instruction with a GPU interrupt handler
+#else
+    #include "arch/x86/generated/decoder.hh"
+#endif
+
 using namespace std;
+using namespace TheISA;
 
 ShaderMMU::ShaderMMU(const Params *p) :
     ClockedObject(p), pagewalkers(p->pagewalkers), latency(p->latency),
@@ -118,7 +125,7 @@ ShaderMMU::handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
 
     if (outstandingWalks[vpn].size() == 1) {
         DPRINTF(ShaderMMU, "Walking for %#x\n", req->getVaddr());
-        X86ISA::TLB *walker = getFreeWalker();
+        TLB *walker = getFreeWalker();
         if (walker == NULL) {
             pendingWalks.push(wrappedTranslation);
         } else {
@@ -137,7 +144,7 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
     setWalkerFree(translation->pageWalker);
 
     if (!pendingWalks.empty()) {
-        X86ISA::TLB *walker = getFreeWalker();
+        TLB *walker = getFreeWalker();
         TranslationRequest *t = pendingWalks.front();
         t->walk(walker);
         pendingWalks.pop();
@@ -160,7 +167,6 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
         } else {
             DPRINTF(ShaderMMU, "Retry successful\n");
             outstandingFaultStatus = None;
-            using namespace X86ISA;
             ThreadContext *tc = translation->tc;
             GPUFaultReg faultReg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
             faultReg.inFault = 0;
@@ -237,8 +243,6 @@ ShaderMMU::finalizeTranslation(TranslationRequest *translation)
 void
 ShaderMMU::handlePageFault(TranslationRequest *translation)
 {
-    using namespace X86ISA;
-
     if (translation->prefetch) {
         DPRINTF(ShaderMMU, "Ignoring since fault on prefetch\n");
         prefetchFaults++;
@@ -291,6 +295,13 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
     tc->setMiscRegNoEffect(MISCREG_GPU_FAULTADDR, translation->req->getVaddr());
     tc->setMiscRegNoEffect(MISCREG_GPU_FAULTCODE, code);
 
+#ifdef TARGET_ARM
+    panic("You must be executing in FullSystem mode with ARM:\n"
+          "ShaderMMU cannot yet handle ARM page faults");
+    // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
+    // interrupts device
+#else
+    // Delay the fault if the thread is in kernel mode
     HandyM5Reg m5reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
     if (m5reg.cpl != 3) {
         DPRINTF(ShaderMMU, "Not invoking fault in kernel mode. Waiting.\n");
@@ -300,13 +311,12 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 
     Interrupts *interrupts = tc->getCpuPtr()->getInterruptController();
     interrupts->triggerGPUInterrupt();
+#endif
 }
 
 void
 ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 {
-    using namespace X86ISA;
-    HandyM5Reg m5reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
     GPUFaultReg faultReg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
     assert(faultReg.inFault == 1);
 
@@ -314,6 +324,13 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 
     assert(outstandingFaultStatus != None);
 
+#ifdef TARGET_ARM
+    panic("You must be executing in FullSystem mode with ARM ISA:\n"
+          "ShaderMMU cannot yet handle ARM page faults");
+    // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
+    // interrupts device
+    // TODO: Add sanity check for correct page table
+#else
     if (outstandingFaultStatus == Pending) {
         DPRINTF(ShaderMMU, "Invoking the pending fault\n");
         outstandingFaultStatus = InKernel;
@@ -322,11 +339,13 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
         return;
     }
 
+    // Sanity check the CR2 register
     Addr cr2 = tc->readMiscRegNoEffect(MISCREG_CR2);
     if (cr2 != outstandingFaultInfo->req->getVaddr()) {
         warn("Handle finish page fault with wrong CR2\n");
         return;
     }
+#endif
 
     if (outstandingFaultStatus == Retrying) {
         DPRINTF(ShaderMMU, "Already retrying. Maybe queue another?'\n");
@@ -342,7 +361,7 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
     DPRINTF(ShaderMMU, "Walking for %#x\n",
                         outstandingFaultInfo->req->getVaddr());
 
-    X86ISA::TLB *walker = getFreeWalker();
+    TLB *walker = getFreeWalker();
     if (walker == NULL) {
         // May want to push this to the front in the future to decrease latency
         pendingWalks.push(outstandingFaultInfo);
@@ -352,7 +371,7 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 }
 
 void
-ShaderMMU::setWalkerFree(X86ISA::TLB *walker)
+ShaderMMU::setWalkerFree(TLB *walker)
 {
     int i;
     for (i=0; i<pagewalkers.size(); i++) {
@@ -369,10 +388,10 @@ ShaderMMU::setWalkerFree(X86ISA::TLB *walker)
     curOutstandingWalks--;
 }
 
-X86ISA::TLB *
+TLB *
 ShaderMMU::getFreeWalker()
 {
-    X86ISA::TLB * walker = NULL;
+    TLB * walker = NULL;
     for (int i=0; i<activeWalkers.size(); i++) {
         if (walker == NULL && !activeWalkers[i]) {
             DPRINTF(ShaderMMU, "Using walker %d\n", i);
@@ -426,7 +445,7 @@ ShaderMMU::tryPrefetch(Addr vpn, ThreadContext *tc)
     TranslationRequest *translation = new TranslationRequest(this, NULL, NULL,
                                         req, BaseTLB::Read, tc, true);
     outstandingWalks[next_vpn].push_back(translation);
-    X86ISA::TLB *walker = getFreeWalker();
+    TLB *walker = getFreeWalker();
     assert(walker != NULL); // Should never try to issue a prefetch in this case
 
     DPRINTF(ShaderMMU, "Prefetching translation for %#x.\n", next_vpn);
@@ -529,6 +548,11 @@ ShaderMMU *ShaderMMUParams::create() {
     return new ShaderMMU(this);
 }
 
+#ifdef TARGET_ARM
+    // TODO: Need to define an analogous function to be called from an ARM
+    // instruction at the end of the interrupt handler
+#else
+
 // Global function which the x86 microop gpufinishfault calls.
 namespace X86ISAInst {
 void
@@ -537,3 +561,5 @@ gpuFinishPageFault(int gpuId, ThreadContext *tc)
     CudaGPU::getCudaGPU(gpuId)->handleFinishPageFault(tc);
 }
 }
+
+#endif

@@ -72,6 +72,9 @@ if args:
     print "Error: script doesn't take any positional arguments"
     sys.exit(1)
 
+if buildEnv['TARGET_ISA'] == "arm":
+    fatal("gem5-gpu full system mode does not yet work for ARM!")
+
 if buildEnv['TARGET_ISA'] != "x86":
     fatal("gem5-gpu doesn't currently work with non-x86 system!")
 
