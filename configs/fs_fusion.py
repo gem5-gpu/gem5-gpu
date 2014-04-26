@@ -94,7 +94,7 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
 #
 # Setup benchmark to be run
 #
-bm = [SysConfig()]
+bm = [SysConfig(disk=options.disk_image)]
 bm[0].memsize = cpu_mem_range.size()
 
 # Hard code the cache block width to 128B for now
