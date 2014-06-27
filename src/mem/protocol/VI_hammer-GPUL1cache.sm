@@ -267,7 +267,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   // ACTIONS
 
   action(a_issueRequest, "a", desc="Issue a request") {
-    enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
+    enqueue(requestNetwork_out, RequestMsgVI, issue_latency) {
       out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:GET;
       out_msg.Requestor := machineID;
@@ -278,7 +278,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   action(b_issuePUT, "b", desc="Issue a PUT request") {
     peek(mandatoryQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
+      enqueue(requestNetwork_out, RequestMsgVI, issue_latency) {
         out_msg.Addr := address;
         out_msg.Type := CoherenceRequestTypeVI:PUT;
         out_msg.Requestor := machineID;
@@ -294,7 +294,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   }
 
   action(a_issueAtomicRequest, "aa", desc="Issue an atomic get request") {
-    enqueue(requestNetwork_out, RequestMsgVI, latency=issue_latency) {
+    enqueue(requestNetwork_out, RequestMsgVI, issue_latency) {
     out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:GET_Atom;
       out_msg.Requestor := machineID;
@@ -304,7 +304,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   }
 
   action(b_issueAtomicPUT, "ba", desc="Issue an atomic PUT request") {
-    enqueue(requestNetworkAtomic_out, RequestMsgVI, latency=issue_latency) {
+    enqueue(requestNetworkAtomic_out, RequestMsgVI, issue_latency) {
       out_msg.Addr := address;
       out_msg.Type := CoherenceRequestTypeVI:PUT_Atom;
       out_msg.Requestor := machineID;
@@ -332,7 +332,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   }
 
   action(n_popResponseQueue, "f", desc="Pop the response queue") {
-    profileMsgDelay(1, responseNetwork_in.dequeue_getDelayCycles());
+    profileMsgDelay(1, responseNetwork_in.dequeue());
   }
 
   action(p_profileMiss, "g", desc="Profile cache miss") {

@@ -149,6 +149,8 @@ public:
     void demapPage(Addr addr, uint64_t asn);
     void flushAll();
 
+    void takeOverFrom(BaseTLB *_tlb) {}
+
     void insert(Addr vpn, Addr ppn);
 
     void regStats();

@@ -92,7 +92,7 @@ void GPUCopyEngine::CEPort::recvRetry() {
 }
 
 void GPUCopyEngine::CEPort::sendPacket(PacketPtr pkt) {
-    if (!sendTimingReq(pkt)) {
+    if (isStalled() || !sendTimingReq(pkt)) {
         DPRINTF(GPUCopyEngine, "sendTiming failed in sendPacket(pkt->req->getVaddr()=0x%x)\n", (unsigned int)pkt->req->getVaddr());
         setStalled(pkt);
     }

@@ -106,21 +106,28 @@ if options.cacheline_size != 128:
 #
 # Instantiate system
 #
-global_voltage_domain = VoltageDomain(voltage = options.sys_voltage)
-cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
-                                voltage_domain = global_voltage_domain)
 system = System(cpu = [CPUClass(cpu_id = i,
-                                workload = process,
-                                clk_domain = cpu_clk_domain)
+                                workload = process)
                        for i in xrange(options.num_cpus)],
                 mem_mode = test_mem_mode,
                 mem_ranges = [cpu_mem_range],
                 cache_line_size = options.cacheline_size)
 
-system.cpu_clk_domain = cpu_clk_domain
-system.voltage_domain = global_voltage_domain
-system.clk_domain = SrcClockDomain(clock = options.sys_clock,
-                               voltage_domain = system.voltage_domain)
+# Create a top-level voltage domain
+system.voltage_domain = VoltageDomain(voltage = options.sys_voltage)
+
+# Create a source clock for the system and set the clock period
+system.clk_domain = SrcClockDomain(clock =  options.sys_clock,
+                                   voltage_domain = system.voltage_domain)
+
+# Create a CPU voltage domain
+system.cpu_voltage_domain = VoltageDomain()
+
+# Create a separate clock domain for the CPUs
+system.cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
+                                       voltage_domain =
+                                       system.cpu_voltage_domain)
+
 mem_ctrls = [SimpleMemory(range = cpu_mem_range)]
 system.mem_ctrls = mem_ctrls
 
@@ -149,22 +156,24 @@ system.ruby.clk_domain = system.ruby_clk_domain
 # Connect CPU ports
 #
 for (i, cpu) in enumerate(system.cpu):
-    ruby_port = system.ruby._cpu_ruby_ports[i]
+    ruby_port = system.ruby._cpu_ports[i]
 
+    cpu.clk_domain = system.cpu_clk_domain
+    cpu.createThreads()
     cpu.createInterruptController()
     #
     # Tie the cpu ports to the correct ruby system ports
     #
-    cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.icache_port = system.ruby._cpu_ports[i].slave
+    cpu.dcache_port = system.ruby._cpu_ports[i].slave
+    cpu.itb.walker.port = system.ruby._cpu_ports[i].slave
+    cpu.dtb.walker.port = system.ruby._cpu_ports[i].slave
     if buildEnv['TARGET_ISA'] == "x86":
         cpu.interrupts.pio = ruby_port.master
         cpu.interrupts.int_master = ruby_port.slave
         cpu.interrupts.int_slave = ruby_port.master
 
-    system.ruby._cpu_ruby_ports[i].access_phys_mem = True
+    system.ruby._cpu_ports[i].access_phys_mem = True
 
 #
 # Connect GPU ports

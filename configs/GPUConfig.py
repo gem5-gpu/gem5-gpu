@@ -183,10 +183,10 @@ def createGPU(options, gpu_mem_range):
 
 def connectGPUPorts(gpu, ruby, options):
     for i,sc in enumerate(gpu.shader_cores):
-        sc.inst_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.inst_port = ruby._cpu_ports[options.num_cpus+i].slave
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
-        sc.lsq.cache_port = ruby._cpu_ruby_ports[options.num_cpus+i].slave
+        sc.lsq.cache_port = ruby._cpu_ports[options.num_cpus+i].slave
 
     # The total number of sequencers is equal to the number of CPU cores, plus
     # the number of GPU cores plus any pagewalk caches and the copy engine
@@ -194,13 +194,13 @@ def connectGPUPorts(gpu, ruby, options):
     # pagewalk cache and one copy engine cache (2 total), and the pagewalk cache
     # is indexed first. For split address space architectures, there are 2 copy
     # engine caches, and the host-side cache is indexed before the device-side.
-    assert(len(ruby._cpu_ruby_ports) == options.num_cpus + options.num_sc + 2)
+    assert(len(ruby._cpu_ports) == options.num_cpus + options.num_sc + 2)
 
     # Initialize the MMU, connecting it to either the pagewalk cache port for
     # unified address space, or the copy engine's host-side sequencer port for
     # split address space architectures.
     gpu.shader_mmu.setUpPagewalkers(32,
-                    ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave,
+                    ruby._cpu_ports[options.num_cpus+options.num_sc].slave,
                     options.gpu_tlb_bypass_l1)
 
     if options.split:
@@ -217,15 +217,15 @@ def connectGPUPorts(gpu, ruby, options):
 
         # Tie copy engine ports to appropriate sequencers
         gpu.ce.host_port = \
-            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc].slave
+            ruby._cpu_ports[options.num_cpus+options.num_sc].slave
         gpu.ce.device_port = \
-            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+            ruby._cpu_ports[options.num_cpus+options.num_sc+1].slave
         gpu.ce.device_dtb.access_host_pagetable = False
     else:
         # With a unified address space, tie both copy engine ports to the same
         # copy engine controller. NOTE: The copy engine is often unused in the
         # unified address space
         gpu.ce.host_port = \
-            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+            ruby._cpu_ports[options.num_cpus+options.num_sc+1].slave
         gpu.ce.device_port = \
-            ruby._cpu_ruby_ports[options.num_cpus+options.num_sc+1].slave
+            ruby._cpu_ports[options.num_cpus+options.num_sc+1].slave

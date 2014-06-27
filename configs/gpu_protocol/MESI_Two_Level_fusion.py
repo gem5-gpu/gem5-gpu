@@ -44,7 +44,7 @@ class L1Cache(RubyCache):
 class L2Cache(RubyCache):
     latency = 15
 
-def create_system(options, system, piobus, dma_devices, ruby_system):
+def create_system(options, system, dma_devices, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
@@ -57,7 +57,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     exec "import %s" % protocol
     try:
         (cpu_sequencers, dir_cntrls, topology) = \
-            eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
+            eval("%s.create_system(options, system, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
@@ -93,7 +93,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         prefetcher = RubyPrefetcher.Prefetcher()
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
-                                      cntrl_id = len(topology),
                                       L1Icache = l1i_cache,
                                       L1Dcache = l1d_cache,
                                       l2_select_num_bits = l2_bits,
@@ -108,12 +107,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 dcache = l1d_cache,
                                 access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
-                                ruby_system = ruby_system)
+                                ruby_system = ruby_system,
+                                connect_to_io = False)
 
         l1_cntrl.sequencer = cpu_seq
-
-        if piobus != None:
-            cpu_seq.pio_port = piobus.slave
 
         exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
@@ -148,7 +145,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(topology),
                                   send_evictions = False,
                                   L1Icache = pwi_cache,
                                   L1Dcache = pwd_cache,
@@ -163,7 +159,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
-                            deadlock_threshold = 2000000)
+                            deadlock_threshold = 2000000,
+                            connect_to_io = False)
 
     l1_cntrl.sequencer = cpu_seq
 
@@ -181,7 +178,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc+1,
-                                  cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
                                   L1Icache = l1i_cache,
@@ -199,12 +195,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             dcache = l1d_cache,
                             access_phys_mem = True,
                             max_outstanding_requests = 64,
-                            ruby_system = ruby_system)
+                            ruby_system = ruby_system,
+                            connect_to_io = False)
 
     l1_cntrl.sequencer = cpu_seq
-
-    if piobus != None:
-        cpu_seq.pio_port = piobus.slave
 
     ruby_system.l1_cntrl_ce = l1_cntrl
 

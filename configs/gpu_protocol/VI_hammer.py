@@ -59,7 +59,7 @@ def define_options(parser):
     parser.add_option("--dir-on", action="store_true",
           help="Hammer: enable Full-bit Directory")
 
-def create_system(options, system, piobus, dma_ports, ruby_system):
+def create_system(options, system, dma_ports, ruby_system):
 
     if 'VI_hammer' not in buildEnv['PROTOCOL']:
         panic("This script requires the VI_hammer protocol to be built.")
@@ -78,8 +78,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         l2_bits += 1
     block_size_bits = int(math.log(options.cacheline_size, 2))
 
-    cntrl_count = 0
-
     for i in xrange(options.num_cpus):
         #
         # First create the Ruby objects associated with this cpu
@@ -96,7 +94,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
                            start_index_bit = block_size_bits)
 
         l1_cntrl = L1Cache_Controller(version = i,
-                                      cntrl_id = cntrl_count,
                                       L1Icache = l1i_cache,
                                       L1Dcache = l1d_cache,
                                       L2cache = l2_cache,
@@ -114,9 +111,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         l1_cntrl.sequencer = cpu_seq
 
-        if piobus != None:
-            cpu_seq.pio_port = piobus.slave
-
         if options.recycle_latency:
             l1_cntrl.recycle_latency = options.recycle_latency
 
@@ -126,8 +120,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         #
         cpu_sequencers.append(cpu_seq)
         topology.add(l1_cntrl)
-
-        cntrl_count += 1
 
     cpu_mem_range = AddrRange(options.total_mem_size)
     mem_module_size = cpu_mem_range.size() / options.num_dirs
@@ -170,7 +162,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
                          start_index_bit = pf_start_bit)
 
         dir_cntrl = Directory_Controller(version = i,
-                                         cntrl_id = cntrl_count,
                                          directory = \
                                          RubyDirectoryMemory( \
                                                     version = i,
@@ -192,8 +183,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
         exec("ruby_system.dir_cntrl%d = dir_cntrl" % i)
         dir_cntrl_nodes.append(dir_cntrl)
 
-        cntrl_count += 1
-
     dma_cntrl_nodes = []
     for i, dma_port in enumerate(dma_ports):
         #
@@ -203,7 +192,6 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
                                ruby_system = ruby_system)
 
         dma_cntrl = DMA_Controller(version = i,
-                                   cntrl_id = cntrl_count,
                                    dma_sequencer = dma_seq,
                                    ruby_system = ruby_system)
 
@@ -213,7 +201,5 @@ def create_system(options, system, piobus, dma_ports, ruby_system):
 
         if options.recycle_latency:
             dma_cntrl.recycle_latency = options.recycle_latency
-
-        cntrl_count += 1
 
     return (cpu_sequencers, dir_cntrl_nodes, dma_cntrl_nodes, topology)

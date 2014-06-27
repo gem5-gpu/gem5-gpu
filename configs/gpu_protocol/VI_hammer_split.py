@@ -52,7 +52,7 @@ class L2Cache(RubyCache):
 class ProbeFilter(RubyCache):
     latency = 1
 
-def create_system(options, system, piobus, dma_devices, ruby_system):
+def create_system(options, system, dma_devices, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
@@ -61,7 +61,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     (all_sequencers, dir_cntrls, dma_cntrls, cpu_cluster) = \
                                         VI_hammer.create_system(options,
                                                                 system,
-                                                                piobus,
                                                                 dma_devices,
                                                                 ruby_system)
 
@@ -82,10 +81,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                dcache = cache,
                                access_phys_mem = True,
                                max_outstanding_requests = 64,
-                               ruby_system = ruby_system)
+                               ruby_system = ruby_system,
+                               connect_to_io = False)
 
     cpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
-                                         cntrl_id = cpu_cntrl_count,
                                          sequencer = cpu_ce_seq,
                                          number_of_TBEs = 256,
                                          ruby_system = ruby_system)
@@ -126,7 +125,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             resourceStalls = False)
 
         l1_cntrl = GPUL1Cache_Controller(version = i,
-                                  cntrl_id = cpu_cntrl_count + len(gpu_cluster),
                                   cache = cache,
                                   l2_select_num_bits = l2_bits,
                                   num_l2 = options.num_l2caches,
@@ -140,12 +138,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
-                            deadlock_threshold = 2000000)
+                            deadlock_threshold = 2000000,
+                            connect_to_io = False)
 
         l1_cntrl.sequencer = gpu_seq
-
-        if piobus != None:
-            gpu_seq.pio_port = piobus.slave
 
         exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
@@ -178,7 +174,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                            resourceStalls = options.gpu_l2_resource_stalls)
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
-                                cntrl_id = cpu_cntrl_count + len(gpu_cluster),
                                 L2cache = l2_cache,
                                 l2_response_latency = l2_cache_access_latency +
                                                       l2_to_l1_noc_latency,
@@ -238,7 +233,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                              start_index_bit = pf_start_bit)
 
             dev_dir_cntrl = Directory_Controller(version = dir_version,
-                                 cntrl_id = cpu_cntrl_count + len(gpu_cluster),
                                  directory = \
                                  RubyDirectoryMemory( \
                                             version = dir_version,
@@ -281,10 +275,10 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                access_phys_mem = True,
                                max_outstanding_requests = 64,
                                support_inst_reqs = False,
-                               ruby_system = ruby_system)
+                               ruby_system = ruby_system,
+                               connect_to_io = False)
 
     gpu_ce_cntrl = GPUCopyDMA_Controller(version = 1,
-                                  cntrl_id = cpu_cntrl_count + len(gpu_cluster),
                                   sequencer = gpu_ce_seq,
                                   number_of_TBEs = 256,
                                   ruby_system = ruby_system)
@@ -304,7 +298,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
         complete_cluster.add(cntrl)
 
     for cntrl in dma_cntrls:
-        cntrl.cntrl_id = len(complete_cluster)
         complete_cluster.add(cntrl)
 
     for cluster in l2_clusters:

@@ -95,7 +95,7 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
 # Setup benchmark to be run
 #
 bm = [SysConfig(disk=options.disk_image)]
-bm[0].memsize = cpu_mem_range.size()
+bm[0].memsize = '%dB' % cpu_mem_range.size()
 
 # Hard code the cache block width to 128B for now
 # TODO: Remove this if/when block size can be different than 128B
@@ -111,8 +111,9 @@ system.cache_line_size = options.cacheline_size
 system.voltage_domain = VoltageDomain(voltage = options.sys_voltage)
 system.clk_domain = SrcClockDomain(clock = options.sys_clock,
                                voltage_domain = system.voltage_domain)
+system.cpu_voltage_domain = VoltageDomain()
 system.cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
-                                voltage_domain = system.voltage_domain)
+                                voltage_domain = system.cpu_voltage_domain)
 system.cpu = [CPUClass(cpu_id = i, clk_domain = system.cpu_clk_domain)
               for i in xrange(options.num_cpus)]
 
@@ -133,19 +134,19 @@ system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 # PIO bus
 system.mem_ctrls = [SimpleMemory(range = r) for r in system.mem_ranges]
 for i in xrange(len(system.mem_ctrls)):
-    system.mem_ctrls[i].port = system.piobus.master
+    system.mem_ctrls[i].port = system.iobus.master
 
 if options.split:
     system.mem_ranges.append(gpu_mem_range)
     system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
-    system.gpu_physmem.port = system.piobus.master
+    system.gpu_physmem.port = system.iobus.master
 
 #
 # Setup Ruby
 #
 system.ruby_clk_domain = SrcClockDomain(clock = options.ruby_clock,
                                         voltage_domain = system.voltage_domain)
-Ruby.create_system(options, system, system.piobus, system._dma_ports)
+Ruby.create_system(options, system, system.iobus, system._dma_ports)
 
 system.gpu.ruby = system.ruby
 system.ruby.clk_domain = system.ruby_clk_domain
@@ -154,8 +155,10 @@ system.ruby.clk_domain = system.ruby_clk_domain
 # Connect CPU ports
 #
 for (i, cpu) in enumerate(system.cpu):
-    ruby_port = system.piobus
+    ruby_port = system.ruby._cpu_ports[i]
 
+    cpu.clk_domain = system.cpu_clk_domain
+    cpu.createThreads()
     cpu.createInterruptController()
     cpu.interrupts.pio = ruby_port.master
     cpu.interrupts.int_master = ruby_port.slave
@@ -163,15 +166,15 @@ for (i, cpu) in enumerate(system.cpu):
     #
     # Tie the cpu ports to the correct ruby system ports
     #
-    cpu.icache_port = system.ruby._cpu_ruby_ports[i].slave
-    cpu.dcache_port = system.ruby._cpu_ruby_ports[i].slave
+    cpu.icache_port = system.ruby._cpu_ports[i].slave
+    cpu.dcache_port = system.ruby._cpu_ports[i].slave
     if buildEnv['TARGET_ISA'] == "x86":
-        cpu.itb.walker.port = system.ruby._cpu_ruby_ports[i].slave
-        cpu.dtb.walker.port = system.ruby._cpu_ruby_ports[i].slave
+        cpu.itb.walker.port = system.ruby._cpu_ports[i].slave
+        cpu.dtb.walker.port = system.ruby._cpu_ports[i].slave
     else:
         fatal("Not sure how to connect TLB walker ports in non-x86 system!")
 
-    system.ruby._cpu_ruby_ports[i].access_phys_mem = True
+    system.ruby._cpu_ports[i].access_phys_mem = True
 
 #
 # Connect GPU ports

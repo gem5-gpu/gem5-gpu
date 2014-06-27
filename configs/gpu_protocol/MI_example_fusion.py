@@ -35,7 +35,7 @@ from m5.defines import buildEnv
 class Cache(RubyCache):
     latency = 1
 
-def create_system(options, system, piobus, dma_devices, ruby_system):
+def create_system(options, system, dma_devices, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
@@ -46,7 +46,7 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     exec "import %s" % protocol
     try:
         (cpu_sequencers, dir_cntrls, topology) = \
-            eval("%s.create_system(options, system, piobus, dma_devices, ruby_system)" % protocol)
+            eval("%s.create_system(options, system, dma_devices, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
@@ -72,7 +72,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
-                                cntrl_id = len(topology),
                                 cacheMemory = cache,
                                 send_evictions = (options.cpu_type == "detailed"),
                                 ruby_system = ruby_system)
@@ -85,7 +84,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                                 dcache = cache,
                                 access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
-                                ruby_system = ruby_system)
+                                ruby_system = ruby_system,
+                                connect_to_io = False)
 
         l1_cntrl.sequencer = cpu_seq
 
@@ -111,7 +111,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  cntrl_id = len(topology),
                                   send_evictions = False,
                                   cacheMemory = pw_cache,
                                   ruby_system = ruby_system)
@@ -121,7 +120,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             dcache = pw_cache,
                             access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
-                            ruby_system = ruby_system)
+                            ruby_system = ruby_system,
+                            connect_to_io = False)
 
     l1_cntrl.sequencer = cpu_seq
 
@@ -136,7 +136,6 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
 
     l1_cntrl = L1Cache_Controller(version = \
                                       options.num_cpus + options.num_sc + 1,
-                                  cntrl_id = len(topology),
                                   send_evictions = (
                                       options.cpu_type == "detailed"),
                                   cacheMemory = cache,
@@ -150,7 +149,8 @@ def create_system(options, system, piobus, dma_devices, ruby_system):
                             dcache = cache,
                             access_phys_mem = True,
                             max_outstanding_requests = 64,
-                            ruby_system = ruby_system)
+                            ruby_system = ruby_system,
+                            connect_to_io = False)
 
     l1_cntrl.sequencer = cpu_seq
 
