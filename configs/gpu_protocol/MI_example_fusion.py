@@ -28,6 +28,7 @@
 #
 # Authors: Brad Beckmann
 
+import math
 import m5
 from m5.objects import *
 from m5.defines import buildEnv
@@ -58,6 +59,8 @@ def create_system(options, system, dma_devices, ruby_system):
     #
     l1_cntrl_nodes = []
 
+    block_size_bits = int(math.log(options.cacheline_size, 2))
+
     #
     # Caches for the stream processors
     #
@@ -68,7 +71,8 @@ def create_system(options, system, dma_devices, ruby_system):
         #
         cache = Cache(size = options.sc_l1_size,
                       assoc = options.sc_l1_assoc,
-                      replacement_policy = "LRU")
+                      replacement_policy = "LRU",
+                      start_index_bit = block_size_bits)
 
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
@@ -105,6 +109,7 @@ def create_system(options, system, dma_devices, ruby_system):
     pw_cache = Cache(size = options.pwc_size,
                      assoc = 16, # 64 is fully associative @ 8kB
                      replacement_policy = "LRU",
+                     start_index_bit = block_size_bits,
                      latency = 8,
                      resourceStalls = False)
 
