@@ -1,0 +1,86 @@
+Real time: Mar/27/2014 01:32:41
+
+Profiler Stats
+--------------
+Elapsed_time_in_seconds: 0
+Elapsed_time_in_minutes: 0
+Elapsed_time_in_hours: 0
+Elapsed_time_in_days: 0
+
+Virtual_time_in_seconds: 0.75
+Virtual_time_in_minutes: 0.0125
+Virtual_time_in_hours:   0.000208333
+Virtual_time_in_days:    8.68056e-06
+
+Ruby_current_time: 59023
+Ruby_start_time: 0
+Ruby_cycles: 59023
+
+mbytes_resident: 190.152
+mbytes_total: 2296.87
+resident_ratio: 0.0827876
+
+Busy Controller Counts:
+L1Cache-0:0  L1Cache-1:0  
+
+GPUL1Cache-0:0  GPUL1Cache-1:0  GPUL1Cache-2:0  GPUL1Cache-3:0  
+GPUL2Cache-0:0  
+GPUCopyDMA-0:0  
+Directory-0:0  
+
+
+Busy Bank Count:0
+
+sequencer_requests_outstanding: [binsize: 1 max: 1 count: 8864 average:     1 | standard deviation: 0 | 0 8864 ]
+
+All Non-Zero Cycle Demand Cache Accesses
+----------------------------------------
+latency: [binsize: 16 max: 177 count: 8863 average: 5.65948 | standard deviation: 22.5463 | 8633 3 0 0 0 0 0 0 74 151 1 1 ]
+latency: LD: [binsize: 16 max: 160 count: 1046 average: 7.87285 | standard deviation: 28.3852 | 1003 0 0 0 0 0 0 0 17 25 1 ]
+latency: ST: [binsize: 8 max: 154 count: 935 average: 8.83529 | standard deviation: 30.4171 | 890 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 17 27 1 ]
+latency: IFETCH: [binsize: 16 max: 177 count: 6874 average: 4.89497 | standard deviation: 20.1121 | 6732 3 0 0 0 0 0 0 40 98 0 1 ]
+latency: RMW_Read: [binsize: 1 max: 2 count: 8 average:     2 | standard deviation: 0 | 0 0 8 ]
+hit latency: [binsize: 1 max: 18 count: 8636 average: 2.00556 | standard deviation: 0.298229 | 0 0 8633 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 ]
+hit latency: LD: [binsize: 1 max: 2 count: 1003 average:     2 | standard deviation: 0 | 0 0 1003 ]
+hit latency: ST: [binsize: 1 max: 2 count: 890 average:     2 | standard deviation: 0 | 0 0 890 ]
+hit latency: IFETCH: [binsize: 1 max: 18 count: 6735 average: 2.00713 | standard deviation: 0.33771 | 0 0 6732 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 ]
+hit latency: RMW_Read: [binsize: 1 max: 2 count: 8 average:     2 | standard deviation: 0 | 0 0 8 ]
+hit latency: L1Cache: [binsize: 1 max: 2 count: 8633 average:     2 | standard deviation: 0 | 0 0 8633 ]
+hit latency: L2Cache: [binsize: 1 max: 18 count: 3 average:    18 | standard deviation: 0 | 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 ]
+hit latency: LD: L1Cache: [binsize: 1 max: 2 count: 1003 average:     2 | standard deviation: 0 | 0 0 1003 ]
+hit latency: ST: L1Cache: [binsize: 1 max: 2 count: 890 average:     2 | standard deviation: 0 | 0 0 890 ]
+hit latency: IFETCH: L1Cache: [binsize: 1 max: 2 count: 6732 average:     2 | standard deviation: 0 | 0 0 6732 ]
+hit latency: IFETCH: L2Cache: [binsize: 1 max: 18 count: 3 average:    18 | standard deviation: 0 | 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 ]
+hit latency: RMW_Read: L1Cache: [binsize: 1 max: 2 count: 8 average:     2 | standard deviation: 0 | 0 0 8 ]
+miss latency: [binsize: 16 max: 177 count: 227 average: 144.67 | standard deviation: 3.19776 | 0 0 0 0 0 0 0 0 74 151 1 1 ]
+miss latency: LD: [binsize: 16 max: 160 count: 43 average: 144.86 | standard deviation: 3.30944 | 0 0 0 0 0 0 0 0 17 25 1 ]
+miss latency: ST: [binsize: 8 max: 154 count: 45 average: 144.022 | standard deviation: 1.90096 | 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 17 27 1 ]
+miss latency: IFETCH: [binsize: 16 max: 177 count: 139 average: 144.82 | standard deviation: 3.47767 | 0 0 0 0 0 0 0 0 40 98 0 1 ]
+miss latency: Directory: [binsize: 16 max: 177 count: 227 average: 144.67 | standard deviation: 3.19776 | 0 0 0 0 0 0 0 0 74 151 1 1 ]
+miss latency: Directory::issue_to_initial_request: [binsize: 1 max: 2 count: 227 average:     2 | standard deviation: 0 | 0 0 227 ]
+miss latency: Directory::initial_to_forward_request: [binsize: 1 max: 5 count: 227 average:     5 | standard deviation: 0 | 0 0 0 0 0 227 ]
+miss latency: Directory::forward_to_first_response: [binsize: 2 max: 27 count: 227 average:    27 | standard deviation: 0 | 0 0 0 0 0 0 0 0 0 0 0 0 0 227 ]
+miss latency: Directory::first_response_to_completion: [binsize: 8 max: 143 count: 227 average: 110.67 | standard deviation: 3.19776 | 0 0 0 0 0 0 0 0 0 0 0 0 0 175 46 5 0 1 ]
+incomplete times: 0
+miss latency: LD: Directory: [binsize: 16 max: 160 count: 43 average: 144.86 | standard deviation: 3.30944 | 0 0 0 0 0 0 0 0 17 25 1 ]
+miss latency: ST: Directory: [binsize: 8 max: 154 count: 45 average: 144.022 | standard deviation: 1.90096 | 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 17 27 1 ]
+miss latency: IFETCH: Directory: [binsize: 16 max: 177 count: 139 average: 144.82 | standard deviation: 3.47767 | 0 0 0 0 0 0 0 0 40 98 0 1 ]
+
+Request vs. RubySystem State Profile
+--------------------------------
+
+
+
+Message Delayed Cycles
+----------------------
+Total_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_0_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_1_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_2_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_3_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_4_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_5_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_6_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_7_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_8_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
+  virtual_network_9_delay_cycles: [binsize: 1 max: 0 count: 0 average: NaN |standard deviation: NaN | 0 ]
