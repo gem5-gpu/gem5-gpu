@@ -296,7 +296,9 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                 // NOTE: This should fail early. If executeMemOp fails after
                 // some, but not all, of the requests have been sent the
                 // behavior is undefined.
-                assert(!completed);
+                if (completed) {
+                    panic("Should never fail after first accepted lane");
+                }
 
                 if (inst.is_load()) {
                     delete pkt->senderState;

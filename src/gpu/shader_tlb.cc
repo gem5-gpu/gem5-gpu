@@ -117,11 +117,14 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
         panic("GPU TLB cannot deal with non-memory addresses");
     }
 
-    HandyM5Reg m5Reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
-    assert(m5Reg.prot); // Cannot deal with unprotected mode
-    assert(m5Reg.mode == LongMode); // must be in long mode
-    assert(m5Reg.submode == SixtyFourBitMode); // Assuming 64-bit mode
-    assert(m5Reg.paging); // Paging better be enabled!
+    // Cannot deal with unprotected mode
+    assert(((HandyM5Reg)tc->readMiscRegNoEffect(MISCREG_M5_REG)).prot);
+    // must be in long mode
+    assert(((HandyM5Reg)tc->readMiscRegNoEffect(MISCREG_M5_REG)).mode == LongMode);
+    // Assuming 64-bit mode
+    assert(((HandyM5Reg)tc->readMiscRegNoEffect(MISCREG_M5_REG)).submode == SixtyFourBitMode);
+    // Paging better be enabled!
+    assert(((HandyM5Reg)tc->readMiscRegNoEffect(MISCREG_M5_REG)).paging);
 
 #endif
 

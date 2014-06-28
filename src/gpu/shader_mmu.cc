@@ -317,8 +317,7 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 void
 ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 {
-    GPUFaultReg faultReg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
-    assert(faultReg.inFault == 1);
+    assert(((GPUFaultReg)tc->readMiscRegNoEffect(MISCREG_GPU_FAULT)).inFault == 1);
 
     DPRINTF(ShaderMMU, "Handling a finish page fault event\n");
 
