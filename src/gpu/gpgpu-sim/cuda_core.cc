@@ -287,7 +287,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
             } else if (inst.is_store()) {
                 pkt = new Packet(req, MemCmd::WriteReq);
                 pkt->allocate();
-                pkt->setData(inst.get_data(lane));
+                pkt->setData((uint8_t*)inst.get_data(lane));
             } else {
                 panic("Unsupported instruction type\n");
             }
