@@ -321,9 +321,6 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 bool
 CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
 {
-    DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
-            idx, pkt->req->getVaddr());
-
     if (pkt->isFlush()) {
         DPRINTF(CudaCoreAccess, "Got flush response\n");
         if (core->signalKernelFinish) {
@@ -335,6 +332,8 @@ CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
         return true;
     }
 
+    DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
+            idx, pkt->req->getVaddr());
     assert(pkt->isRead());
 
     uint8_t data[16];
