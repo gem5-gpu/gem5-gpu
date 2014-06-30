@@ -1,8 +1,8 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Jun 26 2014 20:36:08
-gem5 started Jun 26 2014 23:16:57
+gem5 compiled Jun 29 2014 15:53:13
+gem5 started Jun 29 2014 15:54:21
 gem5 executing on vein
 command line: build/X86_MI_example_GPU/gem5.opt -d build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby -re /home/joel/research/gem5/gem5-gpu-testing-update/gem5/tests/run.py build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby
 Warning: Only block size currently supported is 128B. Defaulting to 128.
@@ -145,11 +145,11 @@ GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_i
 GPGPU-Sim PTX:   branch pc = 1328	target pc = 1536
   done.
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_arWY51"
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_MrErVG --output-file /dev/null 2> _ptx_arWY51info"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_MVXMeM"
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_oWSeZr --output-file /dev/null 2> _ptx_MVXMeMinfo"
 GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
 GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_arWY51 _ptx2_MrErVG _ptx_arWY51info"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_MVXMeM _ptx2_oWSeZr _ptx_MVXMeMinfo"
 Random number generator seed: 7
 Input layer size : 256
 Starting training kernel
@@ -169,13 +169,13 @@ GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation kernel
-GPGPU-Sim PTX: 100000 instructions simulated : ctaid=(0,0,0) tid=(15,3,0)
-GPGPU-Sim PTX: 200000 instructions simulated : ctaid=(0,8,0) tid=(15,10,0)
-GPGPU-Sim PTX: 300000 instructions simulated : ctaid=(0,10,0) tid=(15,8,0)
-GPGPU-Sim PTX: 400000 instructions simulated : ctaid=(0,7,0) tid=(9,15,0)
-GPGPU-Sim uArch: Shader 1 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim PTX: 100000 instructions simulated : ctaid=(0,7,0) tid=(15,11,0)
+GPGPU-Sim PTX: 200000 instructions simulated : ctaid=(0,4,0) tid=(15,4,0)
+GPGPU-Sim PTX: 300000 instructions simulated : ctaid=(0,7,0) tid=(15,7,0)
+GPGPU-Sim PTX: 400000 instructions simulated : ctaid=(0,11,0) tid=(11,0,0)
 GPGPU-Sim uArch: Shader 3 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: Shader 0 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: Shader 1 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: Shader 2 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: GPU detected kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' finished on shader 2.
 GPGPU-Sim API: Stream Manager State
@@ -197,17 +197,17 @@ GPGPU-Sim uArch: Shader 3 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_
 GPGPU-Sim uArch: Shader 2 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
 GPGPU-Sim uArch: Shader 0 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
 GPGPU-Sim PTX: 500000 instructions simulated : ctaid=(0,0,0) tid=(15,1,0)
-GPGPU-Sim PTX: 600000 instructions simulated : ctaid=(0,1,0) tid=(15,15,0)
+GPGPU-Sim PTX: 600000 instructions simulated : ctaid=(0,5,0) tid=(15,7,0)
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 2 operations
 GPGPU-Sim API:       0 :  stream operation kernel
 GPGPU-Sim API:       1 :  stream operation memcpy device-to-host
-GPGPU-Sim PTX: 700000 instructions simulated : ctaid=(0,6,0) tid=(15,5,0)
+GPGPU-Sim PTX: 700000 instructions simulated : ctaid=(0,11,0) tid=(15,3,0)
 GPGPU-Sim uArch: Shader 0 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
-GPGPU-Sim uArch: Shader 3 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: Shader 2 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: Shader 1 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
-GPGPU-Sim uArch: GPU detected kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' finished on shader 1.
+GPGPU-Sim uArch: Shader 3 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
+GPGPU-Sim uArch: GPU detected kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' finished on shader 3.
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
@@ -234,4 +234,4 @@ Input Weights:
 Net Inputs:
 0.000000 0.343988 0.907949 0.248971 0.262799 0.509827 0.193412 0.917344 0.843621 0.475334 0.768918 0.856501 0.936714 0.068548 0.142551 0.113426 0.216216 0.630174 0.643607 0.693848 0.425566 0.914685 0.751377 0.364456 0.020707 0.362568 0.624793 0.772704 0.341113 0.774520 0.164369 0.283668 0.118508 0.072318 0.532639 0.381307 0.582144 0.726052 0.298651 0.425765 0.201386 0.067569 0.282267 0.138100 0.136117 0.424817 0.251526 0.352333 0.054991 0.895133 0.046181 0.480557 0.809818 0.797558 0.845013 0.830525 0.160127 0.469806 0.603229 0.501240 0.244326 0.767598 0.784908 0.362835 0.839916 0.317548 0.744142 0.422061 0.043599 0.042793 0.847826 0.244986 0.110363 0.130093 0.383086 0.246480 0.554910 0.634612 0.598813 0.609901 0.529745 0.644994 0.090458 0.339563 0.442553 0.935471 0.170088 0.602679 0.405278 0.773317 0.103920 0.649604 0.540916 0.888828 0.012439 0.380832 0.206375 0.756581 0.802893 0.249975 
 Training done
-Exiting @ tick 17922190000 because target called exit()
+Exiting @ tick 17921937500 because target called exit()

@@ -1,8 +1,8 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Jun 26 2014 21:56:16
-gem5 started Jun 26 2014 23:20:11
+gem5 compiled Jun 29 2014 16:00:57
+gem5 started Jun 29 2014 16:02:04
 gem5 executing on vein
 command line: build/X86_MOESI_hammer_GPU/gem5.opt -d build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MOESI_hammer -re /home/joel/research/gem5/gem5-gpu-testing-update/gem5/tests/run.py build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MOESI_hammer
 Warning: Only block size currently supported is 128B. Defaulting to 128.
