@@ -64,8 +64,8 @@ CudaGPU::CudaGPU(const Params *p) :
     ClockedObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
     system(p->sys), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
     gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
-    returnDelay(p->kernel_return_delay), ruby(p->ruby), runningTC(NULL),
-    runningStream(NULL), runningTID(-1), clearTick(0),
+    returnDelay(p->kernel_return_delay), unblockNeeded(false), ruby(p->ruby),
+    runningTC(NULL), runningStream(NULL), runningTID(-1), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
     gpuMemoryRange(p->gpu_memory_range), shaderMMU(p->shader_mmu)
