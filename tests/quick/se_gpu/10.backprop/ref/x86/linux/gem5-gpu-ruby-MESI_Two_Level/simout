@@ -1,8 +1,8 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Jun 29 2014 15:57:09
-gem5 started Jun 29 2014 15:58:19
+gem5 compiled Jun 29 2014 19:50:59
+gem5 started Jun 29 2014 19:52:01
 gem5 executing on vein
 command line: build/X86_MESI_Two_Level_GPU/gem5.opt -d build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level -re /home/joel/research/gem5/gem5-gpu-testing-update/gem5/tests/run.py build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level
 Warning: Only block size currently supported is 128B. Defaulting to 128.
@@ -146,11 +146,11 @@ GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_i
 GPGPU-Sim PTX:   branch pc = 1328	target pc = 1536
   done.
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_2x4SSa"
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_PZDEKT --output-file /dev/null 2> _ptx_2x4SSainfo"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_V9EieG"
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_XYofwA --output-file /dev/null 2> _ptx_V9EieGinfo"
 GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
 GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_2x4SSa _ptx2_PZDEKT _ptx_2x4SSainfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_V9EieG _ptx2_XYofwA _ptx_V9EieGinfo"
 Random number generator seed: 7
 Input layer size : 256
 Starting training kernel
