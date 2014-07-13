@@ -40,6 +40,8 @@ class CudaCore(MemObject):
 
     lsq_port = VectorMasterPort("the load/store queue coalescer ports")
 
+    lsq_ctrl_port = MasterPort("The load/store queue control port")
+
     sys = Param.System(Parent.any, "system sc will run on")
     gpu = Param.CudaGPU(Parent.any, "The GPU this core is part of")
 

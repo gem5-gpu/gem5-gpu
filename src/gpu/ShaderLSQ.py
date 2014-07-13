@@ -41,6 +41,8 @@ class ShaderLSQ(MemObject):
 
     data_tlb = Param.ShaderTLB(ShaderTLB(), "Data TLB")
 
+    control_port = SlavePort("The control port for this LSQ")
+
     inject_width = Param.Int(1, "Max requests sent to L1 per cycle")
     eject_width = Param.Int(1, "Max cache lines to receive per cycle")
 

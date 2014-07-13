@@ -45,7 +45,8 @@
 using namespace std;
 
 CudaCore::CudaCore(const Params *p) :
-    MemObject(p), instPort(name() + ".inst_port", this), _params(p),
+    MemObject(p), instPort(name() + ".inst_port", this),
+    lsqControlPort(name() + ".lsq_ctrl_port", this), _params(p),
     dataMasterId(p->sys->getMasterId(name() + ".data")),
     instMasterId(p->sys->getMasterId(name() + ".inst")), id(p->id),
     itb(p->itb), cudaGPU(p->gpu)
@@ -93,6 +94,8 @@ CudaCore::getMasterPort(const std::string &if_name, PortID idx)
             panic("CudaCore::getMasterPort: unknown index %d\n", idx);
         }
         return *lsqPorts[idx];
+    } else if (if_name == "lsq_ctrl_port") {
+        return lsqControlPort;
     } else {
         return MemObject::getMasterPort(if_name, idx);
     }
@@ -321,16 +324,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 bool
 CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
 {
-    if (pkt->isFlush()) {
-        DPRINTF(CudaCoreAccess, "Got flush response\n");
-        if (core->signalKernelFinish) {
-            core->shaderImpl->finish_kernel();
-            core->signalKernelFinish = false;
-        }
-        delete pkt->req;
-        delete pkt;
-        return true;
-    }
+    assert(!pkt->isFlush());
 
     DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
             idx, pkt->req->getVaddr());
@@ -340,6 +334,7 @@ CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
     assert(pkt->getSize() <= sizeof(data));
 
     warp_inst_t &inst = ((SenderState*)pkt->senderState)->inst;
+    assert(!inst.empty() && inst.valid());
 
     if (!core->shaderImpl->ldst_unit_wb_inst(inst)) {
         // Writeback register is occupied, stall
@@ -363,6 +358,29 @@ void
 CudaCore::LSQPort::recvRetry()
 {
     panic("Not sure how to respond to a recvRetry...");
+}
+
+bool
+CudaCore::LSQControlPort::recvTimingResp(PacketPtr pkt)
+{
+    if (pkt->isFlush()) {
+        DPRINTF(CudaCoreAccess, "Got flush response\n");
+        if (core->signalKernelFinish) {
+            core->shaderImpl->finish_kernel();
+            core->signalKernelFinish = false;
+        }
+    } else {
+        panic("Received unhandled packet type in control port");
+    }
+    delete pkt->req;
+    delete pkt;
+    return true;
+}
+
+void
+CudaCore::LSQControlPort::recvRetry()
+{
+    panic("CudaCore::LSQControlPort::recvRetry() not implemented!");
 }
 
 Tick
@@ -395,9 +413,7 @@ CudaCore::flush()
     PacketPtr pkt = new Packet(req, MemCmd::FlushReq);
 
     DPRINTF(CudaCoreAccess, "Sending flush request\n");
-    // It doesn't matter what lane to send this request as it is a control
-    // message. We'll assume all control messges go on lane 0.
-    if (!lsqPorts[0]->sendTimingReq(pkt)){
+    if (!lsqControlPort.sendTimingReq(pkt)){
         panic("Flush requests should never fail");
     }
 }

@@ -187,6 +187,7 @@ def connectGPUPorts(gpu, ruby, options):
         for j in xrange(options.gpu_warp_size):
             sc.lsq_port[j] = sc.lsq.lane_port[j]
         sc.lsq.cache_port = ruby._cpu_ports[options.num_cpus+i].slave
+        sc.lsq_ctrl_port = sc.lsq.control_port
 
     # The total number of sequencers is equal to the number of CPU cores, plus
     # the number of GPU cores plus any pagewalk caches and the copy engine

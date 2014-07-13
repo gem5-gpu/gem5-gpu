@@ -35,10 +35,10 @@
 using namespace std;
 
 ShaderLSQ::ShaderLSQ(Params *p)
-    : MemObject(p), writebackBlocked(false),
-      cachePort(name() + ".cache_port", this), warpSize(p->warp_size),
-      maxNumWarpsPerCore(p->warp_contexts), flushing(false), flushingPkt(NULL),
-      forwardFlush(p->forward_flush),
+    : MemObject(p), controlPort(name() + ".ctrl_port", this),
+      writebackBlocked(false), cachePort(name() + ".cache_port", this),
+      warpSize(p->warp_size), maxNumWarpsPerCore(p->warp_contexts),
+      flushing(false), flushingPkt(NULL), forwardFlush(p->forward_flush),
       warpInstBufPoolSize(p->num_warp_inst_buffers), dispatchWarpInstBuf(NULL),
       perWarpInstructionQueues(p->warp_contexts),
       overallLatencyCycles(p->latency), l1TagAccessCycles(p->l1_tag_cycles),
@@ -98,15 +98,17 @@ ShaderLSQ::getMasterPort(const string &if_name, PortID idx)
 BaseSlavePort &
 ShaderLSQ::getSlavePort(const string &if_name, PortID idx)
 {
-    if (if_name != "lane_port") {
-        // pass it along to our super class
-        return MemObject::getSlavePort(if_name, idx);
-    } else {
+    if (if_name == "lane_port") {
         if (idx >= static_cast<PortID>(lanePorts.size())) {
             panic("RubyPort::getSlavePort: unknown index %d\n", idx);
         }
 
         return *lanePorts[idx];
+    } else if (if_name == "control_port") {
+        return controlPort;
+    } else {
+        // pass it along to our super class
+        return MemObject::getSlavePort(if_name, idx);
     }
 }
 
@@ -121,10 +123,7 @@ ShaderLSQ::LanePort::getAddrRanges() const
 bool
 ShaderLSQ::LanePort::recvTimingReq(PacketPtr pkt)
 {
-    if (pkt->isFlush())
-        return lsq->addFlushRequest(pkt);
-    else
-        return lsq->addLaneRequest(laneId, pkt);
+    return lsq->addLaneRequest(laneId, pkt);
 }
 
 Tick
@@ -144,6 +143,44 @@ void
 ShaderLSQ::LanePort::recvRetry()
 {
     lsq->retryCommitWarpInst();
+}
+
+AddrRangeList
+ShaderLSQ::ControlPort::getAddrRanges() const
+{
+    // at the moment the assumption is that the master does not care
+    AddrRangeList ranges;
+    return ranges;
+}
+
+bool
+ShaderLSQ::ControlPort::recvTimingReq(PacketPtr pkt)
+{
+    if (pkt->isFlush()) {
+        return lsq->addFlushRequest(pkt);
+    } else {
+        panic("Don't know how to handle control packet");
+        return false;
+    }
+}
+
+Tick
+ShaderLSQ::ControlPort::recvAtomic(PacketPtr pkt)
+{
+    panic("ShaderLSQ::ControlPort::recvAtomic() not implemented!\n");
+    return 0;
+}
+
+void
+ShaderLSQ::ControlPort::recvFunctional(PacketPtr pkt)
+{
+    panic("ShaderLSQ::ControlPort::recvFunctional() not implemented!\n");
+}
+
+void
+ShaderLSQ::ControlPort::recvRetry()
+{
+    panic("ShaderLSQ::ControlPort::recvRetry() not implemented!\n");
 }
 
 bool
@@ -617,7 +654,7 @@ void ShaderLSQ::finalizeFlush()
 {
     assert(flushing && flushingPkt);
     flushingPkt->makeTimingResponse();
-    if (!lanePorts[0]->sendTimingResp(flushingPkt)) {
+    if (!controlPort.sendTimingResp(flushingPkt)) {
         panic("Unable to respond to flush message!\n");
     }
     flushingPkt = NULL;

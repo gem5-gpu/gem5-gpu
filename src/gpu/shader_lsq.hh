@@ -105,6 +105,26 @@ class ShaderLSQ : public MemObject
     // One lane port for each lane in the shader core
     std::vector<LanePort*> lanePorts;
 
+    class ControlPort : public SlavePort
+    {
+        ShaderLSQ* lsq;
+
+      public:
+        ControlPort(const std::string &_name, ShaderLSQ *owner)
+            : SlavePort(_name, owner), lsq(owner) {}
+
+        ~ControlPort() {}
+
+      protected:
+        virtual bool recvTimingReq(PacketPtr pkt);
+        virtual Tick recvAtomic(PacketPtr pkt);
+        virtual void recvFunctional(PacketPtr pkt);
+        virtual void recvRetry();
+        virtual AddrRangeList getAddrRanges() const;
+
+    };
+    ControlPort controlPort;
+
     // A variable to track whether the writeback stage of the core is blocked
     // If so, must block warp instruction commit
     bool writebackBlocked;

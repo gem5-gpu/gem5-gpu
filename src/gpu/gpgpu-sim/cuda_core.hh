@@ -109,6 +109,23 @@ protected:
     /// Instantiation of above port
     std::vector<LSQPort*> lsqPorts;
 
+    class LSQControlPort : public MasterPort
+    {
+        friend class CudaCore;
+
+    private:
+        CudaCore *core;
+
+    public:
+        LSQControlPort(const std::string &_name, CudaCore *_core)
+        : MasterPort(_name, _core), core(_core) {}
+
+    protected:
+        virtual bool recvTimingResp(PacketPtr pkt);
+        virtual void recvRetry();
+    };
+    LSQControlPort lsqControlPort;
+
     /// Port that is blocked. If -1 then no port is blocked.
     int writebackBlocked;
 
