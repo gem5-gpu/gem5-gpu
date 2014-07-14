@@ -41,6 +41,7 @@ ShaderLSQ::ShaderLSQ(Params *p)
       flushing(false), flushingPkt(NULL), forwardFlush(p->forward_flush),
       warpInstBufPoolSize(p->num_warp_inst_buffers), dispatchWarpInstBuf(NULL),
       perWarpInstructionQueues(p->warp_contexts),
+      perWarpOutstandingAccesses(p->warp_contexts),
       overallLatencyCycles(p->latency), l1TagAccessCycles(p->l1_tag_cycles),
       tlb(p->data_tlb), injectWidth(p->inject_width), mshrsFull(false),
       ejectWidth(p->eject_width), cacheLineAddrMaskBits(-1),
@@ -52,6 +53,10 @@ ShaderLSQ::ShaderLSQ(Params *p)
     for (int i = 0; i < warpSize; i++) {
         lanePorts.push_back(
                 new LanePort(csprintf("%s-lane-%d", name(), i), this, i));
+    }
+
+    for (int i = 0; i < maxNumWarpsPerCore; i++) {
+        perWarpOutstandingAccesses[i] = 0;
     }
 
     warpInstBufPool = new WarpInstBuffer*[warpInstBufPoolSize];
@@ -263,7 +268,7 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
         // Schedule an event for when the dispatch buffer should be handled
         schedule(dispatchInstEvent, clockEdge(Cycles(0)));
         DPRINTF(ShaderLSQ, "[%d: ] Starting %s instruction at tick: %llu\n",
-                pkt->req->threadId(), (pkt->isRead() ? "load" : "store"),
+                pkt->req->threadId(), dispatchWarpInstBuf->getInstTypeString(),
                 clockEdge(Cycles(0)));
     }
 
@@ -271,16 +276,16 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
 
     if (request_added) {
         DPRINTF(ShaderLSQ,
-                "[%d:%d] Received %s request vaddr: %p, size: %d\n",
+                "[%d:%d] Received %s request for vaddr: %p, size: %d\n",
                 pkt->req->threadId(), lane_id,
-                (pkt->isRead() ? "load" : "store"), pkt->req->getVaddr(),
-                pkt->getSize());
+                dispatchWarpInstBuf->getInstTypeString(),
+                pkt->req->getVaddr(), pkt->getSize());
     } else {
         DPRINTF(ShaderLSQ,
                 "[%d:%d] Rejected %s request for vaddr: %p, size: %d\n",
                 pkt->req->threadId(), lane_id,
-                (pkt->isRead() ? "load" : "store"), pkt->req->getVaddr(),
-                pkt->getSize());
+                dispatchWarpInstBuf->getInstTypeString(),
+                pkt->req->getVaddr(), pkt->getSize());
     }
 
     return request_added;
@@ -289,13 +294,27 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
 void
 ShaderLSQ::dispatchWarpInst()
 {
-    // Coalesce memory requests for the dispatched warp instruction
-    dispatchWarpInstBuf->coalesceMemRequests();
     // Queue the warp instruction to begin issuing accesses after
     // translations complete
     perWarpInstructionQueues[dispatchWarpInstBuf->getWarpId()].push(dispatchWarpInstBuf);
-    // Issue translation requests for the coalesced accesses
-    issueWarpInstTranslations(dispatchWarpInstBuf);
+
+    if (dispatchWarpInstBuf->isFence()) {
+        unsigned warp_id = dispatchWarpInstBuf->getWarpId();
+        dispatchWarpInstBuf->startFence();
+        if (perWarpOutstandingAccesses[warp_id] == 0 &&
+            perWarpInstructionQueues[warp_id].front() == dispatchWarpInstBuf) {
+
+            clearFenceAtQueueHead(warp_id);
+            assert(perWarpInstructionQueues[warp_id].empty());
+        }
+    } else {
+        // Coalesce memory requests for the dispatched warp instruction
+        dispatchWarpInstBuf->coalesceMemRequests();
+
+        // Issue translation requests for the coalesced accesses
+        issueWarpInstTranslations(dispatchWarpInstBuf);
+    }
+
     // Clear the dispatch buffer
     dispatchWarpInstBuf = NULL;
 }
@@ -306,8 +325,10 @@ ShaderLSQ::issueWarpInstTranslations(WarpInstBuffer *warp_inst)
     BaseTLB::Mode mode;
     if (warp_inst->isLoad()) {
         mode = BaseTLB::Read;
-    } else {
+    } else if(warp_inst->isStore()) {
         mode = BaseTLB::Write;
+    } else {
+        panic("Trying to issue translations for unknown instruction type!");
     }
 
     const list<WarpInstBuffer::CoalescedAccess*> *coalesced_accesses =
@@ -414,14 +435,14 @@ ShaderLSQ::injectCacheAccesses()
             DPRINTF(ShaderLSQ,
                     "[%d: ] Line blocked %s access for paddr: %p\n",
                     mem_access->getWarpId(),
-                    (mem_access->isRead() ? "read" : "write"),
+                    mem_access->getWarpBuffer()->getInstTypeString(),
                     mem_access->req->getPaddr());
         } else {
             if (!cachePort.sendTimingReq(mem_access)) {
                 DPRINTF(ShaderLSQ,
                         "[%d: ] MSHR blocked %s access for paddr: %p\n",
                         mem_access->getWarpId(),
-                        (mem_access->isRead() ? "read" : "write"),
+                        mem_access->getWarpBuffer()->getInstTypeString(),
                         mem_access->req->getPaddr());
                 mshrsFull = true;
                 mshrsFullStarted = curCycle();
@@ -431,28 +452,32 @@ ShaderLSQ::injectCacheAccesses()
                 DPRINTF(ShaderLSQ,
                         "[%d: ] Injected %s access for paddr: %p\n",
                         mem_access->getWarpId(),
-                        (mem_access->isRead() ? "read" : "write"),
+                        mem_access->getWarpBuffer()->getInstTypeString(),
                         mem_access->req->getPaddr());
                 blockedLineAddrs[line_addr] = true;
                 injectBuffer.pop_front();
                 num_injected++;
+                perWarpOutstandingAccesses[mem_access->getWarpId()]++;
                 accessesOutstandingToCache++;
                 WarpInstBuffer *warp_inst = mem_access->getWarpBuffer();
                 warp_inst->removeCoalesced(mem_access);
                 if (warp_inst->coalescedAccessesSize() == 0) {
+                    int warp_id = warp_inst->getWarpId();
                     // All accesses have entered cache hierarchy, so remove
                     // this warp instruction from the issuing position (head)
                     // to let the next warp instruction from this warp inject
-                    perWarpInstructionQueues[warp_inst->getWarpId()].pop();
-                    if (!perWarpInstructionQueues[warp_inst->getWarpId()].empty()) {
+                    perWarpInstructionQueues[warp_id].pop();
+                    if (!perWarpInstructionQueues[warp_id].empty()) {
                         WarpInstBuffer *next_warp_inst =
-                                perWarpInstructionQueues[warp_inst->getWarpId()].front();
-                        const list<WarpInstBuffer::CoalescedAccess*> *translated_accesses =
-                                next_warp_inst->getTranslatedAccesses();
-                        list<WarpInstBuffer::CoalescedAccess*>::const_iterator iter =
-                                translated_accesses->begin();
-                        for (; iter != translated_accesses->end(); iter++) {
-                            pushToInjectBuffer(*iter);
+                                perWarpInstructionQueues[warp_id].front();
+                        if (!next_warp_inst->isFence()) {
+                            const list<WarpInstBuffer::CoalescedAccess*> *translated_accesses =
+                                    next_warp_inst->getTranslatedAccesses();
+                            list<WarpInstBuffer::CoalescedAccess*>::const_iterator iter =
+                                    translated_accesses->begin();
+                            for (; iter != translated_accesses->end(); iter++) {
+                                pushToInjectBuffer(*iter);
+                            }
                         }
                     }
                 }
@@ -539,9 +564,9 @@ ShaderLSQ::recvResponsePkt(PacketPtr pkt)
     if (!ejectAccessesEvent.scheduled()) {
         schedule(ejectAccessesEvent, clockEdge(Cycles(0)));
     }
-    DPRINTF(ShaderLSQ, "[%d: ] %s response for paddr: %p\n",
+    DPRINTF(ShaderLSQ, "[%d: ] Received %s response for paddr: %p\n",
             mem_access->getWarpId(),
-            (mem_access->isRead() ? "Read" : "Write"),
+            mem_access->getWarpBuffer()->getInstTypeString(),
             mem_access->req->getPaddr());
     accessesOutstandingToCache--;
     return true;
@@ -560,15 +585,21 @@ ShaderLSQ::ejectAccessResponses()
         DPRINTF(ShaderLSQ,
                 "[%d: ] Ejected %s for vaddr: %p, paddr: %p\n",
                 warp_inst->getWarpId(),
-                (warp_inst->isLoad() ? "read" : "write"),
+                warp_inst->getInstTypeString(),
                 mem_access->req->getVaddr(), mem_access->req->getPaddr());
+        perWarpOutstandingAccesses[mem_access->getWarpId()]--;
         bool inst_complete = warp_inst->finishAccess(mem_access);
         if (inst_complete) {
-            warp_inst->setCompleteTick(clockEdge(completeCycles));
-            commitInstBuffer.push(warp_inst);
-            if (!commitInstEvent.scheduled() && !writebackBlocked) {
-                assert(commitInstBuffer.size() == 1);
-                schedule(commitInstEvent, clockEdge(completeCycles));
+            pushToCommitBuffer(warp_inst);
+
+            // If there is a fence at the head of the per-warp instruction queue
+            // and all prior per-warp memory accesses are complete, clear it
+            int warp_id = warp_inst->getWarpId();
+            if (perWarpOutstandingAccesses[warp_id] == 0 &&
+                !perWarpInstructionQueues[warp_id].empty() &&
+                perWarpInstructionQueues[warp_id].front()->isFence()) {
+
+                clearFenceAtQueueHead(warp_id);
             }
         }
         ejectBuffer.pop();
@@ -579,17 +610,44 @@ ShaderLSQ::ejectAccessResponses()
 }
 
 void
+ShaderLSQ::clearFenceAtQueueHead(int warp_id) {
+    assert(perWarpOutstandingAccesses[warp_id] == 0);
+    assert(!perWarpInstructionQueues[warp_id].empty());
+    WarpInstBuffer *next_warp_inst = perWarpInstructionQueues[warp_id].front();
+    assert(next_warp_inst->isFence());
+    perWarpInstructionQueues[warp_id].pop();
+    assert(perWarpInstructionQueues[warp_id].empty());
+    next_warp_inst->arriveAtFence();
+    pushToCommitBuffer(next_warp_inst);
+}
+
+void
+ShaderLSQ::pushToCommitBuffer(WarpInstBuffer *warp_inst) {
+    warp_inst->setCompleteTick(clockEdge(completeCycles));
+    commitInstBuffer.push(warp_inst);
+    if (!commitInstEvent.scheduled() && !writebackBlocked) {
+        assert(commitInstBuffer.size() == 1);
+        schedule(commitInstEvent, clockEdge(completeCycles));
+    }
+}
+
+void
 ShaderLSQ::commitWarpInst()
 {
     assert(!writebackBlocked);
     WarpInstBuffer *warp_inst = commitInstBuffer.front();
-    if (warp_inst->isLoad()) {
-        assert(curTick() >= warp_inst->getCompleteTick());
+    assert(curTick() >= warp_inst->getCompleteTick());
+    if (warp_inst->isLoad() || warp_inst->isFence()) {
         PacketPtr* lane_request_pkts = warp_inst->getLaneRequestPkts();
         for (int i = 0; i < warpSize; i++) {
             PacketPtr pkt = lane_request_pkts[i];
             if (pkt) {
+                if (warp_inst->isFence()) {
+                    pkt->makeTimingResponse();
+                }
                 if (!lanePorts[i]->sendTimingResp(pkt)) {
+                    // Fence responses are always accepted by the CudaCore
+                    assert(!warp_inst->isFence());
                     writebackBlocked = true;
                     writebackBlockedCycles++;
                     return;
@@ -599,7 +657,7 @@ ShaderLSQ::commitWarpInst()
         }
     }
     DPRINTF(ShaderLSQ, "[%d: ] Completing %s instruction\n",
-            warp_inst->getWarpId(), (warp_inst->isLoad() ? "load" : "store"));
+            warp_inst->getWarpId(), warp_inst->getInstTypeString());
     commitInstBuffer.pop();
     if (!commitInstBuffer.empty()) {
         schedule(commitInstEvent,
@@ -607,9 +665,14 @@ ShaderLSQ::commitWarpInst()
     }
     if (warp_inst->isLoad()) {
         warpLatencyRead.sample(ticksToCycles(warp_inst->getLatency()));
-    } else {
+    } else if (warp_inst->isStore()) {
         warpLatencyWrite.sample(ticksToCycles(warp_inst->getLatency()));
+    } else if (warp_inst->isFence()) {
+        warpLatencyFence.sample(ticksToCycles(warp_inst->getLatency()));
+    } else {
+        assert(warp_inst->isFence());
     }
+
     warp_inst->resetState();
     decrementActiveWarpInstBuffers();
     availableWarpInstBufs.push(warp_inst);
@@ -703,6 +766,11 @@ ShaderLSQ::regStats()
     warpLatencyWrite
         .name(name() + ".warpLatencyWrite")
         .desc("Latency in cycles for whole warp to finish the write")
+        .init(16)
+        ;
+    warpLatencyFence
+        .name(name() + ".warpLatencyFence")
+        .desc("Latency in cycles for whole warp to finish the fence")
         .init(16)
         ;
     tlbMissLatency

@@ -48,3 +48,5 @@ class CudaCore(MemObject):
     itb = Param.ShaderTLB(ShaderTLB(), "Instruction TLB")
 
     id = Param.Int(-1, "ID of the SP")
+
+    warp_contexts = Param.Int(48, "Number of warps possible per GPU core")

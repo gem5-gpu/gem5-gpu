@@ -49,7 +49,7 @@ CudaCore::CudaCore(const Params *p) :
     lsqControlPort(name() + ".lsq_ctrl_port", this), _params(p),
     dataMasterId(p->sys->getMasterId(name() + ".data")),
     instMasterId(p->sys->getMasterId(name() + ".inst")), id(p->id),
-    itb(p->itb), cudaGPU(p->gpu)
+    itb(p->itb), cudaGPU(p->gpu), maxNumWarpsPerCore(p->warp_contexts)
 {
     writebackBlocked = -1; // Writeback is not blocked
 
@@ -72,6 +72,11 @@ CudaCore::CudaCore(const Params *p) :
     }
 
     activeCTAs = 0;
+
+    needsFenceUnblock.resize(maxNumWarpsPerCore);
+    for (int i = 0; i < maxNumWarpsPerCore; i++) {
+        needsFenceUnblock[i] = false;
+    }
 }
 
 CudaCore::~CudaCore()
@@ -237,42 +242,59 @@ bool
 CudaCore::executeMemOp(const warp_inst_t &inst)
 {
     assert(inst.space.get_type() == global_space ||
-           inst.space.get_type() == const_space);
+           inst.space.get_type() == const_space ||
+           inst.op == BARRIER_OP ||
+           inst.op == MEMORY_BARRIER_OP);
     assert(inst.valid());
 
     // for debugging
     bool completed = false;
 
-    for (int lane=0; lane<warpSize; lane++) {
+    int size = inst.data_size;
+    if (inst.is_load() || inst.is_store()) {
+        assert(size >= 1 && size <= 8);
+    }
+    size *= inst.vectorLength;
+    assert(size <= 16);
+    if (inst.op == BARRIER_OP || inst.op == MEMORY_BARRIER_OP) {
+        if (inst.active_count() != inst.warp_size()) {
+            warn_once("ShaderLSQ received partial-warp fence: Assuming you know what you're doing");
+        }
+    }
+    const int asid = 0;
+    Request::Flags flags;
+
+    for (int lane = 0; lane < warpSize; lane++) {
         if (inst.active(lane)) {
             Addr addr = inst.get_addr(lane);
-            Addr pc = (Addr)inst.pc;
-            int size = inst.data_size;
-            assert(size >= 1 && size <= 8);
-            size *= inst.vectorLength;
-            assert(size <= 16);
-
 
             DPRINTF(CudaCoreAccess, "Got addr 0x%llx\n", addr);
             if (inst.space.get_type() == const_space) {
                 DPRINTF(CudaCoreAccess, "Is const!!\n");
             }
 
-            Request::Flags flags;
-            const int asid = 0;
-            RequestPtr req = new Request(asid, addr, size, flags, dataMasterId,
-                                         pc, id, inst.warp_id());
-
             PacketPtr pkt;
             if (inst.is_load()) {
+                RequestPtr req = new Request(asid, addr, size, flags,
+                        dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::ReadReq);
                 pkt->allocate();
                 // Since only loads return to the CudaCore
                 pkt->senderState = new SenderState(inst);
             } else if (inst.is_store()) {
+                RequestPtr req = new Request(asid, addr, size, flags,
+                        dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::WriteReq);
                 pkt->allocate();
                 pkt->setData((uint8_t*)inst.get_data(lane));
+            } else if (inst.op == BARRIER_OP || inst.op == MEMORY_BARRIER_OP) {
+                // Setup Fence packet
+                // TODO: If adding fencing functionality, specify control data
+                // in packet or request
+                RequestPtr req = new Request(asid, 0x0, 0, flags, dataMasterId,
+                        inst.pc, id, inst.warp_id());
+                pkt = new Packet(req, MemCmd::FenceReq);
+                pkt->senderState = new SenderState(inst);
             } else {
                 panic("Unsupported instruction type\n");
             }
@@ -285,7 +307,8 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                     panic("Should never fail after first accepted lane");
                 }
 
-                if (inst.is_load()) {
+                if (inst.is_load() || inst.op == BARRIER_OP ||
+                    inst.op == MEMORY_BARRIER_OP) {
                     delete pkt->senderState;
                 }
                 delete pkt->req;
@@ -299,6 +322,10 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
         }
     }
 
+    if (inst.op == BARRIER_OP || inst.op == MEMORY_BARRIER_OP) {
+        needsFenceUnblock[inst.warp_id()] = true;
+    }
+
     // Return that there should not be a pipeline stall
     return false;
 }
@@ -306,7 +333,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 bool
 CudaCore::recvLSQDataResp(PacketPtr pkt, int lane_id)
 {
-    assert(pkt->isRead());
+    assert(pkt->isRead() || pkt->cmd == MemCmd::FenceResp);
 
     DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
             lane_id, pkt->req->getVaddr());
@@ -314,19 +341,39 @@ CudaCore::recvLSQDataResp(PacketPtr pkt, int lane_id)
     warp_inst_t &inst = ((SenderState*)pkt->senderState)->inst;
     assert(!inst.empty() && inst.valid());
 
-    if (!shaderImpl->ldst_unit_wb_inst(inst)) {
-        // Writeback register is occupied, stall
-        assert(writebackBlocked < 0);
-        writebackBlocked = lane_id;
-        return false;
+    if (pkt->isRead()) {
+        if (!shaderImpl->ldst_unit_wb_inst(inst)) {
+            // Writeback register is occupied, stall
+            assert(writebackBlocked < 0);
+            writebackBlocked = lane_id;
+            return false;
+        }
+
+        uint8_t data[16];
+        assert(pkt->getSize() <= sizeof(data));
+
+        pkt->writeData(data);
+        DPRINTF(CudaCoreAccess, "Loaded data %d\n", *(int*)data);
+        shaderImpl->writeRegister(inst, warpSize, lane_id, (char*)data);
+    } else if (pkt->cmd == MemCmd::FenceResp) {
+        if (needsFenceUnblock[inst.warp_id()]) {
+            if (inst.op == BARRIER_OP) {
+                // Signal that warp has reached barrier
+                assert(!shaderImpl->warp_waiting_at_barrier(inst.warp_id()));
+                shaderImpl->warp_reaches_barrier(inst);
+                DPRINTF(CudaCoreAccess, "Warp %d reaches barrier\n",
+                        pkt->req->threadId());
+            }
+
+            // Signal that fence has been cleared
+            assert(shaderImpl->fence_unblock_needed(inst.warp_id()));
+            shaderImpl->complete_fence(pkt->req->threadId());
+            DPRINTF(CudaCoreAccess, "Cleared fence, unblocking warp %d\n",
+                    pkt->req->threadId());
+
+            needsFenceUnblock[inst.warp_id()] = false;
+        }
     }
-
-    uint8_t data[16];
-    assert(pkt->getSize() <= sizeof(data));
-
-    pkt->writeData(data);
-    DPRINTF(CudaCoreAccess, "Loaded data %d\n", *(int*)data);
-    shaderImpl->writeRegister(inst, warpSize, lane_id, (char*)data);
 
     delete pkt->senderState;
     delete pkt->req;

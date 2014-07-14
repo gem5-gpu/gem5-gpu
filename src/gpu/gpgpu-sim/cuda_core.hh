@@ -172,6 +172,11 @@ class CudaCore : public MemObject
     // Pointer to GPGPU-Sim shader this CUDA core is a proxy for
     shader_core_ctx *shaderImpl;
 
+    // Indicate whether an outstanding memory fence must be signaled back to
+    // the shader (e.g. to unblock warp issue)
+    std::vector<bool> needsFenceUnblock;
+    unsigned maxNumWarpsPerCore;
+
     // if true then need to signal GPGPU-Sim once cleanup is done
     bool signalKernelFinish;
 

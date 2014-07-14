@@ -147,7 +147,9 @@ def createGPU(options, gpu_mem_range):
     gpu = CudaGPU(manage_gpu_memory = options.split,
             gpu_memory_range = gpu_mem_range)
 
-    gpu.shader_cores = [CudaCore(id = i) for i in xrange(options.num_sc)]
+    warps_per_core = options.gpu_threads_per_core / options.gpu_warp_size
+    gpu.shader_cores = [CudaCore(id = i, warp_contexts = warps_per_core)
+                            for i in xrange(options.num_sc)]
     gpu.ce = GPUCopyEngine(driver_delay = 5000000)
 
     gpu.voltage_domain = VoltageDomain()
@@ -165,7 +167,7 @@ def createGPU(options, gpu_mem_range):
 #        sc.lsq.request_buffer_depth = options.gpu_l1_buf_depth
         if options.gpu_threads_per_core % options.gpu_warp_size:
             fatal("gpu_warp_size must divide gpu_threads_per_core evenly.")
-        sc.lsq.warp_contexts = options.gpu_threads_per_core / options.gpu_warp_size
+        sc.lsq.warp_contexts = warps_per_core
 
     # This is a stop-gap solution until we implement a better way to register device memory
     if options.access_host_pagetable:

@@ -181,6 +181,9 @@ class ShaderLSQ : public MemObject
     // into cache hierarchy. Once all accesses have been injected, the warp
     // instruction is removed from the head of the queue.
     std::vector<std::queue<WarpInstBuffer*> > perWarpInstructionQueues;
+    // Track the number of outstanding memory accesses from each warp for
+    // enforcing memory fence boundaries between instructions
+    std::vector<unsigned> perWarpOutstandingAccesses;
 
     // LSQ latencies:
     // This is specified as a parameter to the LSQ and represents the dispatch
@@ -276,6 +279,8 @@ class ShaderLSQ : public MemObject
     // LSQ Pipeline Stage 4:
     // Once a WarpInstBuffer has received responses for all cache accesses, it
     // can be committed by signaling back to the shader core
+    void clearFenceAtQueueHead(int warp_id);
+    void pushToCommitBuffer(WarpInstBuffer *warp_inst);
     void commitWarpInst();
     void retryCommitWarpInst();
 
@@ -301,6 +306,7 @@ class ShaderLSQ : public MemObject
     Stats::Histogram warpCoalescedAccesses;
     Stats::Histogram warpLatencyRead;
     Stats::Histogram warpLatencyWrite;
+    Stats::Histogram warpLatencyFence;
     Stats::Histogram tlbMissLatency;
     void regStats();
 

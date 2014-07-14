@@ -50,20 +50,28 @@ class WarpInstBuffer {
   private:
     // An enumeration to track the current state of the warp instruction
     //  EMPTY: This buffer does not contain a valid warp instruction
-    //  PRECOALESCE: This buffer has accepted warp instruction requests, but
-    //               has not yet coalesced the requests into cache accesses
+    //  DISPATCHING: This buffer has accepted warp instruction requests, but
+    //               has not yet started the access or fence
     //  COALESCED: Requests have been coalesced into cache accesses, which will
     //             first be translated, then sent to the cache hierarchy
-    enum BufferState { EMPTY, PRECOALESCE, COALESCED };
+    //  FENCING: The LSQ has accepted the fence operation for the warp, and will
+    //           stay in this state until the fence is complete
+    //  FENCE_COMPLETE: Fencing operation has completed, can unblock the warp
+    //                  scheduler if necessary
+    enum BufferState { EMPTY, DISPATCHING, COALESCED, FENCING, FENCE_COMPLETE };
+
+    // An enumeration to track the type of the instruction
+    enum InstructionType { INVALID, LOAD_INST, STORE_INST, MEM_FENCE, NUM_INST_TYPES };
+
+    // A list of strings associated with the different instruction types
+    static const std::string instructionTypeStrings[];
 
     int warpId;
     const unsigned laneCount;
     const unsigned warpParts;
     BufferState state;
-    // Track whether this warp instruction is a load or store
-    // NOTE: If other instruction types are introduced, this may need to be
-    // expanded to an enum type iterating possible memory instructions
-    bool isLoadInst;
+    // Track the type of this warp instruction
+    InstructionType instructionType;
     unsigned requestDataSize;
     // Tick values to track latency of warp instructions
     Tick startTick;
@@ -156,7 +164,7 @@ class WarpInstBuffer {
   public:
     WarpInstBuffer(unsigned lane_count, unsigned warp_parts = 1)
         : warpId(-1), laneCount(lane_count), warpParts(warp_parts),
-          state(EMPTY), isLoadInst(false)
+          state(EMPTY), instructionType(INVALID)
     {
         laneRequestPkts = new PacketPtr[laneCount];
         for (int i = 0; i < laneCount; i++) {
@@ -179,23 +187,47 @@ class WarpInstBuffer {
     void initializeInstBuffer(PacketPtr pkt)
     {
         assert(state == EMPTY);
-        state = PRECOALESCE;
+        state = DISPATCHING;
         startTick = curTick();
-        // If adding support for request types other than reads and writes,
-        // this assertion will need to be removed or modified accordingly
-        isLoadInst = pkt->isRead();
-        if (!isLoadInst) assert(pkt->isWrite());
+        if (pkt->isRead()) {
+            instructionType = LOAD_INST;
+        } else if (pkt->isWrite()) {
+            instructionType = STORE_INST;
+        } else if (pkt->cmd == MemCmd::FenceReq) {
+            instructionType = MEM_FENCE;
+        } else {
+            panic("Instruction type not found!");
+        }
         warpId = pkt->req->threadId();
         requestDataSize = pkt->getSize();
         pc = pkt->req->getPC();
         masterId = pkt->req->masterId();
     }
-    bool isLoad() { return isLoadInst; }
+    void startFence() {
+        assert(state == DISPATCHING);
+        firstCycleTick = curTick();
+        // TODO: If tracking multiple fences concurrently, or enforcing inter-
+        // warp memory orderings, update fence state as appropriate here
+        state = FENCING;
+    }
+    void arriveAtFence() {
+        assert(state == FENCING);
+        // TODO: If tracking multiple fences concurrently, or enforcing inter-
+        // warp memory orderings, update fence state as appropriate here
+        state = FENCE_COMPLETE;
+    }
+    std::string getInstTypeString() {
+        assert(state != EMPTY);
+        return instructionTypeStrings[instructionType];
+    }
+    bool isLoad() { return instructionType == LOAD_INST; }
+    bool isStore() { return instructionType == STORE_INST; }
+    bool isFence() { return instructionType == MEM_FENCE; }
     bool addLaneRequest(unsigned lane_id, PacketPtr pkt);
 
     void coalesceMemRequests()
     {
-        assert(state == PRECOALESCE);
+        assert(state == DISPATCHING);
         firstCycleTick = curTick();
         // Functionally coalesce
         coalesce();
@@ -237,11 +269,12 @@ class WarpInstBuffer {
     bool finishAccess(CoalescedAccess *mem_access);
     void resetState()
     {
-        assert(state == COALESCED);
+        assert(state == COALESCED || state == FENCE_COMPLETE);
         assert(coalescedAccesses.empty());
         assert(translatedAccesses.empty());
         warpId = -1;
         state = EMPTY;
+        instructionType = INVALID;
     }
 };
 

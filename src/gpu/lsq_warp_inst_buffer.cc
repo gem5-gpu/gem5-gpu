@@ -33,6 +33,9 @@
 
 using namespace std;
 
+const string WarpInstBuffer::instructionTypeStrings[] =
+        { "invalid", "load", "store", "fence" };
+
 bool
 WarpInstBuffer::addLaneRequest(unsigned lane_id, PacketPtr pkt)
 {
@@ -41,7 +44,7 @@ WarpInstBuffer::addLaneRequest(unsigned lane_id, PacketPtr pkt)
         // warp. It must block until the prior warp request is complete
         return false;
     }
-    assert(state == PRECOALESCE);
+    assert(state == DISPATCHING);
     assert(!laneRequestPkts[lane_id]);
     laneRequestPkts[lane_id] = pkt;
     return true;
@@ -66,6 +69,9 @@ WarpInstBuffer::coalesce()
      */
     assert(laneCount == 32 &&
            "Unknown whether coalescing works with more or less than 32 lanes");
+
+    assert(instructionType == LOAD_INST || instructionType == STORE_INST);
+
     unsigned segment_size = 0;
     switch (requestDataSize) {
       case 1: segment_size = 32; break;
@@ -162,11 +168,11 @@ WarpInstBuffer::coalesce()
                 }
             }
 
-            if (isLoadInst) {
+            if (instructionType == LOAD_INST) {
                 // It would be good to reduce the size as much as possible to
                 // allow for flexibility in the minimum request size in caches
                 generateCoalescedAccesses(addr, size, info.activeLanes);
-            } else {
+            } else if (instructionType == STORE_INST) {
                 // Currently, writes must be contiguous
                 // A map from the word of the block to the lane id
                 // Needs to be multimap since two lanes could have same addr
@@ -210,6 +216,8 @@ WarpInstBuffer::coalesce()
                     // This is a new chunk that needs to be sent
                     generateCoalescedAccesses(base, chunkSize, lanes);
                 }
+            } else {
+                panic("Invalid instruction in coalescer");
             }
         }
     }
@@ -224,10 +232,10 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
     RequestPtr req = new Request(asid, addr, size, flags, masterId, pc, 0, 0);
 
     CoalescedAccess *mem_access;
-    if (isLoadInst) {
+    if (instructionType == LOAD_INST) {
         mem_access = new CoalescedAccess(req, MemCmd::ReadReq, this,
                                          active_lanes);
-    } else {
+    } else if (instructionType == STORE_INST) {
         uint8_t *pkt_data = new uint8_t[size];
         list<unsigned>::iterator iter = active_lanes.begin();
         for (; iter != active_lanes.end(); iter++) {
@@ -236,6 +244,8 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
         }
         mem_access = new CoalescedAccess(req, MemCmd::WriteReq, this,
                                          active_lanes, pkt_data);
+    } else {
+        panic("Invalid instruction generating coalesced accesses\n");
     }
     coalescedAccesses.push_back(mem_access);
 }
@@ -249,7 +259,7 @@ WarpInstBuffer::finishAccess(CoalescedAccess *mem_access)
         unsigned lane_id = active_lanes->front();
         PacketPtr lane_pkt = laneRequestPkts[lane_id];
         assert(lane_pkt);
-        if (isLoadInst) {
+        if (instructionType == LOAD_INST) {
             Addr offset = lane_pkt->req->getVaddr() -
                           mem_access->req->getVaddr();
             assert(offset < mem_access->getSize());
@@ -261,6 +271,7 @@ WarpInstBuffer::finishAccess(CoalescedAccess *mem_access)
             // No need to send response for writes
             // This assumes that the shader core moves store instructions
             // directly to commit after dispatching them to the LSQ.
+            assert(instructionType == STORE_INST);
             if (lane_pkt->req) delete lane_pkt->req;
             delete lane_pkt;
             laneRequestPkts[lane_id] = NULL;
