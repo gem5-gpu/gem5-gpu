@@ -4,11 +4,11 @@ sim_seconds                                  0.000036                       # Nu
 sim_ticks                                    36258000                       # Number of ticks simulated
 final_tick                                   36258000                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  22427                       # Simulator instruction rate (inst/s)
-host_op_rate                                    40622                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                              150869053                       # Simulator tick rate (ticks/s)
-host_mem_usage                                2351128                       # Number of bytes of host memory used
-host_seconds                                     0.24                       # Real time elapsed on the host
+host_inst_rate                                  36159                       # Simulator instruction rate (inst/s)
+host_op_rate                                    65492                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                              243220771                       # Simulator tick rate (ticks/s)
+host_mem_usage                                2356016                       # Number of bytes of host memory used
+host_seconds                                     0.15                       # Real time elapsed on the host
 sim_insts                                        5389                       # Number of instructions simulated
 sim_ops                                          9762                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -541,6 +541,27 @@ system.gpu.shader_cores0.lsq.warpLatencyWrite::13            0                  
 system.gpu.shader_cores0.lsq.warpLatencyWrite::14            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores0.lsq.warpLatencyWrite::15            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores0.lsq.warpLatencyWrite::total            0                       # Latency in cycles for whole warp to finish the write
+system.gpu.shader_cores0.lsq.warpLatencyFence::samples            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::mean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::gmean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::stdev          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::0            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::1            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::2            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::3            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::4            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::5            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::6            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::7            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::8            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::9            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::10            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::11            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::12            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::13            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores0.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -752,6 +773,27 @@ system.gpu.shader_cores1.lsq.warpLatencyWrite::13            0                  
 system.gpu.shader_cores1.lsq.warpLatencyWrite::14            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores1.lsq.warpLatencyWrite::15            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores1.lsq.warpLatencyWrite::total            0                       # Latency in cycles for whole warp to finish the write
+system.gpu.shader_cores1.lsq.warpLatencyFence::samples            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::mean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::gmean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::stdev          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::0            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::1            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::2            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::3            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::4            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::5            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::6            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::7            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::8            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::9            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::10            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::11            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::12            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::13            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores1.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -963,6 +1005,27 @@ system.gpu.shader_cores2.lsq.warpLatencyWrite::13            0                  
 system.gpu.shader_cores2.lsq.warpLatencyWrite::14            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores2.lsq.warpLatencyWrite::15            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores2.lsq.warpLatencyWrite::total            0                       # Latency in cycles for whole warp to finish the write
+system.gpu.shader_cores2.lsq.warpLatencyFence::samples            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::mean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::gmean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::stdev          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::0            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::1            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::2            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::3            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::4            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::5            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::6            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::7            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::8            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::9            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::10            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::11            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::12            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::13            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores2.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -1174,6 +1237,27 @@ system.gpu.shader_cores3.lsq.warpLatencyWrite::13            0                  
 system.gpu.shader_cores3.lsq.warpLatencyWrite::14            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores3.lsq.warpLatencyWrite::15            0                       # Latency in cycles for whole warp to finish the write
 system.gpu.shader_cores3.lsq.warpLatencyWrite::total            0                       # Latency in cycles for whole warp to finish the write
+system.gpu.shader_cores3.lsq.warpLatencyFence::samples            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::mean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::gmean          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::stdev          nan                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::0            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::1            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::2            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::3            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::4            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::5            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::6            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::7            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::8            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::9            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::10            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::11            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::12            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::13            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores3.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
