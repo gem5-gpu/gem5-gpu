@@ -72,8 +72,6 @@ CudaCore::CudaCore(const Params *p) :
     }
 
     activeCTAs = 0;
-
-    DPRINTF(CudaCore, "[SC:%d] Created CUDA core\n", id);
 }
 
 CudaCore::~CudaCore()
@@ -116,27 +114,9 @@ void CudaCore::initialize()
 
 int CudaCore::instCacheResourceAvailable(Addr addr)
 {
-    map<Addr,mem_fetch *>::iterator iter = busyInstCacheLineAddrs.find(addrToLine(addr));
+    map<Addr,mem_fetch *>::iterator iter =
+            busyInstCacheLineAddrs.find(addrToLine(addr));
     return iter == busyInstCacheLineAddrs.end();
-}
-
-void CudaCore::finishTranslation(WholeTranslationState *state)
-{
-    if (state->getFault() != NoFault) {
-//        state->getFault()->invoke(tc, NULL);
-//        return;
-        panic("Translation encountered fault (%s) for address 0x%x", state->getFault()->name(), state->mainReq->getVaddr());
-    }
-    PacketPtr pkt;
-    if (state->mode == BaseTLB::Read) {
-        pkt = new Packet(state->mainReq, MemCmd::ReadReq);
-        pkt->allocate();
-        assert(pkt->req->isInstFetch());
-        instPort.sendPkt(pkt);
-    } else {
-        panic("Finished translation of unknown mode: %d\n", state->mode);
-    }
-    delete state;
 }
 
 inline Addr CudaCore::addrToLine(Addr a)
@@ -145,110 +125,112 @@ inline Addr CudaCore::addrToLine(Addr a)
     return a & (((uint64_t)-1) << maskBits);
 }
 
-void CudaCore::accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode)
-{
-    assert(mf != NULL);
-
-    if (req->isLocked() && mode == BaseTLB::Write) {
-        // skip below
-        panic("WHY IS THIS BEING EXECUTED?");
-    }
-
-    WholeTranslationState *state =
-            new WholeTranslationState(req, NULL, NULL, mode);
-    DataTranslation<CudaCore*> *translation
-            = new DataTranslation<CudaCore*>(this, state);
-
-    assert(req->isInstFetch());
-
-    assert(busyInstCacheLineAddrs.find(addrToLine(req->getVaddr())) == busyInstCacheLineAddrs.end());
-    busyInstCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
-    itb->beginTranslateTiming(req, translation, mode);
-}
-
 void
 CudaCore::icacheFetch(Addr addr, mem_fetch *mf)
 {
+    assert(instCacheResourceAvailable(addr));
+
     Addr line_addr = addrToLine(addr);
-    DPRINTF(CudaCoreFetch, "[SC:%d] Received fetch request, addr: 0x%x, size: %d, line: 0x%x\n", id, addr, mf->size(), line_addr);
-    if (!instCacheResourceAvailable(addr)) {
-        // Executed when there is a duplicate inst fetch request outstanding
-        panic("This code shouldn't be executed?");
-        return;
-    }
+    DPRINTF(CudaCoreFetch,
+            "Fetch request, addr: 0x%x, size: %d, line: 0x%x\n",
+            addr, mf->size(), line_addr);
 
     RequestPtr req = new Request();
     Request::Flags flags;
     Addr pc = (Addr)mf->get_pc();
     const int asid = 0;
 
+    BaseTLB::Mode mode = BaseTLB::Read;
     req->setVirt(asid, line_addr, mf->size(), flags, instMasterId, pc);
     req->setFlags(Request::INST_FETCH);
 
-    accessVirtMem(req, mf, BaseTLB::Read);
+    WholeTranslationState *state =
+            new WholeTranslationState(req, NULL, NULL, mode);
+    DataTranslation<CudaCore*> *translation
+            = new DataTranslation<CudaCore*>(this, state);
+
+    busyInstCacheLineAddrs[addrToLine(req->getVaddr())] = mf;
+    itb->beginTranslateTiming(req, translation, mode);
 }
 
-bool
-CudaCore::SCInstPort::sendPkt(PacketPtr pkt)
+void CudaCore::finishTranslation(WholeTranslationState *state)
 {
-    DPRINTF(CudaCoreFetch, "[SC:%d] Sending %s of %d bytes to vaddr: 0x%x, paddr: 0x%x, busy: %d\n", core->id, (pkt->isWrite()) ? "write" : "read", pkt->getSize(), pkt->req->getVaddr(), pkt->getAddr(), core->busyInstCacheLineAddrs.size());
-    if (!sendTimingReq(pkt)) {
-        DPRINTF(CudaCoreFetch, "instPort.sendPkt failed. pkt: %p vaddr: 0x%x\n", pkt, pkt->req->getVaddr());
-        core->stallOnICacheRetry = true;
-        if (pkt != outInstPkts.front()) {
-            outInstPkts.push_back(pkt);
-        }
-        DPRINTF(CudaCoreFetch, "Busy waiting requests: %d\n", outInstPkts.size());
-        return false;
+    if (state->getFault() != NoFault) {
+        panic("Instruction translation encountered fault (%s) for address 0x%x",
+              state->getFault()->name(), state->mainReq->getVaddr());
     }
-    core->numInstCacheRequests++;
-    return true;
-}
-
-bool
-CudaCore::SCInstPort::recvTimingResp(PacketPtr pkt)
-{
+    assert(state->mode == BaseTLB::Read);
+    PacketPtr pkt = new Packet(state->mainReq, MemCmd::ReadReq);
+    pkt->allocate();
     assert(pkt->req->isInstFetch());
-    map<Addr,mem_fetch *>::iterator iter = core->busyInstCacheLineAddrs.find(core->addrToLine(pkt->req->getVaddr()));
-
-    DPRINTF(CudaCoreFetch, "[SC:%d] Finished fetch on vaddr 0x%x\n", core->id, pkt->req->getVaddr());
-
-    if (iter == core->busyInstCacheLineAddrs.end()) {
-        panic("We should always find the address!!\n");
-    }
-
-    core->shaderImpl->accept_fetch_response(iter->second);
-
-    core->busyInstCacheLineAddrs.erase(iter);
-
-    if (pkt->req) delete pkt->req;
-    delete pkt;
-    return true;
+    sendInstAccess(pkt);
+    delete state;
 }
 
 void
-CudaCore::SCInstPort::recvRetry()
+CudaCore::sendInstAccess(PacketPtr pkt)
 {
-    assert(outInstPkts.size());
+    assert(!stallOnICacheRetry);
 
-    core->numInstCacheRetry++;
+    DPRINTF(CudaCoreFetch,
+            "Sending inst read of %d bytes to vaddr: 0x%x\n",
+            pkt->getSize(), pkt->req->getVaddr());
 
-    PacketPtr pktToRetry = outInstPkts.front();
-    DPRINTF(CudaCoreFetch, "recvRetry got called, pkt: %p, vaddr: 0x%x\n", pktToRetry, pktToRetry->req->getVaddr());
+    if (!instPort.sendTimingReq(pkt)) {
+        stallOnICacheRetry = true;
+        if (pkt != retryInstPkts.front()) {
+            retryInstPkts.push_back(pkt);
+        }
+        DPRINTF(CudaCoreFetch, "Send failed vaddr: 0x%x. Waiting: %d\n",
+                pkt->req->getVaddr(), retryInstPkts.size());
+    }
+    numInstCacheRequests++;
+}
 
-    if (sendPkt(pktToRetry)) {
-        outInstPkts.remove(pktToRetry);
+void
+CudaCore::handleRetry()
+{
+    assert(stallOnICacheRetry);
+    assert(retryInstPkts.size());
+
+    numInstCacheRetry++;
+
+    PacketPtr retry_pkt = retryInstPkts.front();
+    DPRINTF(CudaCoreFetch, "Received retry, vaddr: 0x%x\n",
+            retry_pkt->req->getVaddr());
+
+    if (instPort.sendTimingReq(retry_pkt)) {
+        retryInstPkts.remove(retry_pkt);
+
         // If there are still packets on the retry list, signal to Ruby that
         // there should be a retry call for the next packet when possible
-        core->stallOnICacheRetry = (outInstPkts.size() > 0);
-        if (core->stallOnICacheRetry) {
-            pktToRetry = outInstPkts.front();
-            sendPkt(pktToRetry);
+        stallOnICacheRetry = (retryInstPkts.size() > 0);
+        if (stallOnICacheRetry) {
+            retry_pkt = retryInstPkts.front();
+            instPort.sendTimingReq(retry_pkt);
         }
     } else {
-        // Don't yet know how to handle this situation
-//        panic("RecvRetry failed!");
+        panic("Access should never fail on a retry!");
     }
+}
+
+void
+CudaCore::recvInstResp(PacketPtr pkt)
+{
+    assert(pkt->req->isInstFetch());
+    map<Addr,mem_fetch *>::iterator iter =
+            busyInstCacheLineAddrs.find(addrToLine(pkt->req->getVaddr()));
+    assert(iter != busyInstCacheLineAddrs.end());
+
+    DPRINTF(CudaCoreFetch, "Finished fetch on vaddr 0x%x\n",
+            pkt->req->getVaddr());
+
+    shaderImpl->accept_fetch_response(iter->second);
+
+    busyInstCacheLineAddrs.erase(iter);
+
+    if (pkt->req) delete pkt->req;
+    delete pkt;
 }
 
 bool
@@ -322,30 +304,29 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 }
 
 bool
-CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
+CudaCore::recvLSQDataResp(PacketPtr pkt, int lane_id)
 {
-    assert(!pkt->isFlush());
-
-    DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
-            idx, pkt->req->getVaddr());
     assert(pkt->isRead());
 
-    uint8_t data[16];
-    assert(pkt->getSize() <= sizeof(data));
+    DPRINTF(CudaCoreAccess, "Got a response for lane %d address 0x%llx\n",
+            lane_id, pkt->req->getVaddr());
 
     warp_inst_t &inst = ((SenderState*)pkt->senderState)->inst;
     assert(!inst.empty() && inst.valid());
 
-    if (!core->shaderImpl->ldst_unit_wb_inst(inst)) {
+    if (!shaderImpl->ldst_unit_wb_inst(inst)) {
         // Writeback register is occupied, stall
-        assert(core->writebackBlocked < 0);
-        core->writebackBlocked = idx;
+        assert(writebackBlocked < 0);
+        writebackBlocked = lane_id;
         return false;
     }
 
+    uint8_t data[16];
+    assert(pkt->getSize() <= sizeof(data));
+
     pkt->writeData(data);
     DPRINTF(CudaCoreAccess, "Loaded data %d\n", *(int*)data);
-    core->shaderImpl->writeRegister(inst, core->warpSize, idx, (char*)data);
+    shaderImpl->writeRegister(inst, warpSize, lane_id, (char*)data);
 
     delete pkt->senderState;
     delete pkt->req;
@@ -355,45 +336,19 @@ CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
 }
 
 void
-CudaCore::LSQPort::recvRetry()
-{
-    panic("Not sure how to respond to a recvRetry...");
-}
-
-bool
-CudaCore::LSQControlPort::recvTimingResp(PacketPtr pkt)
+CudaCore::recvLSQControlResp(PacketPtr pkt)
 {
     if (pkt->isFlush()) {
         DPRINTF(CudaCoreAccess, "Got flush response\n");
-        if (core->signalKernelFinish) {
-            core->shaderImpl->finish_kernel();
-            core->signalKernelFinish = false;
+        if (signalKernelFinish) {
+            shaderImpl->finish_kernel();
+            signalKernelFinish = false;
         }
     } else {
         panic("Received unhandled packet type in control port");
     }
     delete pkt->req;
     delete pkt;
-    return true;
-}
-
-void
-CudaCore::LSQControlPort::recvRetry()
-{
-    panic("CudaCore::LSQControlPort::recvRetry() not implemented!");
-}
-
-Tick
-CudaCore::SCInstPort::recvAtomic(PacketPtr pkt)
-{
-    panic("Not sure how to recvAtomic");
-    return 0;
-}
-
-void
-CudaCore::SCInstPort::recvFunctional(PacketPtr pkt)
-{
-    panic("Not sure how to recvFunctional");
 }
 
 void
@@ -424,6 +379,57 @@ CudaCore::finishKernel()
     numKernelsCompleted++;
     signalKernelFinish = true;
     flush();
+}
+
+bool
+CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
+{
+    return core->recvLSQDataResp(pkt, idx);
+}
+
+void
+CudaCore::LSQPort::recvRetry()
+{
+    panic("Not sure how to respond to a recvRetry...");
+}
+
+bool
+CudaCore::LSQControlPort::recvTimingResp(PacketPtr pkt)
+{
+    core->recvLSQControlResp(pkt);
+    return true;
+}
+
+void
+CudaCore::LSQControlPort::recvRetry()
+{
+    panic("CudaCore::LSQControlPort::recvRetry() not implemented!");
+}
+
+bool
+CudaCore::InstPort::recvTimingResp(PacketPtr pkt)
+{
+    core->recvInstResp(pkt);
+    return true;
+}
+
+void
+CudaCore::InstPort::recvRetry()
+{
+    core->handleRetry();
+}
+
+Tick
+CudaCore::InstPort::recvAtomic(PacketPtr pkt)
+{
+    panic("Not sure how to recvAtomic");
+    return 0;
+}
+
+void
+CudaCore::InstPort::recvFunctional(PacketPtr pkt)
+{
+    panic("Not sure how to recvFunctional");
 }
 
 CudaCore *CudaCoreParams::create() {
@@ -617,12 +623,14 @@ CudaCore::record_block_commit(unsigned hw_cta_id)
 
 void CudaCore::printCTAStats(std::ostream& out)
 {
-    std::map<unsigned, std::vector<Tick> >::iterator iter;
+    std::map<unsigned, std::vector<Tick> >::iterator iter =
+            coreCTAActiveStats.begin();
     std::vector<Tick>::iterator times;
-    for (iter = coreCTAActiveStats.begin(); iter != coreCTAActiveStats.end(); iter++) {
+    for (; iter != coreCTAActiveStats.end(); iter++) {
         unsigned cta_id = iter->first;
         out << id << ", " << cta_id << ", ";
-        for (times = coreCTAActiveStats[cta_id].begin(); times != coreCTAActiveStats[cta_id].end(); times++) {
+        times = coreCTAActiveStats[cta_id].begin();
+        for (; times != coreCTAActiveStats[cta_id].end(); times++) {
             out << *times << ", ";
         }
         out << curTick() << "\n";

@@ -46,87 +46,88 @@
 class CudaGPU;
 
 /**
- *  Wrapper class for the shader cores in GPGPU-Sim
- *  A CUDA core is equivalent to an NVIDIA streaming multiprocessor (SM)
+ *  Wrapper class for the shader cores in GPGPU-Sim. Shader memory references
+ *  to GPU const, global and instruction memory go through this wrapper to the
+ *  gem5-side memory hierarchy.
  *
- *  GPGPU-Sim shader *timing* memory references are routed through this class.
- *
+ *  NOTE: A CUDA core is equivalent to an NVIDIA streaming multiprocessor (SM)
  */
 class CudaCore : public MemObject
 {
-protected:
+  protected:
     typedef CudaCoreParams Params;
 
     /**
-     * Port for sending a receiving instuction memory requests
+     * Port for sending a receiving instruction memory accesses
      * Required for implementing MemObject
      */
-    class SCInstPort : public MasterPort
+    class InstPort : public MasterPort
     {
         friend class CudaCore;
 
-    private:
+      private:
         // Pointer back to shader core for callbacks
         CudaCore *core;
 
-        // Holds packets that failed to send for retry
-        std::list<PacketPtr> outInstPkts;
-
-    public:
-        SCInstPort(const std::string &_name, CudaCore *_core)
+      public:
+        InstPort(const std::string &_name, CudaCore *_core)
         : MasterPort(_name, _core), core(_core) {}
-        // Sends a request into the gem5 memory system (Ruby)
-        bool sendPkt(PacketPtr pkt);
 
-    protected:
+      protected:
         virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
     };
-    /// Instantiation of above port
-    SCInstPort instPort;
+    // Instantiation of above port
+    InstPort instPort;
 
     /**
-    * Port to send packets to the load/store queue and coalescer
-    */
+     * Port to send packets to the load/store queue and coalescer
+     */
     class LSQPort : public MasterPort
     {
         friend class CudaCore;
 
-    private:
+      private:
         CudaCore *core;
         int idx;
 
-    public:
+      public:
         LSQPort(const std::string &_name, CudaCore *_core, int _idx)
         : MasterPort(_name, _core), core(_core), idx(_idx) {}
 
-    protected:
+      protected:
         virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
     };
-    /// Instantiation of above port
+    // Ports for each of the GPU lanes
     std::vector<LSQPort*> lsqPorts;
 
+    /**
+     * A port to send control commands to the LSQ. Currently, this is used
+     * to send the flush command on kernel boundaries. Functions more like a
+     * register for transmitting control logic than a true port, so receive
+     * functions do not block.
+     */
     class LSQControlPort : public MasterPort
     {
         friend class CudaCore;
 
-    private:
+      private:
         CudaCore *core;
 
-    public:
+      public:
         LSQControlPort(const std::string &_name, CudaCore *_core)
         : MasterPort(_name, _core), core(_core) {}
 
-    protected:
+      protected:
         virtual bool recvTimingResp(PacketPtr pkt);
         virtual void recvRetry();
     };
     LSQControlPort lsqControlPort;
 
-    /// Port that is blocked. If -1 then no port is blocked.
+    // Port that is blocked. If -1 then no port is blocked.
     int writebackBlocked;
 
     class SenderState : public Packet::SenderState {
@@ -135,53 +136,49 @@ protected:
         warp_inst_t inst;
     };
 
-    const Params * params() const { return dynamic_cast<const Params *>(_params);	}
+    const Params * params() const {
+        return dynamic_cast<const Params *>(_params);
+    }
     const CudaCoreParams *_params;
 
     MasterID dataMasterId;
     MasterID instMasterId;
 
-private:
+  private:
 
-    /// Called to begin a virtual memory access
-    void accessVirtMem(RequestPtr req, mem_fetch *mf, BaseTLB::Mode mode);
-
-    /**
-     * Flush the core of all pending instructions,
-     * This is currently used to force the LSQ to flush on kernel end
-     */
-    void flush();
-
-    /// ID for this CUDA core, should match the id in GPGPU-Sim
+    // ID for this CUDA core, should match the id in GPGPU-Sim
     int id;
 
-    /// Number of threads in the warp, also the number of lanes per SM
+    // Number of threads in the warp, also the number of lanes per SM
     int warpSize;
 
-    /// Stalled because a memory request called recvRetry, usually because a queue
-    /// filled up
+    // Stalled because a memory request called recvRetry, usually because
+    // a queue filled up
     bool stallOnICacheRetry;
 
-    /// holds all outstanding addresses, maps from address to mf object (from gpgpu-sim)
-    /// used mostly for acking GPGPU-Sim
+    // Holds all outstanding addresses, maps from address to mf object used
+    // mostly for acking GPGPU-Sim
     std::map<Addr,mem_fetch *> busyInstCacheLineAddrs;
 
-    /// TLB's. These do NOT perform any timing right now
+    // Holds instruction packets that need to be retried
+    std::list<PacketPtr> retryInstPkts;
+
+    // The TLB to translate instruction addresses
     ShaderTLB *itb;
 
-    /// Point to GPU this CUDA core is part of
+    // Point to GPU this CUDA core is part of
     CudaGPU *cudaGPU;
 
-    /// Pointer to GPGPU-Sim shader this CUDA core is a proxy for
+    // Pointer to GPGPU-Sim shader this CUDA core is a proxy for
     shader_core_ctx *shaderImpl;
 
-    /// if true then need to signal GPGPU-Sim once cleanup is done
+    // if true then need to signal GPGPU-Sim once cleanup is done
     bool signalKernelFinish;
 
-    /// Returns the line of the address, a
+    // Returns the line of the address, a
     Addr addrToLine(Addr a);
 
-    /// Can we issue an inst  cache request this cycle?
+    // Can we issue an inst  cache request this cycle?
     int instCacheResourceAvailable(Addr a);
 
     Cycles lastActiveCycle;
@@ -191,38 +188,68 @@ private:
     Cycles beginActiveCycle;
     int activeCTAs;
 
-public:
-    /// Constructor and deconstructor
+  public:
+    // Constructor and deconstructor
     CudaCore(const Params *p);
     ~CudaCore();
 
-    /// Required for implementing MemObject
-    virtual BaseMasterPort& getMasterPort(const std::string &if_name, PortID idx = -1);
+    // Required for implementing MemObject
+    virtual BaseMasterPort& getMasterPort(const std::string &if_name,
+                                          PortID idx = -1);
 
-    /// For checkpoint restore (empty unserialize)
+    // For checkpoint restore (empty unserialize)
     virtual void unserialize(Checkpoint *cp, const std::string &section);
 
-    /// Perform initialization. Called from SPA
+    // Perform initialization. Called from SPA
     void initialize();
 
-    /// Required for translation. Calls sendPkt with physical address
-    void finishTranslation(WholeTranslationState *state);
-
     /** This function is used by the page table walker to determine if it could
-    * translate the a pending request or if the underlying request has been
-    * squashed. This always returns false for the GPU as it never
-    * executes any instructions speculatively.
-    * @ return Is the current instruction squashed?
-    */
+     * translate the a pending request or if the underlying request has been
+     * squashed. This always returns false for the GPU as it never
+     * executes any instructions speculatively.
+     * @ return Is the current instruction squashed?
+     */
     bool isSquashed() const { return false; }
 
+    // Instruction memory access functions:
+    // Initializes an instruction fetch from gem5-side memory
+    void icacheFetch(Addr a, mem_fetch *mf);
+
+    // Required for translation. Calls sendInstAccess with physical address
+    void finishTranslation(WholeTranslationState *state);
+
+  private:
+    // Sends an instruction memory access to the cache
+    void sendInstAccess(PacketPtr pkt);
+
+    // Handle an instruction port retry request
+    void handleRetry();
+
+  public:
+    // Receive and complete an instruction fetch
+    void recvInstResp(PacketPtr pkt);
+
     /**
-    * This function is the main entrypoint from GPGPU-Sim
-    * This function parses the instruction from GPGPU-Sim and issues the
-    * memory request to the LSQ on a per-lane basis.
-    * @return true if stall
-    */
+     * This function is the main entrypoint from GPGPU-Sim
+     * This function parses the instruction from GPGPU-Sim and issues the
+     * memory request to the LSQ on a per-lane basis.
+     * @return true if stall
+     */
     bool executeMemOp(const warp_inst_t &inst);
+
+    /**
+     * The specified lane is returning a packet from the ShaderLSQ to be
+     * handled as appropriate (e.g. LD instructions return data, fences may
+     * need to be signaled to the appropriate thread)
+     */
+    bool recvLSQDataResp(PacketPtr pkt, int lane_id);
+
+    /**
+     * The ShaderLSQ is returning a control signal. This currently handles
+     * flushes, but may handle other situations that need to block/unblock
+     * warp issue.
+     */
+    void recvLSQControlResp(PacketPtr pkt);
 
     /**
      * GPGPU-Sim calls this function when the writeback register in its ld/st
@@ -231,13 +258,16 @@ public:
     void writebackClear();
 
     /**
+     * Flush the core of all pending instructions,
+     * This is currently used to force the LSQ to flush on kernel end
+     */
+    void flush();
+
+    /**
      * Called from GPGPU-Sim when a kernel completes on this shader
      * Must signal back to GPGPU-Sim after all cleanup is done
      */
     void finishKernel();
-
-    // Wrapper functions for GPGPU-Sim instruction cache accesses
-    void icacheFetch(Addr a, mem_fetch *mf);
 
     // For counting statistics
     Stats::Scalar numLocalLoads;
