@@ -168,7 +168,13 @@ void CudaCore::finishTranslation(WholeTranslationState *state)
     PacketPtr pkt = new Packet(state->mainReq, MemCmd::ReadReq);
     pkt->allocate();
     assert(pkt->req->isInstFetch());
-    sendInstAccess(pkt);
+    if (!stallOnICacheRetry) {
+        sendInstAccess(pkt);
+    } else {
+        DPRINTF(CudaCoreFetch, "Port blocked, add vaddr: 0x%x to retry list\n",
+                pkt->req->getVaddr());
+        retryInstPkts.push_back(pkt);
+    }
     delete state;
 }
 
