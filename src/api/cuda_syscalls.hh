@@ -167,6 +167,17 @@ struct uint3
 
 typedef struct CUevent_st *cudaEvent_t;
 
+typedef struct cudaFuncAttributes {
+   size_t sharedSizeBytes;
+   size_t constSizeBytes;
+   size_t localSizeBytes;
+   int maxThreadsPerBlock;
+   int numRegs;
+   int ptxVersion;
+   int binaryVersion;
+   int __cudaReserved[6];
+} cudaFuncAttributes;
+
 /*******************************
      CUDA API GEM5 HANDLERS
 ********************************/

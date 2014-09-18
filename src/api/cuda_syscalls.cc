@@ -847,6 +847,36 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     g_last_cudaError = cudaSuccess;
 }
 
+void
+cudaFuncGetAttributes(ThreadContext *tc, gpusyscall_t *call_params)
+{
+    GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_attr = *((Addr*)helper.getParam(0, true));
+    Addr sim_hostFun = *((Addr*)helper.getParam(1, true));
+
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    function_info *entry = cudaGPU->get_kernel((const char*)sim_hostFun);
+
+    if (entry) {
+        const struct gpgpu_ptx_sim_kernel_info *kinfo = entry->get_kernel_info();
+        cudaFuncAttributes attr;
+        attr.sharedSizeBytes = kinfo->smem;
+        attr.constSizeBytes  = kinfo->cmem;
+        attr.localSizeBytes  = kinfo->lmem;
+        attr.numRegs         = kinfo->regs;
+        attr.maxThreadsPerBlock = 0; // from pragmas?
+        attr.ptxVersion      = kinfo->ptx_version;
+        attr.binaryVersion   = kinfo->sm_target;
+        helper.writeBlob(sim_attr, (uint8_t*)&attr, sizeof(cudaFuncAttributes));
+        g_last_cudaError = cudaSuccess;
+    } else {
+        g_last_cudaError = cudaErrorInvalidDeviceFunction;
+    }
+
+    helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+}
+
 /*******************************************************************************
  *                                                                              *
  *                                                                              *
@@ -1403,12 +1433,6 @@ cudaSetValidDevices(ThreadContext *tc, gpusyscall_t *call_params)
 
 void
 cudaSetDeviceFlags(ThreadContext *tc, gpusyscall_t *call_params)
-{
-    cuda_not_implemented(__my_func__,__LINE__);
-}
-
-void
-cudaFuncGetAttributes(ThreadContext *tc, gpusyscall_t *call_params)
 {
     cuda_not_implemented(__my_func__,__LINE__);
 }

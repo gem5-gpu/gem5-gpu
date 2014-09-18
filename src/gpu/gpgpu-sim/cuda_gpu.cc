@@ -585,9 +585,11 @@ void CudaGPU::register_function( unsigned fat_cubin_handle, const char *hostFun,
 
 function_info *CudaGPU::get_kernel(const char *hostFun)
 {
-    std::map<const void*,function_info*>::iterator i=m_kernel_lookup.find(hostFun);
-    assert( i != m_kernel_lookup.end() );
-    return i->second;
+    std::map<const void*,function_info*>::iterator i = m_kernel_lookup.find(hostFun);
+    if (i != m_kernel_lookup.end()) {
+        return i->second;
+    }
+    return NULL;
 }
 
 void CudaGPU::setInstBaseVaddr(uint64_t addr)
