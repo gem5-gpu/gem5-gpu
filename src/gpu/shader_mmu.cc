@@ -36,6 +36,7 @@
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "gpu/shader_mmu.hh"
 #include "params/ShaderMMU.hh"
+#include "sim/full_system.hh"
 
 #ifdef TARGET_ARM
     // TODO: To enable full-system mode ARM interrupts may require including
@@ -243,6 +244,11 @@ ShaderMMU::finalizeTranslation(TranslationRequest *translation)
 void
 ShaderMMU::handlePageFault(TranslationRequest *translation)
 {
+    if (!FullSystem) {
+        panic("Page fault handling (addr: %#x, pc: %#x) not available in SE "
+              "mode: No interrupt handler!\n", translation->vpn,
+              translation->req->getPC());
+    }
     if (translation->prefetch) {
         DPRINTF(ShaderMMU, "Ignoring since fault on prefetch\n");
         prefetchFaults++;
