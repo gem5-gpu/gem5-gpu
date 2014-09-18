@@ -28,6 +28,7 @@
 
 import m5
 import os
+import re
 from m5.objects import *
 from m5.util.convert import *
 from m5.util import fatal
@@ -116,6 +117,7 @@ def parseGpgpusimConfig(options):
         gpgpusimconfig = m5.options.outdir + '/gpgpusim.config'
     else:
         print "Using gpgpusim.config for clusters, cores_per_cluster, Frequency, warp size"
+        config = re.sub(re.compile("#.*?\n"), "", config)
         start = config.find("-gpgpu_n_clusters ") + len("-gpgpu_n_clusters ")
         end = config.find('-', start)
         gpgpu_n_clusters = int(config[start:end])
