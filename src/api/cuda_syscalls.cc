@@ -1383,7 +1383,7 @@ __cudaRegisterTexture(ThreadContext *tc, gpusyscall_t *call_params)
     gpgpu_t *gpu = cudaGPU->getTheGPU();
     helper.readString(sim_deviceName, (uint8_t*)deviceName, MAX_STRING_LEN);
 
-    gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, (const struct textureReference*)sim_hostVar);
+    gpu->gpgpu_ptx_sim_bindNameToTexture(deviceName, (const struct textureReference*)sim_hostVar, sim_dim, sim_norm, sim_ext);
     warn("__cudaRegisterTexture implementation is not complete!");
 }
 
