@@ -102,19 +102,44 @@ def parseGpgpusimConfig(options):
 
     if usingTemplate:
         print "Using template and command line options for gpgpusim.config"
+
+        # Modify the GPGPU-Sim configuration template
         config = config.replace("%clusters%", str(options.clusters))
         config = config.replace("%cores_per_cluster%", str(options.cores_per_cluster))
         config = config.replace("%ctas_per_shader%", str(options.ctas_per_shader))
-        config = config.replace("%icnt_file%", os.path.join(os.path.dirname(__file__), "gpu_config/icnt_config_fermi_islip.txt"))
+        icnt_outfile = os.path.join(m5.options.outdir, 'config_fermi_islip.icnt')
+        config = config.replace("%icnt_file%", icnt_outfile)
         config = config.replace("%warp_size%", str(options.gpu_warp_size))
         # GPGPU-Sim config expects freq in MHz
         config = config.replace("%freq%", str(toFrequency(options.gpu_core_clock) / 1.0e6))
         config = config.replace("%threads_per_sm%", str(options.gpu_threads_per_core))
         options.num_sc = options.clusters*options.cores_per_cluster
+
+        # Write out the configuration file to the output directory
         f = open(m5.options.outdir + '/gpgpusim.config', 'w')
         f.write(config)
         f.close()
         gpgpusimconfig = m5.options.outdir + '/gpgpusim.config'
+
+        # Read in and modify the interconnect config template
+        icnt_template = os.path.join(os.path.dirname(__file__), 'gpu_config/config_fermi_islip.template.icnt')
+        f = open(icnt_template)
+        icnt_config = f.read()
+        f.close()
+
+        # The number of nodes in the GPU network is the number of core clusters,
+        # plus the number of GPU memory partitions, plus one extra (it is not
+        # clear in GPGPU-Sim what this extra is for). Note: Aiming to remove
+        # GPGPU-Sim interconnect completely as it only models parameter memory
+        # handling currently (i.e. tiny fraction of accesses). Only model one
+        # memory partition currently by default.
+        num_icnt_nodes = str(options.clusters + 1 + 1)
+        icnt_config = icnt_config.replace("%num_nodes%", num_icnt_nodes)
+
+        # Write out the interconnect config file to the output directory
+        f = open(icnt_outfile, 'w')
+        f.write(icnt_config)
+        f.close()
     else:
         print "Using gpgpusim.config for clusters, cores_per_cluster, Frequency, warp size"
         config = re.sub(re.compile("#.*?\n"), "", config)
