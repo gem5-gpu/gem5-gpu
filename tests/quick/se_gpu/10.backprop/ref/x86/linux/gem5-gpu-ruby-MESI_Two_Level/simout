@@ -1,17 +1,17 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Jul 13 2014 00:48:44
-gem5 started Jul 13 2014 00:49:34
-gem5 executing on vein
-command line: build/X86_MESI_Two_Level_GPU/gem5.opt -d build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level -re /home/joel/research/gem5/gem5-gpu-testing-update/gem5/tests/run.py build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level
+gem5 compiled Sep 18 2014 21:34:10
+gem5 started Sep 18 2014 21:34:19
+gem5 executing on artery
+command line: build/X86_MESI_Two_Level_GPU/gem5.opt -d build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level
 Warning: Only block size currently supported is 128B. Defaulting to 128.
 Using template and command line options for gpgpusim.config
 Creating system for GPU
 Global frequency set at 1000000000000 ticks per second
 
 
-        *** GPGPU-Sim version 3.0.2 (build 11587) ***
+        *** GPGPU-Sim Simulator Version 3.2.2  [build 17315] ***
 
 
 GPGPU-Sim PTX: simulation mode 0 (can change with PTX_SIM_MODE_FUNC environment variable:
@@ -19,29 +19,42 @@ GPGPU-Sim PTX: simulation mode 0 (can change with PTX_SIM_MODE_FUNC environment 
 GPGPU-Sim: Configuration options:
 
 -network_mode                           1 # Interconnection network mode
--inter_config_file   /home/joel/research/gem5/gem5-gpu-testing-update/gem5-gpu/configs/gpu_config/icnt_config_fermi_islip.txt # Interconnection network config file
--gpgpu_ptx_convert_to_ptxplus                    0 # Convert embedded ptx to ptxplus
--gpgpu_ptx_save_converted_ptxplus                    0 # Saved converted ptxplus to a file
+-inter_config_file   build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby-MESI_Two_Level/config_fermi_islip.icnt # Interconnection network config file
+-gpgpu_ptx_use_cuobjdump                    0 # Use cuobjdump to extract ptx and sass from binaries
+-gpgpu_experimental_lib_support                    0 # Try to extract code from cuda libraries [Broken because of unknown cudaGetExportTable]
+-gpgpu_ptx_convert_to_ptxplus                    0 # Convert SASS (native ISA) to ptxplus and run ptxplus
 -gpgpu_ptx_force_max_capability                   20 # Force maximum compute capability
 -gpgpu_ptx_inst_debug_to_file                    0 # Dump executed instructions' debug information to file
 -gpgpu_ptx_inst_debug_file       inst_debug.txt # Executed instructions' debug output file
 -gpgpu_ptx_inst_debug_thread_uid                    1 # Thread UID for executed instructions' debug output
 -gpgpu_simd_model                       1 # 1 = post-dominator
 -gpgpu_shader_core_pipeline              1536:32 # shader core pipeline config, i.e., {<nthread>:<warpsize>}
--gpgpu_tex_cache:l1  4:128:24:L:R:m,F:128:4,128:2 # per-shader L1 texture cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>:<rep>:<wr>:<alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
--gpgpu_const_cache:l1 64:64:2:L:R:f,A:2:32,4 # per-shader L1 constant memory cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>:<rep>:<wr>:<alloc>,<mshr>:<N>:<merge>,<mq>}
--gpgpu_cache:il1     8:128:4:L:R:f,A:2:32,4 # shader L1 instruction cache config  {<nsets>:<bsize>:<assoc>:<rep>:<wr>:<alloc>,<mshr>:<N>:<merge>,<mq>}
--gpgpu_cache:dl1                     none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>:<rep>:<wr>:<alloc>,<mshr>:<N>:<merge>,<mq>|none}
+-gpgpu_tex_cache:l1  4:128:24,L:R:m:N,F:128:4,128:2 # per-shader L1 texture cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
+-gpgpu_const_cache:l1 64:64:2,L:R:f:N,A:2:32,4 # per-shader L1 constant memory cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:il1     8:128:4,L:R:f:N,A:2:32,4 # shader L1 instruction cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:dl1                     none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PreShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gmem_skip_L1D                          0 # global memory access skip L1D cache (implements -Xptxas -dlcm=cg, default=no skip)
 -gpgpu_perfect_mem                      0 # enable perfect memory mode (no cache miss)
+-n_regfile_gating_group                    4 # group of lanes that should be read/written together)
+-gpgpu_clock_gated_reg_file                    0 # enable clock gated reg file for power calculations
+-gpgpu_clock_gated_lanes                    0 # enable clock gated lanes for power calculations
 -gpgpu_shader_registers                32768 # Number of registers per shader core. Limits number of concurrent CTAs. (default 8192)
 -gpgpu_shader_cta                       8 # Maximum number of concurrent CTAs in shader (default 8)
 -gpgpu_n_clusters                       4 # number of processing clusters
 -gpgpu_n_cores_per_cluster                    1 # number of simd cores per cluster
 -gpgpu_n_cluster_ejection_buffer_size                    8 # number of packets in ejection buffer
 -gpgpu_n_ldst_response_buffer_size                    2 # number of response packets in ld/st unit ejection buffer
+-gpgpu_shmem_size                   16384 # Size of shared memory per shader core (default 16kB)
 -gpgpu_shmem_size                   49152 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefL1                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefShared                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_num_banks                   32 # Number of banks in the shared memory in each shader core (default 16)
+-gpgpu_shmem_limited_broadcast                    0 # Limit shared memory to do one broadcast per cycle (default on)
 -gpgpu_shmem_warp_parts                    1 # Number of portions a warp is divided into for shared memory bank conflict check 
 -gpgpu_warpdistro_shader                   -1 # Specify which shader core to collect the warp size distribution from
+-gpgpu_warp_issue_shader                    0 # Specify which shader core to collect the warp issue distribution from
 -gpgpu_local_mem_map                    1 # Mapping from local memory space address to simulated GPU physical address space (default = enabled)
 -gpgpu_num_reg_banks                   16 # Number of register banks (default = 8)
 -gpgpu_reg_bank_use_warp_id                    0 # Use warp ID in mapping registers to banks (default = off)
@@ -49,11 +62,11 @@ GPGPU-Sim: Configuration options:
 -gpgpu_operand_collector_num_units_sfu                    8 # number of collector units (default = 4)
 -gpgpu_operand_collector_num_units_mem                    2 # number of collector units (default = 2)
 -gpgpu_operand_collector_num_units_gen                    0 # number of collector units (default = 0)
--gpgpu_operand_collector_num_in_ports_sp                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_sp                    2 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_in_ports_sfu                    1 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_in_ports_mem                    1 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_in_ports_gen                    0 # number of collector unit in ports (default = 0)
--gpgpu_operand_collector_num_out_ports_sp                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_sp                    2 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_out_ports_sfu                    1 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_out_ports_mem                    1 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_out_ports_gen                    0 # number of collector unit in ports (default = 0)
@@ -61,28 +74,45 @@ GPGPU-Sim: Configuration options:
 -gpgpu_num_sched_per_core                    2 # Number of warp schedulers per core
 -gpgpu_max_insn_issue_per_warp                    1 # Max number of instructions that can be issued per warp in one cycle by scheduler
 -gpgpu_simt_core_sim_order                    1 # Select the simulation order of cores in a cluster (0=Fix, 1=Round-Robin)
+-gpgpu_pipeline_widths        2,1,1,2,1,1,2 # Pipeline widths ID_OC_SP,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_SFU,OC_EX_MEM,EX_WB
+-gpgpu_num_sp_units                     2 # Number of SP units (default=1)
+-gpgpu_num_sfu_units                    1 # Number of SF units (default=1)
+-gpgpu_num_mem_units                    1 # Number if ldst units (default=1) WARNING: not hooked up to anything
+-gpgpu_scheduler                      gto # Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
 -gpgpu_dram_scheduler                    1 # 0 = fifo, 1 = FR-FCFS (defaul)
 -gpgpu_dram_partition_queues              8:8:8:8 # i2$:$2d:d2$:$2i
 -l2_ideal                               0 # Use a ideal L2 cache that always hit
--gpgpu_cache:dl2     64:256:8:L:R:m,A:32:4,4 # unified banked L2 data cache config  {<nsets>:<bsize>:<assoc>:<rep>:<wr>:<alloc>,<mshr>:<N>:<merge>,<mq>}
+-gpgpu_cache:dl2     64:256:8,L:B:m:W,A:32:4,4:0,32 # unified banked L2 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
 -gpgpu_cache:dl2_texture_only                    0 # L2 cache used for texture only
--gpgpu_n_mem                            6 # number of memory modules (e.g. memory controllers) in gpu
+-gpgpu_n_mem                            1 # number of memory modules (e.g. memory controllers) in gpu
+-gpgpu_n_sub_partition_per_mchannel                    2 # number of memory subpartition in each memory module
 -gpgpu_n_mem_per_ctrlr                    2 # number of memory chips per memory controller
 -gpgpu_memlatency_stat                   14 # track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
--gpgpu_dram_sched_queue_size                   16 # 0 = unlimited (default); # entries per chip
+-gpgpu_frfcfs_dram_sched_queue_size                   16 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_return_queue_size                  116 # 0 = unlimited (default); # entries per chip
 -gpgpu_dram_buswidth                    4 # default = 4 bytes (8 bytes per cycle at DDR)
--gpgpu_dram_burst_length                    4 # Burst length of each DRAM request (default = 4 DDR cycle)
--gpgpu_dram_timing_opt 16:2:5:12:28:12:35:10:7:6:12 # DRAM timing parameters = {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR}
+-gpgpu_dram_burst_length                    8 # Burst length of each DRAM request (default = 4 data bus cycle)
+-dram_data_command_freq_ratio                    4 # Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
+-gpgpu_dram_timing_opt nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=4:CCDL=3:RTPL=2 # DRAM timing parameters = {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
 -rop_latency                          120 # ROP queue latency (default 85)
 -dram_latency                         100 # DRAM latency (default 30)
--gpgpu_mem_addr_mapping dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RRBBBCCC.CCCSSSSS # mapping memory address to dram model {dramid@<start bit>;<memory address map>}
+-gpgpu_mem_addr_mapping dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.BBBCCCCB.CCSSSSSS # mapping memory address to dram model {dramid@<start bit>;<memory address map>}
 -gpgpu_mem_addr_test                    0 # run sweep test to check address mapping for aliased address
 -gpgpu_mem_address_mask                    1 # 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
+-gpuwattch_xml_file         gpuwattch.xml # GPUWattch XML file
+-power_simulation_enabled                    0 # Turn on power simulator (1=On, 0=Off)
+-power_per_cycle_dump                    0 # Dump detailed power output each cycle
+-power_trace_enabled                    0 # produce a file for the power trace (1=On, 0=Off)
+-power_trace_zlevel                     6 # Compression level of the power trace output log (0=no comp, 9=highest)
+-steady_power_levels_enabled                    0 # produce a file for the steady power levels (1=On, 0=Off)
+-steady_state_definition                  8:4 # allowed deviation:number of samples
 -gpgpu_max_cycle                        0 # terminates gpu simulation early (0 = no limit)
 -gpgpu_max_insn                         0 # terminates gpu simulation early (0 = no limit)
 -gpgpu_max_cta                          0 # terminates gpu simulation early (0 = no limit)
 -gpgpu_runtime_stat                 50000 # display runtime statistics such as dram utilization {<freq>:<flag>}
--gpgpu_flush_cache                      0 # Flush cache at the end of each kernel call
+-liveness_message_freq                    1 # Minimum number of seconds between simulation liveness messages (0 = always print)
+-gpgpu_flush_l1_cache                    0 # Flush L1 cache at the end of each kernel call
+-gpgpu_flush_l2_cache                    0 # Flush L2 cache at the end of each kernel call
 -gpgpu_deadlock_detect                    1 # Stop the simulation at deadlock (1=on (default), 0=off)
 -gpgpu_ptx_instruction_classification                    0 # if enabled will classify ptx instruction types per kernel (Max 255 kernels now)
 -gpgpu_ptx_sim_mode                     0 # Select between Performance (default) or Functional simulation (1)
@@ -92,26 +122,57 @@ GPGPU-Sim: Configuration options:
 -visualizer_enabled                     0 # Turn on visualizer output (1=On, 0=Off)
 -visualizer_outputfile                 NULL # Specifies the output log file for visualizer
 -visualizer_zlevel                      6 # Compression level of the visualizer output log (0=no comp, 9=highest)
+-trace_enabled                          0 # Turn on traces
+-trace_components                    none # comma seperated list of traces to enable. Complete list found in trace_streams.tup. Default none
+-trace_sampling_core                    0 # The core which is printed using CORE_DPRINTF. Default 0
+-trace_sampling_memory_partition                   -1 # The memory partition which is printed using MEMPART_DPRINTF. Default -1 (i.e. all)
 -enable_ptx_file_line_stats                    0 # Turn on PTX source line statistic profiling. (1 = On)
 -ptx_line_stats_filename gpgpu_inst_stats.txt # Output file for PTX source line statistics.
 -save_embedded_ptx                      0 # saves ptx files embedded in binary as <n>.ptx
 -keep                                   0 # keep intermediate files created by GPGPU-Sim when interfacing with external programs
+-gpgpu_ptx_save_converted_ptxplus                    0 # Saved converted ptxplus to a file
+-ptx_opcode_latency_int         4,13,4,5,145 # Opcode latencies for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,19,25,145
+-ptx_opcode_latency_fp          4,13,4,5,39 # Opcode latencies for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,30
+-ptx_opcode_latency_dp         8,19,8,8,330 # Opcode latencies for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,335
+-ptx_opcode_initiation_int            1,2,2,1,8 # Opcode initiation intervals for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,4,4,32
+-ptx_opcode_initiation_fp            1,2,1,1,4 # Opcode initiation intervals for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,5
+-ptx_opcode_initiation_dp         8,16,8,8,130 # Opcode initiation intervals for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,130
+DRAM Timing Options:
+nbk                                    16 # number of banks
+CCD                                     2 # column to column delay
+RRD                                     6 # minimal delay between activation of rows in different banks
+RCD                                    12 # row to column delay
+RAS                                    28 # time needed to activate row
+RP                                     12 # time needed to precharge (deactivate) row
+RC                                     40 # row cycle time
+CDLR                                    5 # switching from write to read (changes tWTR)
+WR                                     12 # last data-in to row precharge
+CL                                     12 # CAS latency
+WL                                      4 # Write latency
+nbkgrp                                  4 # number of bank groups
+CCDL                                    3 # column to column delay between accesses to different bank groups
+RTPL                                    2 # read to precharge delay between accesses to different bank groups
+Total number of memory sub partition = 2
 addr_dec_mask[CHIP]  = 0000000000000000 	high:64 low:0
-addr_dec_mask[BK]    = 0000000000003800 	high:14 low:11
-addr_dec_mask[ROW]   = 000000000fffc000 	high:28 low:14
-addr_dec_mask[COL]   = 00000000000007ff 	high:11 low:0
-addr_dec_mask[BURST] = 000000000000001f 	high:5 low:0
+addr_dec_mask[BK]    = 000000000000e100 	high:16 low:8
+addr_dec_mask[ROW]   = 000000000fff0000 	high:28 low:16
+addr_dec_mask[COL]   = 0000000000001eff 	high:13 low:0
+addr_dec_mask[BURST] = 000000000000003f 	high:6 low:0
+sub_partition_id_mask = 0000000000000100
 GPGPU-Sim uArch: clock freqs: 700000000.000000:1400000000.000000:700000000.000000:1848000000.000000
 GPGPU-Sim uArch: clock periods: 0.00000000142857142857:0.00000000071428571429:0.00000000142857142857:0.00000000054112554113
 *** Initializing Memory Statistics ***
-GPGPU-Sim uArch: interconnect nodemap
-GPGPU-Sim uArch:   0 
-GPGPU-Sim uArch:   1   2   3   4 
-GPGPU-Sim uArch:   5   6   7   8 
-GPGPU-Sim uArch:   9  10  11  12 
-GPGPU-Sim uArch:  13  14  15  16 
-GPGPU-Sim uArch:  17  18  19  20 
-GPGPU-Sim uArch:  21  22 GPGPU-Sim uArch: performance model initialization complete.
+GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
+GPGPU-Sim uArch: Memory nodes ID start from index: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: interconnect node reverse map (icntID to shaderID+MemID)
+GPGPU-Sim uArch: Memory nodes start from ID: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: performance model initialization complete.
 **** REAL SIMULATION ****
 info: Entering event queue @ 0.  Starting simulation...
 gem5 + GPGPU-Sim CUDA RT: __cudaRegisterFatBinary2(*fatCubin = 0x6f0860, size = 10576)
@@ -122,35 +183,46 @@ gem5 + GPGPU-Sim CUDA RT: elf: ELF3
 gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 229
 gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
 GPGPU-Sim PTX: allocating shared region for "__cuda___cuda_local_var_35764_34_non_const_input_node40" from 0x0 to 0x40 (shared memory space)
-GPGPU-Sim PTX: allocating shared region for "__cuda___cuda_local_var_35765_34_non_const_weight_matrix104" from 0x40 to 0x440 (shared memory space)
+GPGPU-Sim PTX: allocating shared region for "__cuda___cuda_local_var_35765_34_non_const_weight_matrix104" from 0x80 to 0x480 (shared memory space)
 GPGPU-Sim PTX: instruction assembly for function '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...   done.
 GPGPU-Sim PTX: finding reconvergence points for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
 GPGPU-Sim PTX: Finding dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
 GPGPU-Sim PTX: Finding immediate dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
 GPGPU-Sim PTX: Finding postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
 GPGPU-Sim PTX: Finding immediate postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
-GPGPU-Sim PTX: pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'... GPGPU-Sim PTX: Reconvergence Pairs for _Z22bpnn_layerforward_CUDAPfS_S_S_ii
-GPGPU-Sim PTX:   branch pc = 72	target pc = 144
-GPGPU-Sim PTX:   branch pc = 400	target pc = 656
-GPGPU-Sim PTX:   branch pc = 488	target pc = 616
-GPGPU-Sim PTX:   branch pc = 648	target pc = 656
-GPGPU-Sim PTX:   branch pc = 680	target pc = 784
-  done.
+GPGPU-Sim PTX: pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x048 (_1.ptx:74) @!%p1 bra $Lt_0_3586;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x090 (_1.ptx:86) bar.sync 0;
+GPGPU-Sim PTX:  2 (potential) branch divergence @  PC=0x190 (_1.ptx:123) @!%p2 bra $Lt_0_4098;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x290 (_1.ptx:166) ld.shared.f32 %f17, [%rd14+0];
+GPGPU-Sim PTX:  3 (potential) branch divergence @  PC=0x1e8 (_1.ptx:137) @%p3 bra $Lt_0_4866;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x268 (_1.ptx:158) bar.sync 0;
+GPGPU-Sim PTX:  4 (potential) branch divergence @  PC=0x288 (_1.ptx:163) @%p4 bra $Lt_0_4610;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x290 (_1.ptx:166) ld.shared.f32 %f17, [%rd14+0];
+GPGPU-Sim PTX:  5 (potential) branch divergence @  PC=0x2a8 (_1.ptx:170) @!%p1 bra $Lt_0_5634;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x310 (_1.ptx:186) exit;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'.
 GPGPU-Sim PTX: instruction assembly for function '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...   done.
 GPGPU-Sim PTX: finding reconvergence points for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
 GPGPU-Sim PTX: Finding dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
 GPGPU-Sim PTX: Finding immediate dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
 GPGPU-Sim PTX: Finding postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
 GPGPU-Sim PTX: Finding immediate postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
-GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'... GPGPU-Sim PTX: Reconvergence Pairs for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
-GPGPU-Sim PTX:   branch pc = 1328	target pc = 1536
-  done.
+GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x530 (_1.ptx:275) @%p1 bra $Lt_1_1282;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x600 (_1.ptx:305) exit;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'.
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_CMGRJ0"
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_PX43BW --output-file /dev/null 2> _ptx_CMGRJ0info"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_53z51v"
+Running: cat _ptx_53z51v | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_o6SY0A
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_o6SY0A --output-file  /dev/null 2> _ptx_53z51vinfo"
 GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
 GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_CMGRJ0 _ptx2_PX43BW _ptx_CMGRJ0info"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_53z51v _ptx2_o6SY0A _ptx_53z51vinfo"
 Random number generator seed: 7
 Input layer size : 256
 Starting training kernel
@@ -164,19 +236,19 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' transfer to GPU hardware scheduler
 GPGPU-Sim uArch: Shader 1 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
 GPGPU-Sim uArch: CTA/core = 6, limited by: threads
-GPGPU-Sim uArch: Shader 3 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
 GPGPU-Sim uArch: Shader 2 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 3 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
 GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim PTX: 100000 instructions simulated : ctaid=(0,0,0) tid=(15,15,0)
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation kernel
-GPGPU-Sim PTX: 100000 instructions simulated : ctaid=(0,9,0) tid=(15,15,0)
-GPGPU-Sim PTX: 200000 instructions simulated : ctaid=(0,14,0) tid=(15,5,0)
-GPGPU-Sim PTX: 300000 instructions simulated : ctaid=(0,3,0) tid=(15,7,0)
-GPGPU-Sim PTX: 400000 instructions simulated : ctaid=(0,10,0) tid=(7,4,0)
+GPGPU-Sim PTX: 200000 instructions simulated : ctaid=(0,5,0) tid=(15,10,0)
+GPGPU-Sim PTX: 300000 instructions simulated : ctaid=(0,3,0) tid=(15,0,0)
+GPGPU-Sim PTX: 400000 instructions simulated : ctaid=(0,12,0) tid=(9,12,0)
 GPGPU-Sim uArch: Shader 0 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
-GPGPU-Sim uArch: Shader 2 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: Shader 3 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: Shader 2 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: Shader 1 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
 GPGPU-Sim uArch: GPU detected kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' finished on shader 1.
 GPGPU-Sim API: Stream Manager State
@@ -194,19 +266,19 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' transfer to GPU hardware scheduler
 GPGPU-Sim uArch: Shader 1 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
 GPGPU-Sim uArch: CTA/core = 5, limited by: regs
-GPGPU-Sim uArch: Shader 3 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
 GPGPU-Sim uArch: Shader 2 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 3 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
 GPGPU-Sim uArch: Shader 0 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
-GPGPU-Sim PTX: 500000 instructions simulated : ctaid=(0,0,0) tid=(15,1,0)
-GPGPU-Sim PTX: 600000 instructions simulated : ctaid=(0,4,0) tid=(15,1,0)
-GPGPU-Sim PTX: 700000 instructions simulated : ctaid=(0,7,0) tid=(15,1,0)
+GPGPU-Sim PTX: 500000 instructions simulated : ctaid=(0,9,0) tid=(15,13,0)
+GPGPU-Sim PTX: 600000 instructions simulated : ctaid=(0,1,0) tid=(15,5,0)
+GPGPU-Sim PTX: 700000 instructions simulated : ctaid=(0,0,0) tid=(15,3,0)
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 2 operations
 GPGPU-Sim API:       0 :  stream operation kernel
 GPGPU-Sim API:       1 :  stream operation memcpy device-to-host
+GPGPU-Sim uArch: Shader 2 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: Shader 0 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: Shader 3 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
-GPGPU-Sim uArch: Shader 2 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: Shader 1 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
 GPGPU-Sim uArch: GPU detected kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' finished on shader 1.
 GPGPU-Sim API: Stream Manager State
@@ -235,4 +307,4 @@ Input Weights:
 Net Inputs:
 0.000000 0.343988 0.907949 0.248971 0.262799 0.509827 0.193412 0.917344 0.843621 0.475334 0.768918 0.856501 0.936714 0.068548 0.142551 0.113426 0.216216 0.630174 0.643607 0.693848 0.425566 0.914685 0.751377 0.364456 0.020707 0.362568 0.624793 0.772704 0.341113 0.774520 0.164369 0.283668 0.118508 0.072318 0.532639 0.381307 0.582144 0.726052 0.298651 0.425765 0.201386 0.067569 0.282267 0.138100 0.136117 0.424817 0.251526 0.352333 0.054991 0.895133 0.046181 0.480557 0.809818 0.797558 0.845013 0.830525 0.160127 0.469806 0.603229 0.501240 0.244326 0.767598 0.784908 0.362835 0.839916 0.317548 0.744142 0.422061 0.043599 0.042793 0.847826 0.244986 0.110363 0.130093 0.383086 0.246480 0.554910 0.634612 0.598813 0.609901 0.529745 0.644994 0.090458 0.339563 0.442553 0.935471 0.170088 0.602679 0.405278 0.773317 0.103920 0.649604 0.540916 0.888828 0.012439 0.380832 0.206375 0.756581 0.802893 0.249975 
 Training done
-Exiting @ tick 17680716000 because target called exit()
+Exiting @ tick 17679031000 because target called exit()
