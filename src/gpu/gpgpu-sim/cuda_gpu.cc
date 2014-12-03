@@ -112,6 +112,7 @@ CudaGPU::CudaGPU(const Params *p) :
     deviceProperties.maxGridSize[2] = 0x40000000;
     deviceProperties.totalConstMem = gpuMemoryRange.size();
     deviceProperties.textureAlignment = 0;
+    deviceProperties.multiProcessorCount = cudaCores.size();
     deviceProperties.sharedMemPerBlock = theGPU->shared_mem_size();
     deviceProperties.regsPerBlock = theGPU->num_registers_per_core();
     deviceProperties.warpSize = theGPU->wrp_size();
@@ -281,6 +282,9 @@ void CudaGPU::clearStats()
 void CudaGPU::registerCudaCore(CudaCore *sc)
 {
     cudaCores.push_back(sc);
+
+    // Update the multiprocessor count
+    deviceProperties.multiProcessorCount = cudaCores.size();
 }
 
 void CudaGPU::registerCopyEngine(GPUCopyEngine *ce)

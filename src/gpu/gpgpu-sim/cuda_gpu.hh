@@ -341,6 +341,14 @@ class CudaGPU : public ClockedObject
 
     /// Getter for whether we are using Ruby or GPGPU-Sim memory modeling
     CudaDeviceProperties *getDeviceProperties() { return &deviceProperties; }
+    unsigned getMaxThreadsPerMultiprocessor() {
+        if (deviceProperties.major == 2) {
+            warn("Returning threads per multiprocessor from compute capability 2.x\n");
+            return 1536;
+        }
+        panic("Have not configured threads per multiprocessor!\n");
+        return 0;
+    }
     int getSharedMemDelay() { return sharedMemDelay; }
     const char* getConfigPath() { return gpgpusimConfigPath.c_str(); }
     RubySystem* getRubySystem() { return ruby; }
