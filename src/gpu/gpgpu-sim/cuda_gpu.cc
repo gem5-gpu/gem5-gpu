@@ -88,6 +88,7 @@ CudaGPU::CudaGPU(const Params *p) :
     // GPU memory handling
     instBaseVaddr = 0;
     instBaseVaddrSet = false;
+    localBaseVaddr = 0;
     // Reserve the 0 virtual page for NULL pointers
     virtualGPUBrkAddr = TheISA::PageBytes;
     physicalGPUBrkAddr = gpuMemoryRange.start();
@@ -136,6 +137,7 @@ void CudaGPU::serialize(std::ostream &os)
 
     SERIALIZE_SCALAR(m_last_fat_cubin_handle);
     SERIALIZE_SCALAR(instBaseVaddr);
+    SERIALIZE_SCALAR(localBaseVaddr);
 
     SERIALIZE_SCALAR(runningTID);
 
@@ -185,6 +187,7 @@ void CudaGPU::unserialize(Checkpoint *cp, const std::string &section)
 
     UNSERIALIZE_SCALAR(m_last_fat_cubin_handle);
     UNSERIALIZE_SCALAR(instBaseVaddr);
+    UNSERIALIZE_SCALAR(localBaseVaddr);
 
     UNSERIALIZE_SCALAR(runningTID);
 
@@ -607,6 +610,21 @@ void CudaGPU::setInstBaseVaddr(uint64_t addr)
 uint64_t CudaGPU::getInstBaseVaddr()
 {
     return instBaseVaddr;
+}
+
+void CudaGPU::setLocalBaseVaddr(Addr addr)
+{
+    assert(!localBaseVaddr);
+    localBaseVaddr = addr;
+}
+
+uint64_t CudaGPU::getLocalBaseVaddr()
+{
+    if (!localBaseVaddr) {
+        panic("Local base virtual address is unset!"
+              " Make sure bench was compiled with latest libcuda.\n");
+    }
+    return localBaseVaddr;
 }
 
 Addr CudaGPU::GPUPageTable::addrToPage(Addr addr)

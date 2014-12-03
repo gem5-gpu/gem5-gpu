@@ -254,6 +254,7 @@ class CudaGPU : public ClockedObject
     std::map<const void*,function_info*> m_kernel_lookup; // unique id (CUDA app function address) => kernel entry point
     uint64_t instBaseVaddr;
     bool instBaseVaddrSet;
+    Addr localBaseVaddr;
 
     /**
      * Helper class for checkpointing
@@ -455,6 +456,8 @@ class CudaGPU : public ClockedObject
     function_info *get_kernel(const char *hostFun);
     void setInstBaseVaddr(uint64_t addr);
     uint64_t getInstBaseVaddr();
+    void setLocalBaseVaddr(uint64_t addr);
+    uint64_t getLocalBaseVaddr();
 
     /// For handling GPU memory mapping table
     GPUPageTable* getGPUPageTable() { return &pageTable; };

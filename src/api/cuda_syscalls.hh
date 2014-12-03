@@ -243,6 +243,8 @@ void cudaThreadSynchronize(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaSynchronizeThreads(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params);
+void __cudaCheckAllocateLocal(ThreadContext *tc, gpusyscall_t *call_params);
+void __cudaSetLocalAllocation(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaUnregisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterFunction(ThreadContext *tc, gpusyscall_t *call_params);
 void __cudaRegisterVar(ThreadContext *tc, gpusyscall_t *call_params);
@@ -366,7 +368,9 @@ cudaFunc_t gpgpu_funcs[] = {
         __cudaSynchronizeThreads,        /* 80 */
         __cudaRegisterFatBinaryFinalize,    /* 81 */
         cudaRegisterDeviceMemory,    /* 82 */
-        cudaBlockThread    /* 83 */
+        cudaBlockThread,    /* 83 */
+        __cudaCheckAllocateLocal,    /* 84 */
+        __cudaSetLocalAllocation    /* 85 */
 };
 
 #endif

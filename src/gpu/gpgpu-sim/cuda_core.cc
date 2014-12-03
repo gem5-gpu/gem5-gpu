@@ -249,6 +249,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 {
     assert(inst.space.get_type() == global_space ||
            inst.space.get_type() == const_space ||
+           inst.space.get_type() == local_space ||
            inst.op == BARRIER_OP ||
            inst.op == MEMORY_BARRIER_OP);
     assert(inst.valid());
@@ -270,14 +271,19 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
     const int asid = 0;
     Request::Flags flags;
 
+    if (inst.space.get_type() == const_space) {
+        DPRINTF(CudaCoreAccess, "Const space: %p\n", inst.pc);
+    } else if (inst.space.get_type() == local_space) {
+        DPRINTF(CudaCoreAccess, "Local space: %p\n", inst.pc);
+    } else if (inst.space.get_type() == param_space_local) {
+        DPRINTF(CudaCoreAccess, "Param local space: %p\n", inst.pc);
+    } else {
+        DPRINTF(CudaCoreAccess, "Global space: %p\n", inst.pc);
+    }
+
     for (int lane = 0; lane < warpSize; lane++) {
         if (inst.active(lane)) {
             Addr addr = inst.get_addr(lane);
-
-            DPRINTF(CudaCoreAccess, "Got addr 0x%llx\n", addr);
-            if (inst.space.get_type() == const_space) {
-                DPRINTF(CudaCoreAccess, "Is const!!\n");
-            }
 
             PacketPtr pkt;
             if (inst.is_load()) {
@@ -293,6 +299,8 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                 pkt = new Packet(req, MemCmd::WriteReq);
                 pkt->allocate();
                 pkt->setData((uint8_t*)inst.get_data(lane));
+                DPRINTF(CudaCoreAccess, "Send store from lane %d address 0x%llx: data = %d\n",
+                        lane, pkt->req->getVaddr(), *(int*)inst.get_data(lane));
             } else if (inst.op == BARRIER_OP || inst.op == MEMORY_BARRIER_OP) {
                 // Setup Fence packet
                 // TODO: If adding fencing functionality, specify control data

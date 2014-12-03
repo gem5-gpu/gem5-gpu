@@ -1003,6 +1003,7 @@ symbol_table* registering_symtab = NULL;
 unsigned registering_fat_cubin_handle = 0;
 int registering_allocation_size = -1;
 Addr registering_allocation_ptr = 0;
+Addr registering_local_alloc_ptr = 0;
 
 unsigned
 get_global_and_constant_alloc_size(symbol_table* symtab)
@@ -1020,6 +1021,22 @@ get_global_and_constant_alloc_size(symbol_table* symtab)
     }
 
     return total_bytes;
+}
+
+unsigned
+get_local_alloc_size(CudaGPU *cudaGPU) {
+    unsigned cores = cudaGPU->getDeviceProperties()->multiProcessorCount;
+    unsigned threads_per_core = cudaGPU->getMaxThreadsPerMultiprocessor();
+    // NOTE: Per technical specs Wikipedia: http://en.wikipedia.org/wiki/CUDA
+    // For CUDA GPUs with compute capability 1.x, each thread should be able to
+    // access up to 16kB of memory, and for compute capability 2.x+, each
+    // thread should be able to access up to 512kB of local memory. Since this
+    // could blow out the simulator's memory footprint, here we use 8kB per
+    // thread as a more reasonable baseline. This may need to be changed if
+    // benchmarks trip on the GPGPU-Sim-side panic of too much local memory
+    // usage per thread.
+    unsigned max_local_mem_per_thread = 8 * 1024;
+    return cores * threads_per_core * max_local_mem_per_thread;
 }
 
 void
@@ -1276,7 +1293,68 @@ __cudaRegisterFatBinaryFinalize(ThreadContext *tc, gpusyscall_t *call_params)
         handle = registerFatBinaryBottom(&helper, registering_allocation_ptr);
     }
 
+    // TODO: If local memory has been allocated and has been mapped by the CPU
+    // thread, register the allocation with the GPU for address translation.
+    // if (registering_local_alloc_ptr && !cudaGPU->getAccessHostPagetable()) {
+    //    cudaGPU->registerDeviceMemory(tc, registering_local_alloc_ptr, get_local_alloc_size(cudaGPU));
+    // }
+
     helper.setReturn((uint8_t*)&handle, sizeof(void**), true);
+}
+
+void
+__cudaCheckAllocateLocal(ThreadContext *tc, gpusyscall_t *call_params)
+{
+    GPUSyscallHelper helper(tc, call_params);
+
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaCheckAllocateLocal()\n");
+
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+
+    assert(registering_symtab);
+    if (registering_symtab->get_local_next() > 0) {
+        if (registering_local_alloc_ptr) {
+            panic("Untested: Multiple fat binaries may cause local"
+                  " memory to be allocated multiple times!");
+        }
+        unsigned long long local_alloc_size = get_local_alloc_size(cudaGPU);
+        if (!cudaGPU->isManagingGPUMemory()) {
+            DPRINTF(GPUSyscalls, "gem5 GPU Syscall:      CPU must allocate local: %lluB\n", local_alloc_size);
+            helper.setReturn((uint8_t*)&local_alloc_size, sizeof(unsigned long long), false);
+        } else {
+            DPRINTF(GPUSyscalls, "gem5 GPU Syscall:      GPU allocating local...\n");
+            registering_local_alloc_ptr = cudaGPU->allocateGPUMemory(local_alloc_size);
+            cudaGPU->setLocalBaseVaddr(registering_local_alloc_ptr);
+            cudaGPU->registerDeviceMemory(tc, registering_local_alloc_ptr, local_alloc_size);
+            unsigned long long zero_allocation = 0;
+            helper.setReturn((uint8_t*)&zero_allocation, sizeof(int));
+        }
+    }
+}
+
+void
+__cudaSetLocalAllocation(ThreadContext *tc, gpusyscall_t *call_params) {
+    GPUSyscallHelper helper(tc, call_params);
+    Addr sim_alloc_ptr = *((Addr*)helper.getParam(0, true));
+
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaSetLocalAllocation(alloc_ptr* = 0x%x)\n", sim_alloc_ptr);
+
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+
+    // Save the local memory base address
+    assert(!cudaGPU->isManagingGPUMemory());
+    assert(!registering_local_alloc_ptr);
+    registering_local_alloc_ptr = sim_alloc_ptr;
+    cudaGPU->setLocalBaseVaddr(registering_local_alloc_ptr);
+
+    // TODO: Need to check if using host or GPU page mappings. If the GPU is
+    // not able to access the host's pagetable, then the memory pages need to
+    // be mapped for the GPU to access them.
+    // global: bool registering_signal_local_map = false;
+    // if (!cudaGPU->getAccessHostPagetable()) {
+    //     registering_signal_local_map = true;
+    //     helper.setReturn((uint8_t*)&signal_map_memory, sizeof(bool));
+    // }
 }
 
 void
@@ -1287,6 +1365,8 @@ __cudaUnregisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     cudaGPU->printPTXFileLineStats();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaUnregisterFatBinary() Faked\n");
+
+    registering_local_alloc_ptr = 0;
 }
 
 void
