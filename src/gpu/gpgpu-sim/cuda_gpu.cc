@@ -352,6 +352,7 @@ void CudaGPU::beginRunning(Tick stream_queued_time, struct CUstream_st *_stream)
         Stats::dump();
         Stats::reset();
     }
+    numKernelsStarted++;
     if (running) {
         panic("Should not already be running if we are starting\n");
     }
@@ -741,10 +742,12 @@ Addr CudaGPU::allocateGPUMemory(size_t size)
 
 void CudaGPU::regStats()
 {
+    numKernelsStarted
+        .name(name() + ".kernels_started")
+        .desc("Number of kernels started");
     numKernelsCompleted
         .name(name() + ".kernels_completed")
-        .desc("Number of kernels completed")
-        ;
+        .desc("Number of kernels completed");
 }
 
 GPGPUSimComponentWrapper *GPGPUSimComponentWrapperParams::create() {

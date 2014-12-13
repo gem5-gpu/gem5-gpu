@@ -555,6 +555,7 @@ class CudaGPU : public ClockedObject
     Addr allocateGPUMemory(size_t size);
 
     /// Statistics for this GPU
+    Stats::Scalar numKernelsStarted;
     Stats::Scalar numKernelsCompleted;
     void regStats();
 };
