@@ -28,15 +28,16 @@
 
 #include <cmath>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
-#include <map>
 
-#include "arch/utility.hh"
-#include "arch/x86/regs/misc.hh"
-#include "arch/vtophys.hh"
 #include "api/gpu_syscall_helper.hh"
+#include "arch/x86/regs/misc.hh"
+#include "arch/utility.hh"
+#include "arch/vtophys.hh"
 #include "base/chunk_generator.hh"
+#include "base/statistics.hh"
 #include "cpu/thread_context.hh"
 #include "cuda-sim/cuda-sim.h"
 #include "cuda-sim/ptx-stats.h"
@@ -44,13 +45,12 @@
 #include "debug/CudaGPUAccess.hh"
 #include "debug/CudaGPUPageTable.hh"
 #include "debug/CudaGPUTick.hh"
-#include "gpgpusim_entrypoint.h"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
 #include "params/GPGPUSimComponentWrapper.hh"
 #include "params/CudaGPU.hh"
 #include "sim/full_system.hh"
-#include "sim/pseudo_inst.hh"
+#include "gpgpusim_entrypoint.h"
 
 using namespace std;
 
@@ -349,7 +349,8 @@ void CudaGPU::beginRunning(Tick stream_queued_time, struct CUstream_st *_stream)
     DPRINTF(CudaGPU, "Beginning kernel execution at %llu\n", curTick());
     kernelTimes.push_back(curTick());
     if (dumpKernelStats) {
-        PseudoInst::dumpresetstats(runningTC, 0, 0);
+        Stats::dump();
+        Stats::reset();
     }
     if (running) {
         panic("Should not already be running if we are starting\n");
@@ -383,7 +384,8 @@ void CudaGPU::processFinishKernelEvent(int grid_id)
 
     kernelTimes.push_back(curTick());
     if (dumpKernelStats) {
-        PseudoInst::dumpresetstats(runningTC, 0, 0);
+        Stats::dump();
+        Stats::reset();
     }
 
     if (unblockNeeded && streamManager->empty()) {
