@@ -270,6 +270,28 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
     }
     const int asid = 0;
     Request::Flags flags;
+    if (inst.isatomic()) {
+        assert(inst.memory_op == memory_store);
+        // Assert that gem5-gpu knows how to handle the requested atomic type.
+        // TODO: When all atomic types and data sizes are implemented, remove
+        assert(inst.get_atomic() == ATOMIC_INC ||
+               inst.get_atomic() == ATOMIC_MAX ||
+               inst.get_atomic() == ATOMIC_MIN ||
+               inst.get_atomic() == ATOMIC_ADD ||
+               inst.get_atomic() == ATOMIC_CAS);
+        assert(inst.data_type == S32_TYPE ||
+               inst.data_type == U32_TYPE ||
+               inst.data_type == F32_TYPE ||
+               inst.data_type == B32_TYPE);
+        // GPU atomics will use the MEM_SWAP flag to indicate to Ruby that the
+        // request should be passed to the cache hierarchy as secondary
+        // RubyRequest_Atomic.
+        // NOTE: Most GPU atomics have conditional writes and most perform some
+        //       operation on loaded data before writing it back into cache.
+        //       This makes them read-modify-conditional-write operations, but
+        //       for ease of development, use the MEM_SWAP designator for now.
+        flags.set(Request::MEM_SWAP);
+    }
 
     if (inst.space.get_type() == const_space) {
         DPRINTF(CudaCoreAccess, "Const space: %p\n", inst.pc);
@@ -290,10 +312,30 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                 RequestPtr req = new Request(asid, addr, size, flags,
                         dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::ReadReq);
-                pkt->allocate();
+                if (inst.isatomic()) {
+                    assert(flags.isSet(Request::MEM_SWAP));
+                    AtomicOpRequest *pkt_data = new AtomicOpRequest();
+                    pkt_data->lastAccess = true;
+                    pkt_data->uniqueId = lane;
+                    pkt_data->dataType = getDataType(inst.data_type);
+                    pkt_data->atomicOp = getAtomOpType(inst.get_atomic());
+                    pkt_data->lineOffset = 0;
+                    pkt_data->setData((uint8_t*)inst.get_data(lane));
+
+                    // TODO: If supporting atomics that require more operands,
+                    // will need to copy that data here also
+
+                    // Create packet data to include the atomic type and
+                    // the register data to be used (e.g. atomicInc requires
+                    // the saturating value up to which to count)
+                    pkt->dataDynamic(pkt_data);
+                } else {
+                    pkt->allocate();
+                }
                 // Since only loads return to the CudaCore
                 pkt->senderState = new SenderState(inst);
             } else if (inst.is_store()) {
+                assert(!inst.isatomic());
                 RequestPtr req = new Request(asid, addr, size, flags,
                         dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::WriteReq);
@@ -302,6 +344,7 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                 DPRINTF(CudaCoreAccess, "Send store from lane %d address 0x%llx: data = %d\n",
                         lane, pkt->req->getVaddr(), *(int*)inst.get_data(lane));
             } else if (inst.op == BARRIER_OP || inst.op == MEMORY_BARRIER_OP) {
+                assert(!inst.isatomic());
                 // Setup Fence packet
                 // TODO: If adding fencing functionality, specify control data
                 // in packet or request
@@ -366,7 +409,13 @@ CudaCore::recvLSQDataResp(PacketPtr pkt, int lane_id)
         uint8_t data[16];
         assert(pkt->getSize() <= sizeof(data));
 
-        pkt->writeData(data);
+        if (inst.isatomic()) {
+            assert(pkt->req->isSwap());
+            AtomicOpRequest *lane_req = pkt->getPtr<AtomicOpRequest>();
+            lane_req->writeData(data);
+        } else {
+            pkt->writeData(data);
+        }
         DPRINTF(CudaCoreAccess, "Loaded data %d\n", *(int*)data);
         shaderImpl->writeRegister(inst, warpSize, lane_id, (char*)data);
     } else if (pkt->cmd == MemCmd::FenceResp) {

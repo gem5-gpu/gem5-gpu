@@ -29,12 +29,14 @@
  *
  */
 
+#include <cmath>
+
 #include "gpu/lsq_warp_inst_buffer.hh"
 
 using namespace std;
 
 const string WarpInstBuffer::instructionTypeStrings[] =
-        { "invalid", "load", "store", "fence" };
+        { "invalid", "load", "store", "fence", "atomic" };
 
 bool
 WarpInstBuffer::addLaneRequest(unsigned lane_id, PacketPtr pkt)
@@ -70,7 +72,8 @@ WarpInstBuffer::coalesce()
     assert(laneCount == 32 &&
            "Unknown whether coalescing works with more or less than 32 lanes");
 
-    assert(instructionType == LOAD_INST || instructionType == STORE_INST);
+    assert(instructionType == LOAD_INST || instructionType == STORE_INST ||
+           instructionType == ATOMIC_INST);
 
     unsigned segment_size = 0;
     switch (requestDataSize) {
@@ -216,6 +219,12 @@ WarpInstBuffer::coalesce()
                     // This is a new chunk that needs to be sent
                     generateCoalescedAccesses(base, chunkSize, lanes);
                 }
+            } else if (instructionType == ATOMIC_INST) {
+                // NOTE: Atomics are coalesced differently than loads, but they
+                // use the same method to identify the portions of cache lines
+                // that will be touched. Send to generateCoalescedAccesses to
+                // construct atomic packets
+                generateCoalescedAccesses(addr, size, info.activeLanes);
             } else {
                 panic("Invalid instruction in coalescer");
             }
@@ -229,13 +238,17 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
 {
     Request::Flags flags;
     int asid = 0;
-    RequestPtr req = new Request(asid, addr, size, flags, masterId, pc, 0, 0);
 
     CoalescedAccess *mem_access;
     if (instructionType == LOAD_INST) {
+        RequestPtr req = new Request(asid, addr, size, flags, masterId,
+                                     pc, 0, 0);
         mem_access = new CoalescedAccess(req, MemCmd::ReadReq, this,
                                          active_lanes);
+        coalescedAccesses.push_back(mem_access);
     } else if (instructionType == STORE_INST) {
+        RequestPtr req = new Request(asid, addr, size, flags, masterId,
+                                     pc, 0, 0);
         uint8_t *pkt_data = new uint8_t[size];
         list<unsigned>::iterator iter = active_lanes.begin();
         for (; iter != active_lanes.end(); iter++) {
@@ -244,10 +257,123 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
         }
         mem_access = new CoalescedAccess(req, MemCmd::WriteReq, this,
                                          active_lanes, pkt_data);
+        coalescedAccesses.push_back(mem_access);
+    } else if (instructionType == ATOMIC_INST) {
+        // To coalesce atomics requires a different style of packet. When
+        // performed in the cache hierarchy and/or at the memory controller,
+        // atomics occur sequentially in groups, and the code below will
+        // construct the data structures in packets to convey the atomics to
+        // the memory hierarchy.
+
+        // The trickiest part of modeling in-cache atomics is getting the right
+        // latency and bandwidth of coalesced accesses. In hardware, atomics
+        // can be sent to the caches in groups ("coalesced") operating on the
+        // same cache line, but the size of a request sent to the caches is
+        // limited, so typically, multiple accesses must be sent if threads
+        // from the same warp access the same cache line. This code must
+        // compensate for this structure in order to get reasonable
+        // latency/bandwidth. Specifically, modeling here must consider:
+        //  1) The number of atomics that the hardware can "coalesce" into a
+        //     single access to cache (Fermi: 3)
+        //  2) The number of concurrently outstanding accesses per cache line
+        //     that hardware allows (Fermi: 4 32B L2 cache subblocks per block)
+        //  3) The product of (1) and (2) is the number of accesses that will
+        //     need to be included in a single packet, since Ruby only allows
+        //     a single outstanding request to one cache line
+        //     NOTE: By structuring coalesced atomic packets like this,
+        //           serialization latency will be slightly different from HW!
+
+        // TODO: Update to support other data types! For now, only
+        // floats and unsigned int (i.e. 4B)
+        assert(requestDataSize == 4);
+
+        assert(active_lanes.size() > 0);
+
+        // Set this request to be a locked read-modify-write (swap)
+        flags.set(Request::LOCKED | Request::MEM_SWAP);
+
+        // The maximum number of atomic operations that can be sent to each
+        // cache subblock (i.e. (1) above)
+        // TODO: If desired, this can be parameterized to test performance of
+        // various different in-cache atomics architectures
+        unsigned max_atom_per_subblock_per_pkt = 3;
+        unsigned bytes_per_subblock = 32;
+
+        // Calculate the number of cache subblocks that this set of coalesced
+        // accesses will touch
+        unsigned num_subblocks = size / bytes_per_subblock;
+
+        // For each subblock, pull out the lanes that will access it
+        list<unsigned>::iterator iter = active_lanes.begin();
+        map<unsigned, list<unsigned> > subblock_atomics;
+        for (; iter != active_lanes.end(); iter++) {
+            unsigned lane_index = *iter;
+            unsigned subblock_id = (getLaneAddr(lane_index) - addr) /
+                                                            bytes_per_subblock;
+            subblock_atomics[subblock_id].push_back(lane_index);
+        }
+
+        // Based on the number of atomics that will touch each subblock,
+        // calculate the number of memory accesses that will need to be sent
+        unsigned max_atoms_per_subline = 0;
+        for (unsigned subblock = 0; subblock < num_subblocks; subblock++) {
+            if (subblock_atomics[subblock].size() > max_atoms_per_subline) {
+                max_atoms_per_subline = subblock_atomics[subblock].size();
+            }
+        }
+        unsigned num_packets = ceil((float)max_atoms_per_subline /
+                                    (float)max_atom_per_subblock_per_pkt);
+
+        // Create the packets
+        for (unsigned pkt_num = 0; pkt_num < num_packets; pkt_num++) {
+            // First, gather the lanes that will be included in this packet
+            list<unsigned> lanes_this_packet;
+            unsigned num_atoms_this_access = 0;
+            for (unsigned subblock = 0; subblock < num_subblocks; subblock++) {
+                // Only pull up to the maximum accesses per subblock
+                for (unsigned i = 0; i < max_atom_per_subblock_per_pkt; i++) {
+                    if (!subblock_atomics[subblock].empty()) {
+                        lanes_this_packet.push_back(
+                                            subblock_atomics[subblock].front());
+                        subblock_atomics[subblock].pop_front();
+                        num_atoms_this_access++;
+                    }
+                }
+            }
+            assert(num_atoms_this_access == lanes_this_packet.size());
+
+            // Now create the packet by appropriately setting the packet data
+            // for each of the lane atomics associated with this access
+            size_t actual_data_size = num_atoms_this_access *
+                                                sizeof(AtomicOpRequest*);
+            if (size > actual_data_size) {
+                actual_data_size = size;
+            }
+            uint8_t *pkt_data = new uint8_t[actual_data_size];
+            AtomicOpRequest **atom_data = (AtomicOpRequest**)pkt_data;
+            unsigned data_index = 0;
+            list<unsigned>::iterator iter = lanes_this_packet.begin();
+            for (; iter != lanes_this_packet.end(); iter++) {
+                unsigned lane_index = *iter;
+                AtomicOpRequest *lane_request =
+                                            getLaneAtomicRequest(lane_index);
+                assert(lane_request->uniqueId == lane_index);
+                atom_data[data_index] = lane_request;
+                lane_request->lineOffset = getLaneAddr(lane_index) - addr;
+                lane_request->lastAccess = false;
+                data_index++;
+            }
+            atom_data[num_atoms_this_access-1]->lastAccess = true;
+
+            RequestPtr req = new Request(asid, addr, size, flags, masterId,
+                                         pc, 0, 0);
+            CoalescedAccess *mem_access = new CoalescedAccess(req,
+                    MemCmd::SwapReq, this, lanes_this_packet, pkt_data);
+            coalescedAccesses.push_back(mem_access);
+        }
     } else {
         panic("Invalid instruction generating coalesced accesses\n");
     }
-    coalescedAccesses.push_back(mem_access);
 }
 
 bool
@@ -255,28 +381,48 @@ WarpInstBuffer::finishAccess(CoalescedAccess *mem_access)
 {
     // For lane in active mask, make response packet, and if read, data
     list<unsigned>* active_lanes = mem_access->getActiveLanes();
-    while (!active_lanes->empty()) {
-        unsigned lane_id = active_lanes->front();
-        PacketPtr lane_pkt = laneRequestPkts[lane_id];
-        assert(lane_pkt);
-        if (instructionType == LOAD_INST) {
-            Addr offset = lane_pkt->req->getVaddr() -
-                          mem_access->req->getVaddr();
-            assert(offset < mem_access->getSize());
-            memcpy(lane_pkt->getPtr<uint8_t>(),
-                    mem_access->getPtr<uint8_t>() + offset,
-                    lane_pkt->getSize());
-            lane_pkt->makeTimingResponse();
-        } else {
-            // No need to send response for writes
-            // This assumes that the shader core moves store instructions
-            // directly to commit after dispatching them to the LSQ.
-            assert(instructionType == STORE_INST);
-            if (lane_pkt->req) delete lane_pkt->req;
-            delete lane_pkt;
-            laneRequestPkts[lane_id] = NULL;
+    if (instructionType == ATOMIC_INST) {
+        AtomicOpRequest **atomic_ops =
+                (AtomicOpRequest**)mem_access->getPtr<uint8_t>();
+        bool atomics_done = false;
+        for (int i = 0; !atomics_done; i++) {
+            unsigned lane_id = atomic_ops[i]->uniqueId;
+            assert(active_lanes->front() == lane_id);
+            PacketPtr lane_pkt = laneRequestPkts[lane_id];
+            assert(lane_pkt);
+            lane_pkt->makeResponse();
+            AtomicOpRequest *lane_request =
+                    (AtomicOpRequest*)lane_pkt->getPtr<uint8_t>();
+            assert(lane_request == atomic_ops[i]);
+            atomics_done = atomic_ops[i]->lastAccess;
+            atomic_ops[i]->lastAccess = true;
+            active_lanes->pop_front();
         }
-        active_lanes->pop_front();
+        assert(active_lanes->empty());
+    } else {
+        while (!active_lanes->empty()) {
+            unsigned lane_id = active_lanes->front();
+            PacketPtr lane_pkt = laneRequestPkts[lane_id];
+            assert(lane_pkt);
+            if (instructionType == LOAD_INST) {
+                Addr offset = lane_pkt->req->getVaddr() -
+                              mem_access->req->getVaddr();
+                assert(offset < mem_access->getSize());
+                memcpy(lane_pkt->getPtr<uint8_t>(),
+                        mem_access->getPtr<uint8_t>() + offset,
+                        lane_pkt->getSize());
+                lane_pkt->makeTimingResponse();
+            } else {
+                // No need to send response for writes
+                // This assumes that the shader core moves store instructions
+                // directly to commit after dispatching them to the LSQ.
+                assert(instructionType == STORE_INST);
+                if (lane_pkt->req) delete lane_pkt->req;
+                delete lane_pkt;
+                laneRequestPkts[lane_id] = NULL;
+            }
+            active_lanes->pop_front();
+        }
     }
     removeTranslated(mem_access);
     delete mem_access;

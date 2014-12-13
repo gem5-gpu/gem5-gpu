@@ -32,6 +32,7 @@
 #ifndef __LSQ_WARP_INST_BUFFER_HH__
 #define __LSQ_WARP_INST_BUFFER_HH__
 
+#include "gpu/atomic_operations.hh"
 #include "mem/packet.hh"
 
 /**
@@ -61,7 +62,7 @@ class WarpInstBuffer {
     enum BufferState { EMPTY, DISPATCHING, COALESCED, FENCING, FENCE_COMPLETE };
 
     // An enumeration to track the type of the instruction
-    enum InstructionType { INVALID, LOAD_INST, STORE_INST, MEM_FENCE, NUM_INST_TYPES };
+    enum InstructionType { INVALID, LOAD_INST, STORE_INST, MEM_FENCE, ATOMIC_INST, NUM_INST_TYPES };
 
     // A list of strings associated with the different instruction types
     static const std::string instructionTypeStrings[];
@@ -104,6 +105,12 @@ class WarpInstBuffer {
         return lane_pkt->getPtr<uint8_t>();
     }
 
+    AtomicOpRequest* getLaneAtomicRequest(unsigned lane_id)
+    {
+        assert(instructionType == ATOMIC_INST);
+        return (AtomicOpRequest*)getLaneData(lane_id);
+    }
+
   public:
 
     // CoalescedAccesses are generated through the request coalescing process.
@@ -135,9 +142,15 @@ class WarpInstBuffer {
         }
 
         WarpInstBuffer *getWarpBuffer() { return warpInst; }
-        uint8_t* getPktData() { return pktData; }
         int getWarpId() { return warpInst->getWarpId(); }
         std::list<unsigned> *getActiveLanes() { return &activeLanes; };
+        void moveDataToPacket()
+        {
+            assert(pktData);
+            // Place the data pointer in the packet portion of the object
+            dataDynamicArray(pktData);
+            pktData = NULL;
+        }
 
         void setInjectCycle(Cycles inject_time) { injectTime = inject_time; }
         Cycles getInjectCycle() { return injectTime; }
@@ -190,10 +203,16 @@ class WarpInstBuffer {
         state = DISPATCHING;
         startTick = curTick();
         if (pkt->isRead()) {
-            instructionType = LOAD_INST;
+            if (pkt->req->isSwap()) {
+                instructionType = ATOMIC_INST;
+            } else {
+                instructionType = LOAD_INST;
+            }
         } else if (pkt->isWrite()) {
+            assert(!pkt->req->isSwap());
             instructionType = STORE_INST;
         } else if (pkt->cmd == MemCmd::FenceReq) {
+            assert(!pkt->req->isSwap());
             instructionType = MEM_FENCE;
         } else {
             panic("Instruction type not found!");
@@ -223,6 +242,7 @@ class WarpInstBuffer {
     bool isLoad() { return instructionType == LOAD_INST; }
     bool isStore() { return instructionType == STORE_INST; }
     bool isFence() { return instructionType == MEM_FENCE; }
+    bool isAtomic() { return instructionType == ATOMIC_INST; }
     bool addLaneRequest(unsigned lane_id, PacketPtr pkt);
 
     void coalesceMemRequests()

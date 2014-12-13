@@ -267,9 +267,10 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
 
         // Schedule an event for when the dispatch buffer should be handled
         schedule(dispatchInstEvent, clockEdge(Cycles(0)));
-        DPRINTF(ShaderLSQ, "[%d: ] Starting %s instruction at tick: %llu\n",
+        DPRINTF(ShaderLSQ,
+                "[%d: ] Starting %s instruction (pc: %llu) at tick: %llu\n",
                 pkt->req->threadId(), dispatchWarpInstBuf->getInstTypeString(),
-                clockEdge(Cycles(0)));
+                pkt->req->getPC(), clockEdge(Cycles(0)));
     }
 
     bool request_added = dispatchWarpInstBuf->addLaneRequest(lane_id, pkt);
@@ -325,7 +326,7 @@ ShaderLSQ::issueWarpInstTranslations(WarpInstBuffer *warp_inst)
     BaseTLB::Mode mode;
     if (warp_inst->isLoad()) {
         mode = BaseTLB::Read;
-    } else if(warp_inst->isStore()) {
+    } else if(warp_inst->isStore() || warp_inst->isAtomic()) {
         mode = BaseTLB::Write;
     } else {
         panic("Trying to issue translations for unknown instruction type!");
@@ -378,9 +379,12 @@ ShaderLSQ::finishTranslation(WholeTranslationState *state)
     // this is a write access, set the data to be sent to cache
     PacketPtr pkt = mem_access;
     pkt->reinitFromRequest();
-    pkt->allocate();
-    if (pkt->isWrite())
-        pkt->setData(mem_access->getPktData());
+    if (pkt->isWrite()) {
+        mem_access->moveDataToPacket();
+    } else {
+        assert(pkt->isRead());
+        pkt->allocate();
+    }
 
     if (state->delay) {
         tlbMissLatency.sample(curCycle() - mem_access->tlbStartCycle);
@@ -637,7 +641,7 @@ ShaderLSQ::commitWarpInst()
     assert(!writebackBlocked);
     WarpInstBuffer *warp_inst = commitInstBuffer.front();
     assert(curTick() >= warp_inst->getCompleteTick());
-    if (warp_inst->isLoad() || warp_inst->isFence()) {
+    if (warp_inst->isLoad() || warp_inst->isFence() || warp_inst->isAtomic()) {
         PacketPtr* lane_request_pkts = warp_inst->getLaneRequestPkts();
         for (int i = 0; i < warpSize; i++) {
             PacketPtr pkt = lane_request_pkts[i];
@@ -669,6 +673,8 @@ ShaderLSQ::commitWarpInst()
         warpLatencyWrite.sample(ticksToCycles(warp_inst->getLatency()));
     } else if (warp_inst->isFence()) {
         warpLatencyFence.sample(ticksToCycles(warp_inst->getLatency()));
+    } else if (warp_inst->isAtomic()) {
+        warpLatencyAtomic.sample(ticksToCycles(warp_inst->getLatency()));
     } else {
         assert(warp_inst->isFence());
     }
@@ -771,6 +777,11 @@ ShaderLSQ::regStats()
     warpLatencyFence
         .name(name() + ".warpLatencyFence")
         .desc("Latency in cycles for whole warp to finish the fence")
+        .init(16)
+        ;
+    warpLatencyAtomic
+        .name(name() + ".warpLatencyAtomic")
+        .desc("Latency in cycles for whole warp to finish the atomic")
         .init(16)
         ;
     tlbMissLatency

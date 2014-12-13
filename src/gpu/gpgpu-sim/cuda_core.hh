@@ -34,10 +34,12 @@
 #include <set>
 
 #include "cpu/translation.hh"
+#include "cuda-sim/ptx.tab.h"
 #include "cuda-sim/ptx_ir.h"
 #include "cuda-sim/ptx_sim.h"
 #include "gpgpu-sim/mem_fetch.h"
 #include "gpgpu-sim/shader.h"
+#include "gpu/atomic_operations.hh"
 #include "gpu/shader_tlb.hh"
 #include "mem/mem_object.hh"
 #include "mem/ruby/system/System.hh"
@@ -56,6 +58,45 @@ class CudaCore : public MemObject
 {
   protected:
     typedef CudaCoreParams Params;
+
+    // Functions to translate GPGPU-Sim values to gem5-gpu values
+    static AtomicOpRequest::Operation
+    getAtomOpType(unsigned gpgpu_sim_value) {
+        switch (gpgpu_sim_value) {
+          case ATOMIC_CAS:
+            return AtomicOpRequest::ATOMIC_CAS_OP;
+          case ATOMIC_ADD:
+            return AtomicOpRequest::ATOMIC_ADD_OP;
+          case ATOMIC_INC:
+            return AtomicOpRequest::ATOMIC_INC_OP;
+          case ATOMIC_MIN:
+            return AtomicOpRequest::ATOMIC_MIN_OP;
+          case ATOMIC_MAX:
+            return AtomicOpRequest::ATOMIC_MAX_OP;
+          default:
+            panic("Unknown atomic type: %llu\n", gpgpu_sim_value);
+            break;
+        }
+        return AtomicOpRequest::ATOMIC_INVALID_OP;
+    }
+
+    static AtomicOpRequest::DataType
+    getDataType(unsigned gpgpu_sim_value) {
+        switch (gpgpu_sim_value) {
+          case S32_TYPE:
+            return AtomicOpRequest::S32_TYPE;
+          case U32_TYPE:
+            return AtomicOpRequest::U32_TYPE;
+          case F32_TYPE:
+            return AtomicOpRequest::F32_TYPE;
+          case B32_TYPE:
+            return AtomicOpRequest::B32_TYPE;
+          default:
+            panic("Unknown atomic data type: %llu\n", gpgpu_sim_value);
+            break;
+        }
+        return AtomicOpRequest::INVALID_TYPE;
+    }
 
     /**
      * Port for sending a receiving instruction memory accesses
