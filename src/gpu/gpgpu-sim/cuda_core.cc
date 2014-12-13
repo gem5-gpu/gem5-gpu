@@ -309,6 +309,18 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
 
             PacketPtr pkt;
             if (inst.is_load()) {
+                // Not all cache operators are currently supported in gem5-gpu.
+                // Verify that a supported cache operator is specified for this
+                // load instruction.
+                if (!inst.isatomic() && inst.cache_op == CACHE_GLOBAL) {
+                    // If this is a load instruction that must access coherent
+                    // global memory, bypass the L1 cache to avoid stale hits
+                    flags.set(Request::BYPASS_L1);
+                } else if (inst.cache_op != CACHE_ALL &&
+                    !(inst.isatomic() && inst.cache_op == CACHE_GLOBAL)) {
+                    panic("Unhandled cache operator (%d) on load\n",
+                          inst.cache_op);
+                }
                 RequestPtr req = new Request(asid, addr, size, flags,
                         dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::ReadReq);
@@ -336,6 +348,16 @@ CudaCore::executeMemOp(const warp_inst_t &inst)
                 pkt->senderState = new SenderState(inst);
             } else if (inst.is_store()) {
                 assert(!inst.isatomic());
+                // Not all cache operators are currently supported in gem5-gpu.
+                // Verify that a supported cache operator is specified for this
+                // load instruction.
+                if (inst.cache_op == CACHE_GLOBAL) {
+                    flags.set(Request::BYPASS_L1);
+                } else if (inst.cache_op != CACHE_ALL &&
+                           inst.cache_op != CACHE_WRITE_BACK) {
+                    panic("Unhandled cache operator (%d) on store\n",
+                          inst.cache_op);
+                }
                 RequestPtr req = new Request(asid, addr, size, flags,
                         dataMasterId, inst.pc, id, inst.warp_id());
                 pkt = new Packet(req, MemCmd::WriteReq);

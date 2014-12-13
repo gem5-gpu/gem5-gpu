@@ -238,6 +238,9 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
 {
     Request::Flags flags;
     int asid = 0;
+    if (bypassL1) {
+        flags.set(Request::BYPASS_L1);
+    }
 
     CoalescedAccess *mem_access;
     if (instructionType == LOAD_INST) {

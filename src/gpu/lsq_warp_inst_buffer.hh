@@ -83,6 +83,11 @@ class WarpInstBuffer {
     // they are coalesced and access the caches
     PacketPtr* laneRequestPkts;
     Addr pc;
+    // Whether to bypass the L1 cache
+    // NOTE: If implementing coherence scopes, this will need to be changed to
+    // hold scoping information that can be translated down to cache mechanism
+    // like bypassing the L1.
+    bool bypassL1;
 
     // Coalesce requests into cache accesses
     void coalesce();
@@ -221,6 +226,7 @@ class WarpInstBuffer {
         requestDataSize = pkt->getSize();
         pc = pkt->req->getPC();
         masterId = pkt->req->masterId();
+        bypassL1 = pkt->req->isBypassL1();
     }
     void startFence() {
         assert(state == DISPATCHING);
@@ -295,6 +301,7 @@ class WarpInstBuffer {
         warpId = -1;
         state = EMPTY;
         instructionType = INVALID;
+        bypassL1 = false;
     }
 };
 

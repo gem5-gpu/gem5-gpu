@@ -110,7 +110,8 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
       return Event:BypassLoad;
     } else if (type == RubyRequestType:IFETCH) {
       return Event:Ifetch;
-    } else if (type == RubyRequestType:ST)  {
+    } else if (type == RubyRequestType:ST || type == RubyRequestType:ST_Bypass) {
+      // In VI_hammer, stores bypass the L1, so ST_Bypass is same as ST
       return Event:Store;
     } else if ((type == RubyRequestType:FLUSH)) {
       return Event:Flush_line;
