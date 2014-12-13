@@ -80,7 +80,7 @@ public:
             entries[i] = new GPUTlbEntry[sets];
         }
     }
-    ~TLBMemory()
+    virtual ~TLBMemory()
     {
         for (int i=0; i < sets; i++) {
             delete[] entries[i];
