@@ -378,7 +378,7 @@ class CudaGPU : public ClockedObject
     void gpuRequestTick(float gpuTicks);
 
     /// Schedules the stream manager to be checked in 'ticks' ticks from now
-    void streamRequestTick(int ticks);
+    void scheduleStreamEvent();
 
     /// Reset statistics for the SPA and for all of Ruby
     void clearStats();

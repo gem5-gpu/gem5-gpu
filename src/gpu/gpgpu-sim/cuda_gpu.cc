@@ -333,14 +333,13 @@ void CudaGPU::gpuRequestTick(float gpuTicks) {
     schedule(gpuTickEvent, gpuWakeupTick);
 }
 
-void CudaGPU::streamRequestTick(int ticks) {
+void CudaGPU::scheduleStreamEvent() {
     if (streamScheduled) {
         DPRINTF(CudaGPUTick, "Already scheduled a tick, ignoring\n");
         return;
     }
-    Tick streamWakeupTick = ticks + curTick();
 
-    schedule(streamTickEvent, streamWakeupTick);
+    schedule(streamTickEvent, nextCycle());
     streamScheduled = true;
 }
 
@@ -390,7 +389,7 @@ void CudaGPU::processFinishKernelEvent(int grid_id)
         unblockThread(runningTC);
     }
 
-    streamRequestTick(1);
+    scheduleStreamEvent();
 
     running = false;
 
@@ -490,7 +489,7 @@ void CudaGPU::memset(Addr dst, int value, size_t count, struct CUstream_st *_str
 void CudaGPU::finishCopyOperation()
 {
     runningStream->record_next_done();
-    streamRequestTick(1);
+    scheduleStreamEvent();
     unblockThread(runningTC);
     endStreamOperation();
 }
