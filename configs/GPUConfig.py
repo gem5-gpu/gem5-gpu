@@ -166,23 +166,48 @@ def parseGpgpusimConfig(options):
         # Do not bypass the page walk cache
         options.gpu_tlb_bypass_l1 = False
 
+    # DEPRECATED: Get the GPU DRAM clock from the config file to be passed to
+    # the DRAM component wrapper. This should be removed at a later date!
+    config = re.sub(re.compile("#.*?\n"), "", config)
+    start = config.find("-gpgpu_clock_domains ")
+    end = config.find('\n', start)
+    clk_domains = config[start:end].split(':')
+    options.gpu_dram_clock = clk_domains[3] + "MHz"
+
     return gpgpusimconfig
 
 def createGPU(options, gpu_mem_range):
+    # DEPRECATED: Set a default GPU DRAM clock to be passed to the wrapper.
+    # This must be eliminated when the wrapper can be removed.
+    options.gpu_dram_clock = None
+
     gpgpusimOptions = parseGpgpusimConfig(options)
 
-    gpu = CudaGPU(manage_gpu_memory = options.split,
-            gpu_memory_range = gpu_mem_range)
+    # The GPU's clock domain is a source for all of the components within the
+    # GPU. By making it a SrcClkDomain, it can be directly referenced to change
+    # the GPU clock frequency dynamically.
+    gpu = CudaGPU(warp_size = options.gpu_warp_size,
+                  manage_gpu_memory = options.split,
+                  clk_domain = SrcClockDomain(clock = options.gpu_core_clock,
+                                              voltage_domain = VoltageDomain()),
+                  gpu_memory_range = gpu_mem_range)
+
+    gpu.cores_wrapper = GPGPUSimComponentWrapper(clk_domain = gpu.clk_domain)
+
+    gpu.icnt_wrapper = GPGPUSimComponentWrapper(clk_domain = DerivedClockDomain(
+                                                    clk_domain = gpu.clk_domain,
+                                                    clk_divider = 2))
+
+    gpu.l2_wrapper = GPGPUSimComponentWrapper(clk_domain = gpu.clk_domain)
+    gpu.dram_wrapper = GPGPUSimComponentWrapper(
+                            clk_domain = SrcClockDomain(
+                                clock = options.gpu_dram_clock,
+                                voltage_domain = gpu.clk_domain.voltage_domain))
 
     warps_per_core = options.gpu_threads_per_core / options.gpu_warp_size
     gpu.shader_cores = [CudaCore(id = i, warp_contexts = warps_per_core)
                             for i in xrange(options.num_sc)]
     gpu.ce = GPUCopyEngine(driver_delay = 5000000)
-
-    gpu.voltage_domain = VoltageDomain()
-    gpu.clk_domain = SrcClockDomain(clock = options.gpu_core_clock,
-                                    voltage_domain = gpu.voltage_domain)
-    gpu.warp_size = options.gpu_warp_size
 
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()

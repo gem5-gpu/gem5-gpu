@@ -31,6 +31,11 @@ from m5.defines import buildEnv
 from m5.params import *
 from m5.proxy import *
 
+class GPGPUSimComponentWrapper(ClockedObject):
+    type = 'GPGPUSimComponentWrapper'
+    cxx_class = 'GPGPUSimComponentWrapper'
+    cxx_header = "gpu/gpgpu-sim/cuda_gpu.hh"
+
 class CudaGPU(ClockedObject):
     type = 'CudaGPU'
     cxx_class = 'CudaGPU'
@@ -55,3 +60,16 @@ class CudaGPU(ClockedObject):
     gpu_memory_range = Param.AddrRange(AddrRange('1kB'), "The address range for the GPU memory space")
 
     shader_mmu = Param.ShaderMMU(ShaderMMU(), "Memory managment unit for this GPU")
+
+    # Wrapper class to clock the GPGPU-Sim side shader cores and interconnect
+    # Must be specified or gem5-gpu will error during initialization
+    cores_wrapper = Param.GPGPUSimComponentWrapper("Must define a wrapper to clock the GPGPU-Sim cores")
+    icnt_wrapper = Param.GPGPUSimComponentWrapper("Must define a wrapper to clock the GPGPU-Sim interconnect")
+
+    # TODO: Eventually, we want to remove the need for the GPGPU-Sim L2 cache
+    # and DRAM. Currently, these are necessary to handle parameter memory
+    # accesses.
+    # Wrapper class to clock the GPGPU-Sim side L2 cache and DRAM
+    # Must be specified or gem5-gpu will error during initialization
+    l2_wrapper = Param.GPGPUSimComponentWrapper("Must define a wrapper to clock the GPGPU-Sim L2 cache")
+    dram_wrapper = Param.GPGPUSimComponentWrapper("Must define a wrapper to clock the GPGPU-Sim DRAM")

@@ -38,17 +38,108 @@
 #include "base/callback.hh"
 #include "debug/CudaGPUPageTable.hh"
 #include "gpgpu-sim/gpu-sim.h"
+#include "gpu/gpgpu-sim/cuda_core.hh"
+#include "gpu/copy_engine.hh"
+#include "gpu/shader_mmu.hh"
 #include "params/CudaGPU.hh"
+#include "params/GPGPUSimComponentWrapper.hh"
+#include "sim/clock_domain.hh"
+#include "sim/eventq.hh"
 #include "sim/process.hh"
 #include "sim/system.hh"
 #include "stream_manager.h"
-#include "gpu/shader_mmu.hh"
 
-// @TODO: Fix the dependencies between sp_array and copy_engine, and
-// sort these includes into the set above as necessary
-#include "gpu/copy_engine.hh"
-#include "gpu/gpgpu-sim/cuda_core.hh"
-class CudaCore;
+/**
+ * A wrapper class to manage the clocking of GPGPU-Sim-side components.
+ * The CudaGPU must contain one of these wrappers for each clocked component or
+ * else GPGPU-Sim simulation progress will stall. Currently, there are four
+ * GPGPU-Sim components that are separately cycled: the shader cores, the
+ * interconnect, the GPU L2 cache and the DRAM.
+ *
+ * TODO: Eventually, the L2 and DRAM events should be eliminated by migrating
+ * all GPU parameter and local memory accesses over to gem5-gpu.
+ */
+class GPGPUSimComponentWrapper : public ClockedObject
+{
+  private:
+    gpgpu_sim *theGPU;
+    typedef void (gpgpu_sim::*CycleFunc)();
+    CycleFunc startCycleFunction;
+    CycleFunc endCycleFunction;
+
+  public:
+    GPGPUSimComponentWrapper(const GPGPUSimComponentWrapperParams *p) :
+        ClockedObject(p), theGPU(NULL), startCycleFunction(NULL),
+        endCycleFunction(NULL), componentCycleStartEvent(this),
+        // End cycle events must happen after all other components are cycled
+        componentCycleEndEvent(this, false, Event::Progress_Event_Pri) {}
+
+    void setGPU(gpgpu_sim *_gpu) {
+        assert(!theGPU);
+        theGPU = _gpu;
+    }
+
+    void setStartCycleFunction(CycleFunc _cycle_func) {
+        assert(!startCycleFunction);
+        startCycleFunction = _cycle_func;
+    }
+
+    void setEndCycleFunction(CycleFunc _cycle_func) {
+        assert(!endCycleFunction);
+        endCycleFunction = _cycle_func;
+    }
+
+    void scheduleEvent(Tick ticks_in_future) {
+        Tick start_time;
+        if (ticks_in_future < clockPeriod()) {
+            start_time = nextCycle();
+        } else {
+            start_time = clockEdge(ticksToCycles(ticks_in_future));
+        }
+
+        assert(startCycleFunction);
+        assert(!componentCycleStartEvent.scheduled());
+        schedule(componentCycleStartEvent, start_time);
+
+        if (endCycleFunction) {
+            assert(!componentCycleEndEvent.scheduled());
+            schedule(componentCycleEndEvent, start_time);
+        }
+    }
+
+  protected:
+
+    void componentCycleStart() {
+        assert(startCycleFunction);
+
+        if (theGPU->active()) {
+            (theGPU->*startCycleFunction)();
+        }
+
+        if (theGPU->active()) {
+            // Reschedule the start cycle event
+            schedule(componentCycleStartEvent, nextCycle());
+        }
+    }
+
+    void componentCycleEnd() {
+        assert(endCycleFunction);
+
+        if (theGPU->active()) {
+            (theGPU->*endCycleFunction)();
+        }
+
+        if (theGPU->active()) {
+            // Reschedule the end cycle event
+            schedule(componentCycleEndEvent, nextCycle());
+        }
+    }
+
+    EventWrapper<GPGPUSimComponentWrapper, &GPGPUSimComponentWrapper::componentCycleStart>
+                                           componentCycleStartEvent;
+    EventWrapper<GPGPUSimComponentWrapper, &GPGPUSimComponentWrapper::componentCycleEnd>
+                                           componentCycleEndEvent;
+};
 
 /**
  *  Main wrapper class for GPGPU-Sim
@@ -133,13 +224,11 @@ class CudaGPU : public ClockedObject
 
       private:
         CudaGPU *cpu;
-        bool streamTick;
 
       public:
-        TickEvent(CudaGPU *c, bool stream) : Event(CPU_Tick_Pri), cpu(c), streamTick(stream) {}
+        TickEvent(CudaGPU *c) : Event(CPU_Tick_Pri), cpu(c) {}
         void process() {
-            if (streamTick) cpu->streamTick();
-            else cpu->gpuTick();
+            cpu->streamTick();
         }
         virtual const char *description() const { return "CudaGPU tick"; }
     };
@@ -165,9 +254,6 @@ class CudaGPU : public ClockedObject
     const CudaGPUParams *_params;
     const Params * params() const { return dynamic_cast<const Params *>(_params); }
 
-    /// Tick for when the GPU needs to run its next cycle
-    TickEvent gpuTickEvent;
-
     /// Tick for when the stream manager needs execute
     TickEvent streamTickEvent;
 
@@ -175,8 +261,14 @@ class CudaGPU : public ClockedObject
     // The CUDA device ID for this GPU
     unsigned cudaDeviceID;
 
-    /// Callback for the gpu tick
-    void gpuTick();
+    // Clock domain for the GPU: Used for changing frequency
+    SrcClockDomain *clkDomain;
+
+    // Wrappers to cycle components in GPGPU-Sim
+    GPGPUSimComponentWrapper &coresWrapper;
+    GPGPUSimComponentWrapper &icntWrapper;
+    GPGPUSimComponentWrapper &l2Wrapper;
+    GPGPUSimComponentWrapper &dramWrapper;
 
     /// Callback for the stream manager tick
     void streamTick();
@@ -195,8 +287,8 @@ class CudaGPU : public ClockedObject
 
     int sharedMemDelay;
     std::string gpgpusimConfigPath;
-    double launchDelay;
-    double returnDelay;
+    Tick launchDelay;
+    Tick returnDelay;
 
     /// If true there is a kernel currently executing
     /// NOTE: Jason doesn't think we need this
@@ -356,7 +448,7 @@ class CudaGPU : public ClockedObject
     gpgpu_sim* getTheGPU() { return theGPU; }
 
     /// Called at the beginning of each kernel launch to start the statistics
-    void beginRunning(Tick launchTime, struct CUstream_st *_stream);
+    void beginRunning(Tick stream_queued_time, struct CUstream_st *_stream);
 
     /**
      * Marks the kernel as complete and signals the stream manager
@@ -372,10 +464,6 @@ class CudaGPU : public ClockedObject
         { shaderMMU->handleFinishPageFault(tc); }
 
     ShaderMMU *getMMU() { return shaderMMU; }
-
-    /// Called from GPGPU-Sim next_clock_domain and schedules cycle() to be run
-    /// gpuTicks (in GPPGU-Sim tick (seconds)) from now
-    void gpuRequestTick(float gpuTicks);
 
     /// Schedules the stream manager to be checked in 'ticks' ticks from now
     void scheduleStreamEvent();

@@ -47,6 +47,7 @@
 #include "gpgpusim_entrypoint.h"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/ruby/system/System.hh"
+#include "params/GPGPUSimComponentWrapper.hh"
 #include "params/CudaGPU.hh"
 #include "sim/full_system.hh"
 #include "sim/pseudo_inst.hh"
@@ -61,10 +62,12 @@ unsigned int registerFatBinaryBottom(GPUSyscallHelper *helper, Addr sim_alloc_pt
 void register_var(Addr sim_deviceAddress, const char* deviceName, int sim_size, int sim_constant, int sim_global, int sim_ext, Addr sim_hostVar);
 
 CudaGPU::CudaGPU(const Params *p) :
-    ClockedObject(p), _params(p), gpuTickEvent(this, false), streamTickEvent(this, true),
+    ClockedObject(p), _params(p), streamTickEvent(this),
+    clkDomain((SrcClockDomain*)p->clk_domain),
+    coresWrapper(*p->cores_wrapper), icntWrapper(*p->icnt_wrapper),
+    l2Wrapper(*p->l2_wrapper), dramWrapper(*p->dram_wrapper),
     system(p->sys), warpSize(p->warp_size), sharedMemDelay(p->shared_mem_delay),
-    gpgpusimConfigPath(p->config_path), launchDelay(p->kernel_launch_delay),
-    returnDelay(p->kernel_return_delay), unblockNeeded(false), ruby(p->ruby),
+    gpgpusimConfigPath(p->config_path), unblockNeeded(false), ruby(p->ruby),
     runningTC(NULL), runningStream(NULL), runningTID(-1), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
@@ -85,6 +88,9 @@ CudaGPU::CudaGPU(const Params *p) :
 
     restoring = false;
 
+    launchDelay = p->kernel_launch_delay * SimClock::Frequency;
+    returnDelay = p->kernel_return_delay * SimClock::Frequency;
+
     // GPU memory handling
     instBaseVaddr = 0;
     instBaseVaddrSet = false;
@@ -97,6 +103,22 @@ CudaGPU::CudaGPU(const Params *p) :
     theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());
     theGPU->init();
     theGPU->setCudaGPU(this);
+
+    // Set up the component wrappers in order to cycle the GPGPU-Sim
+    // shader cores, interconnect, L2 cache and DRAM
+    // TODO: Eventually, we want to remove the need for the GPGPU-Sim L2 cache
+    // and DRAM. Currently, these are necessary to handle parameter memory
+    // accesses.
+    coresWrapper.setGPU(theGPU);
+    coresWrapper.setStartCycleFunction(&gpgpu_sim::core_cycle_start);
+    coresWrapper.setEndCycleFunction(&gpgpu_sim::core_cycle_end);
+    icntWrapper.setGPU(theGPU);
+    icntWrapper.setStartCycleFunction(&gpgpu_sim::icnt_cycle_start);
+    icntWrapper.setEndCycleFunction(&gpgpu_sim::icnt_cycle_end);
+    l2Wrapper.setGPU(theGPU);
+    l2Wrapper.setStartCycleFunction(&gpgpu_sim::l2_cycle);
+    dramWrapper.setGPU(theGPU);
+    dramWrapper.setStartCycleFunction(&gpgpu_sim::dram_cycle);
 
     // Setup the device properties for this GPU
     snprintf(deviceProperties.name, 256, "GPGPU-Sim_v%s", g_gpgpusim_version_string);
@@ -295,23 +317,6 @@ void CudaGPU::registerCopyEngine(GPUCopyEngine *ce)
     copyEngine = ce;
 }
 
-void CudaGPU::gpuTick()
-{
-    DPRINTF(CudaGPUTick, "GPU Tick\n");
-
-    // simulate a clock cycle on the GPU
-    if( theGPU->active() ) {
-        theGPU->cycle();
-    }
-    theGPU->deadlock_check();
-
-    if (streamManager->ready() && !streamScheduled) {
-        schedule(streamTickEvent, curTick() + streamDelay);
-        streamScheduled = true;
-    }
-
-}
-
 void CudaGPU::streamTick() {
     DPRINTF(CudaGPUTick, "Stream Tick\n");
 
@@ -327,12 +332,6 @@ void CudaGPU::streamTick() {
     }
 }
 
-void CudaGPU::gpuRequestTick(float gpuTicks) {
-    Tick gpuWakeupTick = (int)(gpuTicks * SimClock::Frequency) + curTick();
-
-    schedule(gpuTickEvent, gpuWakeupTick);
-}
-
 void CudaGPU::scheduleStreamEvent() {
     if (streamScheduled) {
         DPRINTF(CudaGPUTick, "Already scheduled a tick, ignoring\n");
@@ -343,7 +342,7 @@ void CudaGPU::scheduleStreamEvent() {
     streamScheduled = true;
 }
 
-void CudaGPU::beginRunning(Tick launchTime, struct CUstream_st *_stream)
+void CudaGPU::beginRunning(Tick stream_queued_time, struct CUstream_st *_stream)
 {
     beginStreamOperation(_stream);
 
@@ -357,20 +356,23 @@ void CudaGPU::beginRunning(Tick launchTime, struct CUstream_st *_stream)
     }
     running = true;
 
-    Tick delay = 1;
-    Tick curTime = curTick();
-    if (curTime - launchTime < launchDelay * SimClock::Frequency) {
-        delay = (Tick)(launchDelay * SimClock::Frequency) - (curTime - launchTime); //delay by whatever is left over
+    Tick delay = clockPeriod();
+    if ((stream_queued_time + launchDelay) > curTick()) {
+        // Delay launch to the end of the launch delay
+        delay = (stream_queued_time + launchDelay) - curTick();
     }
 
-    schedule(gpuTickEvent, curTick() + delay);
+    coresWrapper.scheduleEvent(delay);
+    icntWrapper.scheduleEvent(delay);
+    l2Wrapper.scheduleEvent(delay);
+    dramWrapper.scheduleEvent(delay);
 }
 
 void CudaGPU::finishKernel(int grid_id)
 {
     numKernelsCompleted++;
     FinishKernelEvent *e = new FinishKernelEvent(this, grid_id);
-    schedule(e, curTick() + returnDelay * SimClock::Frequency);
+    schedule(e, curTick() + returnDelay);
 }
 
 void CudaGPU::processFinishKernelEvent(int grid_id)
@@ -741,6 +743,10 @@ void CudaGPU::regStats()
         .name(name() + ".kernels_completed")
         .desc("Number of kernels completed")
         ;
+}
+
+GPGPUSimComponentWrapper *GPGPUSimComponentWrapperParams::create() {
+    return new GPGPUSimComponentWrapper(this);
 }
 
 /**
