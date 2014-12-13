@@ -6,14 +6,10 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   Cycles cache_response_latency = 30,
 {
 
-//Note: we might have a problem if two Get atomics arrive from different L1's at the same time
-
-
   // NETWORK BUFFERS
   // Buffers to and from L1 caches
   MessageBuffer requestFromL1Cache, network="From", virtual_network="7", ordered="true", vnet_type="request";
   MessageBuffer responseToL1Cache, network="To", virtual_network="6", ordered="true", vnet_type="response";
-  MessageBuffer atomicRequestFromL1Cache, network="From", virtual_network="8", ordered="true", vnet_type="request";
 
   // Buffers to / from the dir and other caches
   MessageBuffer requestFromCache, network="To", virtual_network="2", ordered="false", vnet_type="request";
@@ -30,14 +26,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     O, AccessPermission:Read_Only, desc="Owned";
     M, AccessPermission:Read_Only, desc="Modified (dirty)";
     MM, AccessPermission:Read_Write, desc="Modified (dirty and locally modified)";
-
-    // States for atomics
-    MM_A, AccessPermission:Busy, "MM^A", desc="Done an atomic get, waiting for the atomic put";
-    IM_A, AccessPermission:Busy, "IM^A", desc="Done an atomic get, like IM";
-    SM_A, AccessPermission:Busy, "SM^A", desc="Done an atomic get, like SM";
-    OM_A, AccessPermission:Busy, "OM^A", desc="Done an atomic get, like OM";
-    SM_AA, AccessPermission:Busy, "SM^AA", desc="Waiting for final acks";
-    IM_AA, AccessPermission:Busy, "IM^AA", desc="Waiting for final acks";
 
     // Transient states (from hammer)
     IM, AccessPermission:Busy, "IM", desc="Issued GetX";
@@ -60,8 +48,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     Get,          desc="Get request from L1";
     Store,        desc="Put request from L1";
     Replacement,  desc="Replace a block";
-    Get_Atom,     desc="Atomic get request from L1";
-    Put_Atom,     desc="Atomic put request from L1";
 
     // From CPU caches
     Other_GETX,      desc="A GetX from another processor";
@@ -215,11 +201,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
       return Event:Get;
     } else if (type == CoherenceRequestTypeVI:PUT) {
       return Event:Store;
-    } else if (type == CoherenceRequestTypeVI:GET_Atom) {
-      return Event:Get_Atom;
-    } else if (type == CoherenceRequestTypeVI:PUT_Atom) {
-      return Event:Put_Atom;
-    }else {
+    } else {
       error("Invalid L1 request type");
     }
   }
@@ -359,16 +341,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  in_port(atomicRequestQueue_in, RequestMsgVI, atomicRequestFromL1Cache, desc="...") {
-    if (atomicRequestQueue_in.isReady()) {
-      peek(atomicRequestQueue_in, RequestMsgVI, block_on="Addr") {
-        Entry cache_entry := getCacheEntry(in_msg.Addr);
-        assert(is_valid(cache_entry));
-        trigger(Event:Put_Atom, in_msg.Addr, cache_entry, TBEs[in_msg.Addr]);
-      }
-    }
-  }
-
   // ACTIONS
 
   action(a_issueGETS, "a", desc="Issue GETS") {
@@ -429,10 +401,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     responseToCache_in.dequeue();
   }
 
-  action(aq_popL1AtomicQueue, "aq", desc="Pop the atomic L1 request queue") {
-    atomicRequestQueue_in.dequeue();
-  }
-
   action(j_popTriggerQueue, "j", desc="Pop trigger queue.") {
     triggerQueue_in.dequeue();
   }
@@ -454,18 +422,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
       }
     }
     ++L2cache.demand_hits;
-  }
-
-  action(ha_load_hit, "ha", desc="Send data to L1 for atomic") {
-    assert(is_valid(cache_entry));
-    enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-      out_msg.Addr := address;
-      out_msg.Type := CoherenceResponseTypeVI:DATA;
-      out_msg.Sender := machineID;
-      out_msg.Destination.add(tbe.Requestor);
-      out_msg.DataBlk := cache_entry.DataBlk;
-      out_msg.MessageSize := MessageSizeType:Response_Data;
-    }
   }
 
   action(hx_external_load_hit, "hx", desc="load required external msgs, send data to L1") {
@@ -525,20 +481,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     DPRINTF(RubySlicc, "From L1: %s %s\n", address, tbe.DirtyDataBlk);
     DPRINTF(RubySlicc, "%s: offset: %d, size: %d\n", address, tbe.Offset, tbe.Size);
     DPRINTF(RubySlicc, "%s %s\n", address, cache_entry.DataBlk);
-  }
-
-  action(sa_store_hit, "sa", desc="Notify L1 that an atomic store completed.") {
-    assert(is_valid(cache_entry));
-    peek(atomicRequestQueue_in, RequestMsgVI) {
-      enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-        out_msg.Addr := address;
-        out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
-        out_msg.Sender := machineID;
-        out_msg.Destination.add(in_msg.Requestor);
-        out_msg.MessageSize := MessageSizeType:Writeback_Control;
-      }
-    }
-    ++L2cache.demand_hits;
   }
 
   action(as_ackStore, "as", desc="Ack the requestor that the store is complete") {
@@ -977,15 +919,15 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   // TRANSITIONS
 
-  transition({IM, IS, OI, MI, II}, {Get, Store, Replacement, Get_Atom}) {} {
+  transition({IM, IS, OI, MI, II}, {Get, Store, Replacement}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
-  transition({ISM,SM,OM,SS}, {Replacement,Store,Get_Atom}) {} {
+  transition({ISM, SM, OM, SS}, {Replacement, Store}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
-  transition({M_W,MM_W}, {Replacement, Get_Atom}) {} {
+  transition({M_W,MM_W}, {Replacement}) {} {
     zz_stallAndWaitRequestQueue;
   }
 
@@ -1050,100 +992,6 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     a_issueGETS;
     vv_profileReadMiss;
     rq_popL1IncomingQueue;
-  }
-
-  // Let's deal with atomics
-
-  transition(MM, Get_Atom, MM_A) {
-    i_allocateTBE;
-    es_recordRequestor;
-    ha_load_hit;
-    rq_popL1IncomingQueue;
-  }
-
-  transition(I, Get_Atom, IM_A) {
-    ii_allocateL2CacheBlock;
-    i_allocateTBE;
-    es_recordRequestor;
-    b_issueGETX;
-    //uu_profileMiss; // TODO
-    rq_popL1IncomingQueue;
-  }
-
-  transition(S, Get_Atom, SM_A) {
-    i_allocateTBE;
-    es_recordRequestor;
-    b_issueGETX;
-    //uu_profileMiss; // TODO
-    rq_popL1IncomingQueue;
-  }
-
-  transition(M, Get_Atom, MM_A) {
-    i_allocateTBE;
-    es_recordRequestor;
-    h_load_hit;
-    rq_popL1IncomingQueue;
-  }
-
-  transition(O, Get_Atom, OM_A) {
-    i_allocateTBE;
-    es_recordRequestor;
-    b_issueGETX;
-    p_decrementNumberOfMessagesByOne;
-    //uu_profileMiss; // TODO
-    rq_popL1IncomingQueue;
-  }
-
-  transition(MM_A, Put_Atom, MM) {
-    sa_store_hit;
-    s_deallocateTBE;
-    aq_popL1AtomicQueue;
-  }
-
-  transition(SM_A, {Data, Exclusive_Data}, SM_AA) {
-    v_writeDataToCacheVerify;
-    m_decrementNumberOfMessages;
-    o_checkForCompletion;
-    n_popResponseQueue;
-  }
-
-  transition(IM_A, {Data, Exclusive_Data}, IM_AA) {
-    u_writeDataToCache;
-    m_decrementNumberOfMessages;
-    o_checkForCompletion;
-    n_popResponseQueue;
-    //kd_wakeUpDependents; // This is only for ex data, I don't think we need it
-  }
-
-  transition(OM_A, {All_acks, All_acks_no_sharers}, MM_A) {
-    ha_load_hit;
-    gm_sendUnblockM;
-    j_popTriggerQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(IM_AA, All_acks_no_sharers, MM_A) {
-    ha_load_hit;
-    gm_sendUnblockM;
-    j_popTriggerQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(SM_AA, All_acks_no_sharers, MM_A) {
-    ha_load_hit;
-    gm_sendUnblockM;
-    j_popTriggerQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(SM_AA, Ack) {
-    m_decrementNumberOfMessages;
-    o_checkForCompletion;
-    n_popResponseQueue;
-  }
-
-  transition({IM_A,SM_A,OM_A,MM_A,SM_AA,IM_AA}, {Get,Get_Atom,Store,Replacement,Other_GETX,Other_GETS,Merged_GETS,NC_DMA_GETS,Invalidate}){
-    z_stall;
   }
 
   // Transistions for replacements
@@ -1309,7 +1157,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     l_popForwardQueue;
   }
 
-  transition({IM, IM_A, IM_AA}, Ack) {
+  transition(IM, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
@@ -1396,7 +1244,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     l_popForwardQueue;
   }
 
-  transition({OM, OM_A}, Ack) {
+  transition(OM, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
@@ -1412,7 +1260,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   }
 
   // Transitions from SM
-  transition({SM, SM_A}, Ack) {
+  transition(SM, Ack) {
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
