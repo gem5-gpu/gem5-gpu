@@ -9,7 +9,6 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   // NETWORK BUFFERS
   MessageBuffer requestFromL1Cache, network="To", virtual_network="7", ordered="true", vnet_type="request";
-  MessageBuffer atomicRequestFromL1Cache, network="To", virtual_network="8", ordered="true", vnet_type="request";
 
   MessageBuffer responseToL1Cache, network="From", virtual_network="6", ordered="true", vnet_type="response";
 
@@ -19,12 +18,9 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     V, AccessPermission:Read_Only, desc="Valid";
 
     IA, AccessPermission:Busy, desc="Invalid, but waiting for ack or data from L2";
-
-    V_a, AccessPermission:Read_Only, desc="Valid waiting for other atomic (locked & blocking)";
-    VI_a, AccessPermission:Busy, desc="Modified by atomic, issued PUT";
-
     IV, AccessPermission:Busy, desc="Issued request for LOAD/IFETCH";
-    IV_a, AccessPermission:Busy, desc="Issued request for LOAD/IFETCH for atomic";
+
+    I_a, AccessPermission:Busy, desc="Issued atomic, waiting for data resp";
   }
 
   // EVENTS
@@ -214,7 +210,6 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   // NETWORK PORTS
 
   out_port(requestNetwork_out, RequestMsgVI, requestFromL1Cache);
-  out_port(requestNetworkAtomic_out, RequestMsgVI, atomicRequestFromL1Cache);
 
   in_port(responseNetwork_in, ResponseMsgVI, responseToL1Cache) {
     if (responseNetwork_in.isReady()) {
@@ -293,26 +288,6 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     }
   }
 
-  action(a_issueAtomicRequest, "aa", desc="Issue an atomic get request") {
-    enqueue(requestNetwork_out, RequestMsgVI, issue_latency) {
-    out_msg.Addr := address;
-      out_msg.Type := CoherenceRequestTypeVI:GET_Atom;
-      out_msg.Requestor := machineID;
-      out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
-      out_msg.MessageSize := MessageSizeType:Control;
-    }
-  }
-
-  action(b_issueAtomicPUT, "ba", desc="Issue an atomic PUT request") {
-    enqueue(requestNetworkAtomic_out, RequestMsgVI, issue_latency) {
-      out_msg.Addr := address;
-      out_msg.Type := CoherenceRequestTypeVI:PUT_Atom;
-      out_msg.Requestor := machineID;
-      out_msg.Destination.add(getL2ID(address, num_l2, l2_select_num_bits, l2_select_low_bit));
-      out_msg.MessageSize := MessageSizeType:Data;
-    }
-  }
-
   action(i_allocateL1CacheBlock, "c", desc="Allocate a cache block") {
     if (is_valid(cache_entry)) {
     } else {
@@ -376,12 +351,14 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     DPRINTF(RubySlicc,"%s %s\n", address, temp_store_data);
   }
 
-   action(sx_store_hit, "sx", desc="External store completed.") {
-      assert(is_valid(tbe));
-      error("External store hits not supported");
-      DPRINTF(RubySlicc,"%s\n", cache_entry.DataBlk);
+  action(sa_atomic_hit, "sa", desc="Notify sequencer that atomic completed.") {
+    peek(responseNetwork_in, ResponseMsgVI) {
+      // We already gained exclusive L2 access in b_issuePUT, so all that is
+      // left is to handle the atomic in the hit callback
       sequencer.writeCallback(address, tbe.DataBlk, true,
-                              MachineType:Directory);
+                              machineIDToMachineType(in_msg.Sender));
+      DPRINTF(RubySlicc,"ATOMIC: %s %s\n", address, temp_store_data);
+    }
   }
 
   action(u_writeDataToCache, "j", desc="Write data to the cache") {
@@ -400,12 +377,6 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   action(w_deallocateTBE, "l", desc="Deallocate TBE") {
     TBEs.deallocate(address);
     unset_tbe();
-  }
-
-  action(x_copyDataFromCacheToTBE, "m", desc="Copy data from cache to TBE") {
-    assert(is_valid(cache_entry));
-    assert(is_valid(tbe));
-    tbe.DataBlk := cache_entry.DataBlk;
   }
 
   action(f_flashInv, "fi", desc="Invalidate all lines in the cache") {
@@ -430,11 +401,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   // TRANSITIONS
 
-  transition({IV, IA, IV_a, VI_a}, {Load, Ifetch, Store, BypassLoad, Flush_line, Replacement, Atomic}) {} {
-    zz_stallAndWaitMandatoryQueue;
-  }
-
-  transition(V_a, {Load, Ifetch, Store, Flush_line, Replacement}) {} {
+  transition({IV, IA}, {Load, Ifetch, Store, BypassLoad, Flush_line, Replacement, Atomic}) {} {
     zz_stallAndWaitMandatoryQueue;
   }
 
@@ -448,6 +415,22 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   }
 
   transition(I, Store, IA) {TagArrayRead} {
+    p_profileMiss;
+    v_allocateTBE;
+    b_issuePUT;
+    m_popMandatoryQueue;
+  }
+
+  transition(V, Atomic, I_a) {TagArrayRead, TagArrayWrite} {
+    p_profileMiss;
+    v_allocateTBE;
+    b_issuePUT;
+    h_deallocateL1CacheBlock;
+    ka_wakeUpAllDependents;
+    m_popMandatoryQueue;
+  }
+
+  transition(I, Atomic, I_a) {TagArrayRead} {
     p_profileMiss;
     v_allocateTBE;
     b_issuePUT;
@@ -495,44 +478,14 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
     n_popResponseQueue;
   }
 
-  transition(I, Atomic, IV_a) {TagArrayRead} {
-    v_allocateTBE;
-    i_allocateL1CacheBlock;
-    a_issueAtomicRequest;
-    p_profileMiss;
-    m_popMandatoryQueue;
-  }
-
-  transition(V, Atomic, IV_a) {TagArrayRead, TagArrayWrite} {
-    v_allocateTBE;
-    a_issueAtomicRequest;
-    m_popMandatoryQueue;
-  }
-
-  transition(IV_a, Data, V_a) {} {
-    u_writeDataToCache;
-    sx_store_hit;
-    w_deallocateTBE;
-    n_popResponseQueue;
-  }
-
-  transition(V_a, Atomic, VI_a) {} {
-    m_popMandatoryQueue;
-
-    v_allocateTBE;
-    b_issueAtomicPUT;
-    x_copyDataFromCacheToTBE;
-  }
-
-  transition(VI_a, Write_Ack, I) {} {
-    sx_store_hit;
-    h_deallocateL1CacheBlock;
-    w_deallocateTBE;
-    n_popResponseQueue;
-  }
-
   transition(IA, Write_Ack, I) {} {
     s_store_hit;
+    w_deallocateTBE;
+    n_popResponseQueue;
+  }
+
+  transition(I_a, Write_Ack, I) {} {
+    sa_atomic_hit;
     w_deallocateTBE;
     n_popResponseQueue;
   }
