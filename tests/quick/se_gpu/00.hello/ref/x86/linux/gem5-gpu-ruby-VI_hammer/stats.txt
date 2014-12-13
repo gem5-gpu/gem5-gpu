@@ -4,11 +4,11 @@ sim_seconds                                  0.000030                       # Nu
 sim_ticks                                    29511500                       # Number of ticks simulated
 final_tick                                   29511500                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  30426                       # Simulator instruction rate (inst/s)
-host_op_rate                                    55112                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                              166598375                       # Simulator tick rate (ticks/s)
-host_mem_usage                                2372476                       # Number of bytes of host memory used
-host_seconds                                     0.18                       # Real time elapsed on the host
+host_inst_rate                                  28663                       # Simulator instruction rate (inst/s)
+host_op_rate                                    51919                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                              156946722                       # Simulator tick rate (ticks/s)
+host_mem_usage                                2372656                       # Number of bytes of host memory used
+host_seconds                                     0.19                       # Real time elapsed on the host
 sim_insts                                        5389                       # Number of instructions simulated
 sim_ops                                          9762                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -79,26 +79,26 @@ system.ruby.l1_cntrl0.L1Icache.demand_accesses         6874                     
 system.ruby.l1_cntrl0.L2cache.demand_hits            3                       # Number of cache demand hits
 system.ruby.l1_cntrl0.L2cache.demand_misses          227                       # Number of cache demand misses
 system.ruby.l1_cntrl0.L2cache.demand_accesses          230                       # Number of cache demand accesses
-system.ruby.network.ext_links0.int_node.percent_links_utilized     0.528713                      
+system.ruby.network.ext_links0.int_node.percent_links_utilized     0.528819                      
 system.ruby.network.ext_links0.int_node.msg_count.Request_Control::2          227                      
 system.ruby.network.ext_links0.int_node.msg_count.Response_Data::4          227                      
 system.ruby.network.ext_links0.int_node.msg_count.Response_Control::4          454                      
 system.ruby.network.ext_links0.int_node.msg_count.Broadcast_Control::3          227                      
-system.ruby.network.ext_links0.int_node.msg_count.Unblock_Control::5          226                      
+system.ruby.network.ext_links0.int_node.msg_count.Unblock_Control::5          227                      
 system.ruby.network.ext_links0.int_node.msg_bytes.Request_Control::2         1816                      
 system.ruby.network.ext_links0.int_node.msg_bytes.Response_Data::4        30872                      
 system.ruby.network.ext_links0.int_node.msg_bytes.Response_Control::4         3632                      
 system.ruby.network.ext_links0.int_node.msg_bytes.Broadcast_Control::3         1816                      
-system.ruby.network.ext_links0.int_node.msg_bytes.Unblock_Control::5         1808                      
-system.ruby.network.ext_links1.int_node.percent_links_utilized     1.009352                      
+system.ruby.network.ext_links0.int_node.msg_bytes.Unblock_Control::5         1816                      
+system.ruby.network.ext_links1.int_node.percent_links_utilized     1.009564                      
 system.ruby.network.ext_links1.int_node.msg_count.Request_Control::2          227                      
 system.ruby.network.ext_links1.int_node.msg_count.Response_Data::4          227                      
 system.ruby.network.ext_links1.int_node.msg_count.Response_Control::4          454                      
-system.ruby.network.ext_links1.int_node.msg_count.Unblock_Control::5          226                      
+system.ruby.network.ext_links1.int_node.msg_count.Unblock_Control::5          227                      
 system.ruby.network.ext_links1.int_node.msg_bytes.Request_Control::2         1816                      
 system.ruby.network.ext_links1.int_node.msg_bytes.Response_Data::4        30872                      
 system.ruby.network.ext_links1.int_node.msg_bytes.Response_Control::4         3632                      
-system.ruby.network.ext_links1.int_node.msg_bytes.Unblock_Control::5         1808                      
+system.ruby.network.ext_links1.int_node.msg_bytes.Unblock_Control::5         1816                      
 system.ruby.l1_cntrl_sp00.cache.demand_hits            0                       # Number of cache demand hits
 system.ruby.l1_cntrl_sp00.cache.demand_misses            0                       # Number of cache demand misses
 system.ruby.l1_cntrl_sp00.cache.demand_accesses            0                       # Number of cache demand accesses
@@ -150,20 +150,22 @@ system.ruby.dir_cntrl0.probeFilter.demand_hits            0                     
 system.ruby.dir_cntrl0.probeFilter.demand_misses            0                       # Number of cache demand misses
 system.ruby.dir_cntrl0.probeFilter.demand_accesses            0                       # Number of cache demand accesses
 system.ruby.dir_cntrl0.probeFilter.num_data_array_reads          227                       # number of data array reads
-system.ruby.dir_cntrl0.probeFilter.num_data_array_writes          453                       # number of data array writes
+system.ruby.dir_cntrl0.probeFilter.num_data_array_writes          454                       # number of data array writes
 system.ruby.network.msg_count.Request_Control          454                      
 system.ruby.network.msg_count.Response_Data          454                      
 system.ruby.network.msg_count.Response_Control         1589                      
 system.ruby.network.msg_count.Broadcast_Control          908                      
-system.ruby.network.msg_count.Unblock_Control          452                      
+system.ruby.network.msg_count.Unblock_Control          454                      
 system.ruby.network.msg_byte.Request_Control         3632                      
 system.ruby.network.msg_byte.Response_Data        61744                      
 system.ruby.network.msg_byte.Response_Control        12712                      
 system.ruby.network.msg_byte.Broadcast_Control         7264                      
-system.ruby.network.msg_byte.Unblock_Control         3616                      
+system.ruby.network.msg_byte.Unblock_Control         3632                      
 system.cpu_voltage_domain.voltage                   1                       # Voltage in Volts
-system.gpu.voltage_domain.voltage                   1                       # Voltage in Volts
+system.gpu.clk_domain.voltage_domain.voltage            1                       # Voltage in Volts
 system.gpu.clk_domain.clock                      1429                       # Clock period in ticks
+system.gpu.dram_wrapper.clk_domain.clock          541                       # Clock period in ticks
+system.gpu.icnt_wrapper.clk_domain.clock         2858                       # Clock period in ticks
 system.gpu.shader_mmu.numPagefaults                 0                       # Number of Pagefaults
 system.gpu.shader_mmu.numPagewalks                  0                       # Number of Pagewalks
 system.gpu.shader_mmu.totalRequests                 0                       # Total number of requests
@@ -267,6 +269,7 @@ system.gpu.shader_mmu.pagewalkLatency::29            0                       # L
 system.gpu.shader_mmu.pagewalkLatency::30            0                       # Latency to complete the pagewalk
 system.gpu.shader_mmu.pagewalkLatency::31            0                       # Latency to complete the pagewalk
 system.gpu.shader_mmu.pagewalkLatency::total            0                       # Latency to complete the pagewalk
+system.gpu.kernels_started                          0                       # Number of kernels started
 system.gpu.kernels_completed                        0                       # Number of kernels completed
 system.gpu.shader_cores0.itb.hits                   0                       # Number of hits in this TLB
 system.gpu.shader_cores0.itb.misses                 0                       # Number of misses in this TLB
@@ -479,6 +482,27 @@ system.gpu.shader_cores0.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores0.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores0.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores0.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores0.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -711,6 +735,27 @@ system.gpu.shader_cores1.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores1.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores1.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores1.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores1.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -943,6 +988,27 @@ system.gpu.shader_cores2.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores2.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores2.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores2.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores2.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -1175,6 +1241,27 @@ system.gpu.shader_cores3.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores3.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores3.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores3.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores3.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -1266,11 +1353,11 @@ system.cpu.op_class::IprAccess                      0      0.00%    100.00% # Cl
 system.cpu.op_class::InstPrefetch                   0      0.00%    100.00% # Class of executed instruction
 system.cpu.op_class::total                       9762                       # Class of executed instruction
 system.ruby.network.ext_links0.int_node.throttle0.link_utilization            0                      
-system.ruby.network.ext_links0.int_node.throttle1.link_utilization     0.191874                      
+system.ruby.network.ext_links0.int_node.throttle1.link_utilization     0.192298                      
 system.ruby.network.ext_links0.int_node.throttle1.msg_count.Request_Control::2          227                      
-system.ruby.network.ext_links0.int_node.throttle1.msg_count.Unblock_Control::5          226                      
+system.ruby.network.ext_links0.int_node.throttle1.msg_count.Unblock_Control::5          227                      
 system.ruby.network.ext_links0.int_node.throttle1.msg_bytes.Request_Control::2         1816                      
-system.ruby.network.ext_links0.int_node.throttle1.msg_bytes.Unblock_Control::5         1808                      
+system.ruby.network.ext_links0.int_node.throttle1.msg_bytes.Unblock_Control::5         1816                      
 system.ruby.network.ext_links0.int_node.throttle2.link_utilization     1.826830                      
 system.ruby.network.ext_links0.int_node.throttle2.msg_count.Response_Data::4          227                      
 system.ruby.network.ext_links0.int_node.throttle2.msg_count.Response_Control::4          454                      
@@ -1284,11 +1371,11 @@ system.ruby.network.ext_links1.int_node.throttle0.msg_count.Response_Data::4    
 system.ruby.network.ext_links1.int_node.throttle0.msg_count.Response_Control::4          454                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_bytes.Response_Data::4        30872                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_bytes.Response_Control::4         3632                      
-system.ruby.network.ext_links1.int_node.throttle1.link_utilization     0.191874                      
+system.ruby.network.ext_links1.int_node.throttle1.link_utilization     0.192298                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_count.Request_Control::2          227                      
-system.ruby.network.ext_links1.int_node.throttle1.msg_count.Unblock_Control::5          226                      
+system.ruby.network.ext_links1.int_node.throttle1.msg_count.Unblock_Control::5          227                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_bytes.Request_Control::2         1816                      
-system.ruby.network.ext_links1.int_node.throttle1.msg_bytes.Unblock_Control::5         1808                      
+system.ruby.network.ext_links1.int_node.throttle1.msg_bytes.Unblock_Control::5         1816                      
 system.ruby.network.ext_links2.int_node.throttle0.link_utilization     0.096149                      
 system.ruby.network.ext_links2.int_node.throttle0.msg_count.Broadcast_Control::3          227                      
 system.ruby.network.ext_links2.int_node.throttle0.msg_bytes.Broadcast_Control::3         1816                      
@@ -1534,46 +1621,32 @@ system.ruby.L1Cache_Controller.I.Other_GETX |           0      0.00%      0.00% 
 system.ruby.L1Cache_Controller.I.Other_GETX::total           45                      
 system.ruby.L1Cache_Controller.I.Other_GETS |           0      0.00%      0.00% |         182    100.00%    100.00%
 system.ruby.L1Cache_Controller.I.Other_GETS::total          182                      
-system.ruby.L1Cache_Controller.M.Load    |         213    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M.Load::total          213                      
-system.ruby.L1Cache_Controller.M.Ifetch  |        5300    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M.Ifetch::total         5300                      
-system.ruby.L1Cache_Controller.M.Store   |          12    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M.Store::total           12                      
+system.ruby.L1Cache_Controller.M.Load    |         231    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.M.Load::total          231                      
+system.ruby.L1Cache_Controller.M.Ifetch  |        6732    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.M.Ifetch::total         6732                      
+system.ruby.L1Cache_Controller.M.Store   |          17    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.M.Store::total           17                      
 system.ruby.L1Cache_Controller.M.L1_to_L2 |          15    100.00%    100.00% |           0      0.00%    100.00%
 system.ruby.L1Cache_Controller.M.L1_to_L2::total           15                      
 system.ruby.L1Cache_Controller.M.Trigger_L2_to_L1I |           3    100.00%    100.00% |           0      0.00%    100.00%
 system.ruby.L1Cache_Controller.M.Trigger_L2_to_L1I::total            3                      
-system.ruby.L1Cache_Controller.MM.Load   |         767    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM.Load::total          767                      
-system.ruby.L1Cache_Controller.MM.Store  |         672    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM.Store::total          672                      
+system.ruby.L1Cache_Controller.MM.Load   |         772    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.MM.Load::total          772                      
+system.ruby.L1Cache_Controller.MM.Store  |         881    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.MM.Store::total          881                      
 system.ruby.L1Cache_Controller.MR.Ifetch |           3    100.00%    100.00% |           0      0.00%    100.00%
 system.ruby.L1Cache_Controller.MR.Ifetch::total            3                      
-system.ruby.L1Cache_Controller.IM.Ack    |          45    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.IM.Ack::total           45                      
+system.ruby.L1Cache_Controller.IM.Ack    |          90    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.IM.Ack::total           90                      
 system.ruby.L1Cache_Controller.IM.Exclusive_Data |          45    100.00%    100.00% |           0      0.00%    100.00%
 system.ruby.L1Cache_Controller.IM.Exclusive_Data::total           45                      
-system.ruby.L1Cache_Controller.M_W.Load  |          18    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M_W.Load::total           18                      
-system.ruby.L1Cache_Controller.M_W.Ifetch |        1432    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M_W.Ifetch::total         1432                      
-system.ruby.L1Cache_Controller.M_W.Store |           5    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M_W.Store::total            5                      
-system.ruby.L1Cache_Controller.M_W.Ack   |         177    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M_W.Ack::total          177                      
-system.ruby.L1Cache_Controller.M_W.All_acks_no_sharers |         177    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.M_W.All_acks_no_sharers::total          177                      
-system.ruby.L1Cache_Controller.MM_W.Load |           5    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM_W.Load::total            5                      
-system.ruby.L1Cache_Controller.MM_W.Store |         209    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM_W.Store::total          209                      
-system.ruby.L1Cache_Controller.MM_W.Ack  |          50    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM_W.Ack::total           50                      
-system.ruby.L1Cache_Controller.MM_W.All_acks_no_sharers |          50    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.MM_W.All_acks_no_sharers::total           50                      
-system.ruby.L1Cache_Controller.IS.Ack    |         182    100.00%    100.00% |           0      0.00%    100.00%
-system.ruby.L1Cache_Controller.IS.Ack::total          182                      
+system.ruby.L1Cache_Controller.M_W.All_acks_no_sharers |         182    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.M_W.All_acks_no_sharers::total          182                      
+system.ruby.L1Cache_Controller.MM_W.All_acks_no_sharers |          45    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.MM_W.All_acks_no_sharers::total           45                      
+system.ruby.L1Cache_Controller.IS.Ack    |         364    100.00%    100.00% |           0      0.00%    100.00%
+system.ruby.L1Cache_Controller.IS.Ack::total          364                      
 system.ruby.L1Cache_Controller.IS.Exclusive_Data |         182    100.00%    100.00% |           0      0.00%    100.00%
 system.ruby.L1Cache_Controller.IS.Exclusive_Data::total          182                      
 system.ruby.L1Cache_Controller.MT.Complete_L2_to_L1 |           3    100.00%    100.00% |           0      0.00%    100.00%
@@ -1584,11 +1657,11 @@ system.ruby.GPUL2Cache_Controller.I.Other_GETX           45      0.00%      0.00
 system.ruby.GPUL2Cache_Controller.I.Other_GETS          182      0.00%      0.00%
 system.ruby.Directory_Controller.GETX              45      0.00%      0.00%
 system.ruby.Directory_Controller.GETS             182      0.00%      0.00%
-system.ruby.Directory_Controller.UnblockM          226      0.00%      0.00%
+system.ruby.Directory_Controller.UnblockM          227      0.00%      0.00%
 system.ruby.Directory_Controller.Memory_Data          227      0.00%      0.00%
 system.ruby.Directory_Controller.E.GETX            45      0.00%      0.00%
 system.ruby.Directory_Controller.E.GETS           182      0.00%      0.00%
-system.ruby.Directory_Controller.NO_B.UnblockM          226      0.00%      0.00%
+system.ruby.Directory_Controller.NO_B.UnblockM          227      0.00%      0.00%
 system.ruby.Directory_Controller.NO_B_W.Memory_Data          227      0.00%      0.00%
 
 ---------- End Simulation Statistics   ----------

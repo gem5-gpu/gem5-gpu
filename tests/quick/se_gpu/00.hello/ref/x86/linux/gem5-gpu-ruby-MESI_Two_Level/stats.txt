@@ -4,11 +4,11 @@ sim_seconds                                  0.000036                       # Nu
 sim_ticks                                    36258000                       # Number of ticks simulated
 final_tick                                   36258000                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  46147                       # Simulator instruction rate (inst/s)
-host_op_rate                                    83585                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                              310424627                       # Simulator tick rate (ticks/s)
-host_mem_usage                                2368552                       # Number of bytes of host memory used
-host_seconds                                     0.12                       # Real time elapsed on the host
+host_inst_rate                                  27180                       # Simulator instruction rate (inst/s)
+host_op_rate                                    49233                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                              182855031                       # Simulator tick rate (ticks/s)
+host_mem_usage                                2363512                       # Number of bytes of host memory used
+host_seconds                                     0.20                       # Real time elapsed on the host
 sim_insts                                        5389                       # Number of instructions simulated
 sim_ops                                          9762                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -245,8 +245,10 @@ system.ruby.network.msg_byte.Response_Control         2160
 system.ruby.network.msg_byte.Writeback_Control           48                      
 system.ruby.memctrl_clk_domain.clock             1500                       # Clock period in ticks
 system.cpu_voltage_domain.voltage                   1                       # Voltage in Volts
-system.gpu.voltage_domain.voltage                   1                       # Voltage in Volts
+system.gpu.clk_domain.voltage_domain.voltage            1                       # Voltage in Volts
 system.gpu.clk_domain.clock                      1429                       # Clock period in ticks
+system.gpu.dram_wrapper.clk_domain.clock          541                       # Clock period in ticks
+system.gpu.icnt_wrapper.clk_domain.clock         2858                       # Clock period in ticks
 system.gpu.shader_mmu.numPagefaults                 0                       # Number of Pagefaults
 system.gpu.shader_mmu.numPagewalks                  0                       # Number of Pagewalks
 system.gpu.shader_mmu.totalRequests                 0                       # Total number of requests
@@ -350,6 +352,7 @@ system.gpu.shader_mmu.pagewalkLatency::29            0                       # L
 system.gpu.shader_mmu.pagewalkLatency::30            0                       # Latency to complete the pagewalk
 system.gpu.shader_mmu.pagewalkLatency::31            0                       # Latency to complete the pagewalk
 system.gpu.shader_mmu.pagewalkLatency::total            0                       # Latency to complete the pagewalk
+system.gpu.kernels_started                          0                       # Number of kernels started
 system.gpu.kernels_completed                        0                       # Number of kernels completed
 system.gpu.shader_cores0.itb.hits                   0                       # Number of hits in this TLB
 system.gpu.shader_cores0.itb.misses                 0                       # Number of misses in this TLB
@@ -562,6 +565,27 @@ system.gpu.shader_cores0.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores0.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores0.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores0.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores0.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores0.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores0.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -794,6 +818,27 @@ system.gpu.shader_cores1.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores1.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores1.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores1.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores1.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores1.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores1.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -1026,6 +1071,27 @@ system.gpu.shader_cores2.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores2.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores2.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores2.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores2.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores2.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores2.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
@@ -1258,6 +1324,27 @@ system.gpu.shader_cores3.lsq.warpLatencyFence::13            0                  
 system.gpu.shader_cores3.lsq.warpLatencyFence::14            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores3.lsq.warpLatencyFence::15            0                       # Latency in cycles for whole warp to finish the fence
 system.gpu.shader_cores3.lsq.warpLatencyFence::total            0                       # Latency in cycles for whole warp to finish the fence
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::samples            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::mean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::gmean          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::stdev          nan                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::0            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::1            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::2            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::3            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::4            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::5            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::6            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::7            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::8            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::9            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::10            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::11            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::12            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::13            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::14            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::15            0                       # Latency in cycles for whole warp to finish the atomic
+system.gpu.shader_cores3.lsq.warpLatencyAtomic::total            0                       # Latency in cycles for whole warp to finish the atomic
 system.gpu.shader_cores3.lsq.tlbMissLatency::samples            0                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::mean          nan                       # Latency in cycles for TLB miss
 system.gpu.shader_cores3.lsq.tlbMissLatency::gmean          nan                       # Latency in cycles for TLB miss
