@@ -1590,15 +1590,6 @@ namespace cuda_math {
     }
 }
 
-extern "C" int ptx_parse();
-extern "C" int ptx__scan_string(const char*);
-extern "C" FILE *ptx_in;
-
-extern "C" const char *g_ptxinfo_filename;
-extern "C" int ptxinfo_parse();
-extern "C" int ptxinfo_debug;
-extern "C" FILE *ptxinfo_in;
-
 /// static functions
 
 static int load_static_globals(GPUSyscallHelper *helper, symbol_table *symtab)
