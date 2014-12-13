@@ -4,7 +4,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
   CacheMemory * cache,
   int l2_select_num_bits,
   int num_l2,
-  Cycles issue_latency = 416,
+  Cycles issue_latency = 2,
 {
 
   // NETWORK BUFFERS

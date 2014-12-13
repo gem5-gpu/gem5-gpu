@@ -1,9 +1,9 @@
 
 machine(GPUL2Cache, "Simple write back L2 cache")
   : CacheMemory * L2cache,
-  Cycles l2_request_latency = 260,
+  Cycles l2_request_latency = 2,
   Cycles l2_response_latency = 2,
-  Cycles cache_response_latency = 260,
+  Cycles cache_response_latency = 30,
 {
 
 //Note: we might have a problem if two Get atomics arrive from different L1's at the same time

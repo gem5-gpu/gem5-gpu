@@ -69,7 +69,11 @@ def create_system(options, system, dma_devices, ruby_system):
     l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
     # This represents the L1 to L2 interconnect latency
-    # NOTE! This latency is in Ruby (cache) cycles, not SM cycles
+    # NOTES! 1) This latency is in Ruby (cache) cycles, not SM cycles
+    #        2) Since the cluster interconnect doesn't model multihop latencies,
+    #           model these latencies with the controller latency variables. If
+    #           the interconnect model is changed, latencies will need to be
+    #           adjusted for reasonable total memory access delay.
     per_hop_interconnect_latency = 45 # ~15 GPU cycles
     num_dance_hall_hops = int(math.log(options.num_sc, 2))
     if num_dance_hall_hops == 0:
@@ -122,7 +126,11 @@ def create_system(options, system, dma_devices, ruby_system):
 
     l2_index_start = block_size_bits + l2_bits
     # Use L2 cache and interconnect latencies to calculate protocol latencies
-    # NOTE! These latencies are in Ruby (cache) cycles, not SM cycles
+    # NOTES! 1) These latencies are in Ruby (cache) cycles, not SM cycles
+    #        2) Since the cluster interconnect doesn't model multihop latencies,
+    #           model these latencies with the controller latency variables. If
+    #           the interconnect model is changed, latencies will need to be
+    #           adjusted for reasonable total memory access delay.
     l2_cache_access_latency = 30 # ~10 GPU cycles
     l2_to_l1_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
     l2_to_mem_noc_latency = 125 # ~40 GPU cycles
@@ -147,6 +155,7 @@ def create_system(options, system, dma_devices, ruby_system):
                                 l2_response_latency = l2_cache_access_latency +
                                                       l2_to_l1_noc_latency,
                                 l2_request_latency = l2_to_mem_noc_latency,
+                                cache_response_latency = l2_cache_access_latency,
                                 ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
