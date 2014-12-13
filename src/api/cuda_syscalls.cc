@@ -1312,11 +1312,7 @@ __cudaCheckAllocateLocal(ThreadContext *tc, gpusyscall_t *call_params)
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
 
     assert(registering_symtab);
-    if (registering_symtab->get_local_next() > 0) {
-        if (registering_local_alloc_ptr) {
-            panic("Untested: Multiple fat binaries may cause local"
-                  " memory to be allocated multiple times!");
-        }
+    if (registering_symtab->get_local_next() > 0 && (registering_local_alloc_ptr == NULL)) {
         unsigned long long local_alloc_size = get_local_alloc_size(cudaGPU);
         if (!cudaGPU->isManagingGPUMemory()) {
             DPRINTF(GPUSyscalls, "gem5 GPU Syscall:      CPU must allocate local: %lluB\n", local_alloc_size);
