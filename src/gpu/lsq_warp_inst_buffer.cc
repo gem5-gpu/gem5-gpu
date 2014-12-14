@@ -394,9 +394,8 @@ WarpInstBuffer::finishAccess(CoalescedAccess *mem_access)
             PacketPtr lane_pkt = laneRequestPkts[lane_id];
             assert(lane_pkt);
             lane_pkt->makeResponse();
-            AtomicOpRequest *lane_request =
-                    (AtomicOpRequest*)lane_pkt->getPtr<uint8_t>();
-            assert(lane_request == atomic_ops[i]);
+            assert((AtomicOpRequest*)lane_pkt->getPtr<uint8_t>() ==
+                   atomic_ops[i]);
             atomics_done = atomic_ops[i]->lastAccess;
             atomic_ops[i]->lastAccess = true;
             active_lanes->pop_front();
