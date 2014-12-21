@@ -847,6 +847,21 @@ cudaLaunch(ThreadContext *tc, gpusyscall_t *call_params)
     g_last_cudaError = cudaSuccess;
 }
 
+size_t getMaxThreadsPerBlock(struct cudaFuncAttributes attr) {
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+    CudaGPU::CudaDeviceProperties *prop;
+
+    prop = cudaGPU->getDeviceProperties();
+
+    size_t max = prop->maxThreadsPerBlock;
+
+    if ((prop->regsPerBlock / attr.numRegs) < max) {
+        max = prop->regsPerBlock / attr.numRegs;
+    }
+
+    return max;
+}
+
 void
 cudaFuncGetAttributes(ThreadContext *tc, gpusyscall_t *call_params)
 {
@@ -865,7 +880,7 @@ cudaFuncGetAttributes(ThreadContext *tc, gpusyscall_t *call_params)
         attr.constSizeBytes  = kinfo->cmem;
         attr.localSizeBytes  = kinfo->lmem;
         attr.numRegs         = kinfo->regs;
-        attr.maxThreadsPerBlock = 0; // from pragmas?
+        attr.maxThreadsPerBlock = getMaxThreadsPerBlock(attr);
         attr.ptxVersion      = kinfo->ptx_version;
         attr.binaryVersion   = kinfo->sm_target;
         helper.writeBlob(sim_attr, (uint8_t*)&attr, sizeof(cudaFuncAttributes));

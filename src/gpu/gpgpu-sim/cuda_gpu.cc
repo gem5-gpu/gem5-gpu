@@ -126,10 +126,10 @@ CudaGPU::CudaGPU(const Params *p) :
     deviceProperties.minor = 0;
     deviceProperties.totalGlobalMem = gpuMemoryRange.size();
     deviceProperties.memPitch = 0;
-    deviceProperties.maxThreadsPerBlock = 512;
-    deviceProperties.maxThreadsDim[0] = 512;
-    deviceProperties.maxThreadsDim[1] = 512;
-    deviceProperties.maxThreadsDim[2] = 512;
+    deviceProperties.maxThreadsPerBlock = 1024;
+    deviceProperties.maxThreadsDim[0] = 1024;
+    deviceProperties.maxThreadsDim[1] = 1024;
+    deviceProperties.maxThreadsDim[2] = 64;
     deviceProperties.maxGridSize[0] = 0x40000000;
     deviceProperties.maxGridSize[1] = 0x40000000;
     deviceProperties.maxGridSize[2] = 0x40000000;
