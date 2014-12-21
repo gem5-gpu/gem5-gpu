@@ -268,7 +268,7 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
         // Schedule an event for when the dispatch buffer should be handled
         schedule(dispatchInstEvent, clockEdge(Cycles(0)));
         DPRINTF(ShaderLSQ,
-                "[%d: ] Starting %s instruction (pc: %llu) at tick: %llu\n",
+                "[%d: ] Starting %s instruction (pc: 0x%x) at tick: %llu\n",
                 pkt->req->threadId(), dispatchWarpInstBuf->getInstTypeString(),
                 pkt->req->getPC(), clockEdge(Cycles(0)));
     }
