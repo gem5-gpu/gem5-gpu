@@ -1,10 +1,10 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Dec 12 2014 16:42:08
-gem5 started Dec 12 2014 16:54:21
+gem5 compiled Jan 15 2015 17:19:40
+gem5 started Jan 15 2015 17:20:10
 gem5 executing on artery
-command line: build/X86_MESI_Two_Level_GPU/gem5.opt -d build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MESI_Two_Level -re /home/joel/research/gem5/gem5-gpu/gem5/tests/run.py build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MESI_Two_Level
+command line: build/X86_MESI_Two_Level_GPU/gem5.opt -d build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MESI_Two_Level -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_MESI_Two_Level_GPU/tests/opt/quick/se_gpu/00.hello/x86/linux/gem5-gpu-ruby-MESI_Two_Level
 Warning: Only block size currently supported is 128B. Defaulting to 128.
 Using template and command line options for gpgpusim.config
 Creating system for GPU
@@ -176,4 +176,4 @@ GPGPU-Sim uArch: performance model initialization complete.
 **** REAL SIMULATION ****
 info: Entering event queue @ 0.  Starting simulation...
 Hello world!
-Exiting @ tick 36258000 because target called exit()
+Exiting @ tick 36173000 because target called exit()

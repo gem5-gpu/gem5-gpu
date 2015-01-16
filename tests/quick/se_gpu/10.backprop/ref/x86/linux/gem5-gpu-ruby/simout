@@ -1,10 +1,10 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Dec 12 2014 16:30:13
-gem5 started Dec 12 2014 16:53:36
+gem5 compiled Jan 15 2015 17:15:34
+gem5 started Jan 15 2015 17:16:04
 gem5 executing on artery
-command line: build/X86_MI_example_GPU/gem5.opt -d build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby -re /home/joel/research/gem5/gem5-gpu/gem5/tests/run.py build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby
+command line: build/X86_MI_example_GPU/gem5.opt -d build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_MI_example_GPU/tests/opt/quick/se_gpu/10.backprop/x86/linux/gem5-gpu-ruby
 Warning: Only block size currently supported is 128B. Defaulting to 128.
 Using template and command line options for gpgpusim.config
 Global frequency set at 1000000000000 ticks per second
@@ -216,12 +216,12 @@ GPGPU-Sim PTX:    immediate post dominator      @  PC=0x600 (_1.ptx:305) exit;
 GPGPU-Sim PTX: ... end of reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
 GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'.
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_R1Ln0S"
-Running: cat _ptx_R1Ln0S | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_FhqIzz
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_FhqIzz --output-file  /dev/null 2> _ptx_R1Ln0Sinfo"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_9OYk2J"
+Running: cat _ptx_9OYk2J | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_B73B1R
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_B73B1R --output-file  /dev/null 2> _ptx_9OYk2Jinfo"
 GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
 GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_R1Ln0S _ptx2_FhqIzz _ptx_R1Ln0Sinfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_9OYk2J _ptx2_B73B1R _ptx_9OYk2Jinfo"
 Random number generator seed: 7
 Input layer size : 256
 Starting training kernel
