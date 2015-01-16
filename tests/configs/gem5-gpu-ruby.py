@@ -208,7 +208,7 @@ root = Root(full_system = False, system = system)
 
 command_line = []
 command_line.append(options.cmd)
-for option in options.options.split('\s+'):
+for option in options.options.split():
     command_line.append(option)
 root.system.cpu[0].workload = LiveProcess(cmd = command_line,
                                           executable = binpath(options.cmd))
