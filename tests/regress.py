@@ -181,9 +181,12 @@ if options.update_ref:
 # link-time optimization.
 scons_opts += ' --ignore-style --no-lto EXTRAS=../gem5-gpu/src:../gpgpu-sim'
 
+from distutils.spawn import find_executable
+sconsloc = find_executable('scons')
+
 for target in targets:
-    cmd = 'scons %s --default=../../gem5-gpu/build_opts/%s %s' % \
-          (scons_opts, target[0], target[1])
+    cmd = 'python %s %s --default=../../gem5-gpu/build_opts/%s %s' % \
+          (sconsloc, scons_opts, target[0], target[1])
     print "Building/Running scons command: %s\n" % cmd
     if options.no_exec:
         print cmd
