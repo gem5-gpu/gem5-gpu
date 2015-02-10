@@ -3,7 +3,7 @@
 
 #include "base/misc.hh"
 #include "base/types.hh"
-#include "mem/physical.hh"
+#include "mem/simple_mem.hh"
 
 /**
  * A class for representing GPU atomic operations requested by each GPU core
@@ -84,7 +84,7 @@ class AtomicOpRequest {
 
     // Called from the RubyPort hit callback to actually perform the atomic
     // operation requests in a CoalescedAccess (i.e. the passed PacketPtr)
-    static void atomicMemoryAccess(PacketPtr pkt, PhysicalMemory& phys_mem);
+    static void atomicMemoryAccess(PacketPtr pkt, SimpleMemory *phys_mem);
 
   private:
     // Perform the atomic's operation on the passed data

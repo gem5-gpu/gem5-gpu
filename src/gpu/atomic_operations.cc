@@ -2,9 +2,10 @@
 #include "base/trace.hh"
 #include "debug/AtomicOperations.hh"
 #include "gpu/atomic_operations.hh"
+#include "mem/simple_mem.hh"
 
 void
-AtomicOpRequest::atomicMemoryAccess(PacketPtr pkt, PhysicalMemory& phys_mem)
+AtomicOpRequest::atomicMemoryAccess(PacketPtr pkt, SimpleMemory *phys_mem)
 {
     // The pkt's atomic operation commands
     AtomicOpRequest **atomic_ops =
@@ -18,15 +19,15 @@ AtomicOpRequest::atomicMemoryAccess(PacketPtr pkt, PhysicalMemory& phys_mem)
     Request atomic_req(pkt->getAddr(), data_size_bytes,
                        pkt->req->getFlags(), 0);
 
-    uint8_t read_data[8];
-    Packet atomic_read_pkt(&atomic_req, MemCmd::ReadReq, data_size_bytes);
-
-    uint8_t write_data[8];
-    Packet atomic_write_pkt(&atomic_req, MemCmd::WriteReq, data_size_bytes);
-
     // Do physical memory accesses for each of the pkt's atomic operations
     bool atomics_done = false;
     for (int i = 0; !atomics_done; i++) {
+
+        uint8_t read_data[8];
+        Packet atomic_read_pkt(&atomic_req, MemCmd::ReadReq, data_size_bytes);
+
+        uint8_t write_data[8];
+        Packet atomic_write_pkt(&atomic_req, MemCmd::WriteReq, data_size_bytes);
 
         assert(atomic_ops[i]->dataSizeBytes() == data_size_bytes);
 
@@ -35,7 +36,7 @@ AtomicOpRequest::atomicMemoryAccess(PacketPtr pkt, PhysicalMemory& phys_mem)
         atomic_read_pkt.dataStatic(read_data);
 
         // Read the current physical memory data
-        phys_mem.access(&atomic_read_pkt);
+        phys_mem->access(&atomic_read_pkt);
 
         // Actually do the atomic operation with the data
         DPRINTF(AtomicOperations, "Performing operation for addr: %x\n",
@@ -47,13 +48,7 @@ AtomicOpRequest::atomicMemoryAccess(PacketPtr pkt, PhysicalMemory& phys_mem)
         atomic_write_pkt.dataStatic(write_data);
 
         // Write the atomic operation result back to the physical memory
-        phys_mem.access(&atomic_write_pkt);
-
-        // Reset the packets for the next atomic held in the packet
-        atomic_read_pkt.reinitFromRequest();
-        atomic_read_pkt.cmd = MemCmd::ReadReq;
-        atomic_write_pkt.reinitFromRequest();
-        atomic_write_pkt.cmd = MemCmd::WriteReq;
+        phys_mem->access(&atomic_write_pkt);
 
         atomics_done = atomic_ops[i]->lastAccess;
     }
