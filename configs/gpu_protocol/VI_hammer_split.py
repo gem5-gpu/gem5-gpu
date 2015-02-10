@@ -151,6 +151,10 @@ def create_system(options, system, dma_devices, ruby_system):
         all_sequencers.append(gpu_seq)
         gpu_cluster.add(l1_cntrl)
 
+        # Connect the controller to the network
+        l1_cntrl.requestFromL1Cache = ruby_system.network.master
+        l1_cntrl.responseToL1Cache = ruby_system.network.slave
+
     l2_index_start = block_size_bits + l2_bits
     # Use L2 cache and interconnect latencies to calculate protocol latencies
     # NOTE! These latencies are in Ruby (cache) cycles, not SM cycles
@@ -185,6 +189,15 @@ def create_system(options, system, dma_devices, ruby_system):
         l2_cluster.add(l2_cntrl)
         gpu_cluster.add(l2_cluster)
         l2_clusters.append(l2_cluster)
+
+        # Connect the controller to the network
+        l2_cntrl.responseToL1Cache = ruby_system.network.master
+        l2_cntrl.requestFromCache = ruby_system.network.master
+        l2_cntrl.responseFromCache = ruby_system.network.master
+        l2_cntrl.unblockFromCache = ruby_system.network.master
+        l2_cntrl.requestFromL1Cache = ruby_system.network.slave
+        l2_cntrl.forwardToCache = ruby_system.network.slave
+        l2_cntrl.responseToCache = ruby_system.network.slave
 
     gpu_phys_mem_size = system.gpu_physmem.range.size()
 
@@ -254,6 +267,16 @@ def create_system(options, system, dma_devices, ruby_system):
 
             exec("ruby_system.dev_dir_cntrl%d = dev_dir_cntrl" % i)
             dir_cntrls.append(dev_dir_cntrl)
+
+            # Connect the directory controller to the network
+            dir_cntrl.forwardFromDir = ruby_system.network.slave
+            dir_cntrl.responseFromDir = ruby_system.network.slave
+            dir_cntrl.dmaResponseFromDir = ruby_system.network.slave
+
+            dir_cntrl.unblockToDir = ruby_system.network.master
+            dir_cntrl.responseToDir = ruby_system.network.master
+            dir_cntrl.requestToDir = ruby_system.network.master
+            dir_cntrl.dmaRequestToDir = ruby_system.network.master
     else:
         # Since there are no device directories, use CPU directories
         # Fix up the memory sizes of the CPU directories
@@ -287,6 +310,9 @@ def create_system(options, system, dma_devices, ruby_system):
 
     all_sequencers.append(cpu_ce_seq)
     all_sequencers.append(gpu_ce_seq)
+
+    gpu_ce_cntrl.responseFromDir = ruby_system.network.slave
+    gpu_ce_cntrl.reqToDirectory = ruby_system.network.master
 
     complete_cluster = Cluster(intBW = 32, extBW = 32)
     complete_cluster.add(cpu_ce_cntrl)

@@ -105,6 +105,8 @@ def create_system(options, system, dma_ports, ruby_system):
                                 connect_to_io = False)
 
         l1_cntrl.sequencer = cpu_seq
+        if options.recycle_latency:
+            l1_cntrl.recycle_latency = options.recycle_latency
 
         exec("ruby_system.l1_cntrl_sp%02d = l1_cntrl" % i)
 
@@ -113,6 +115,16 @@ def create_system(options, system, dma_ports, ruby_system):
         #
         cpu_sequencers.append(cpu_seq)
         topology.addController(l1_cntrl)
+
+        # Connect the L1 controller and the network
+        # Connect the buffers from the controller to network
+        l1_cntrl.requestFromCache = ruby_system.network.slave
+        l1_cntrl.responseFromCache = ruby_system.network.slave
+        l1_cntrl.unblockFromCache = ruby_system.network.slave
+
+        # Connect the buffers from the network to the controller
+        l1_cntrl.forwardToCache = ruby_system.network.master
+        l1_cntrl.responseToCache = ruby_system.network.master
 
         cntrl_count += 1
 
@@ -169,6 +181,16 @@ def create_system(options, system, dma_ports, ruby_system):
 
     topology.addController(l1_cntrl)
 
+    # Connect the L1 controller and the network
+    # Connect the buffers from the controller to network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = ruby_system.network.slave
+
+    # Connect the buffers from the network to the controller
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
+
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
     l1d_cache = L1Cache(size = "2kB", assoc = 2)
@@ -203,5 +225,15 @@ def create_system(options, system, dma_ports, ruby_system):
 
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)
+
+    # Connect the L1 controller and the network
+    # Connect the buffers from the controller to network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = ruby_system.network.slave
+
+    # Connect the buffers from the network to the controller
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
 
     return (cpu_sequencers, dir_cntrl_nodes, topology)

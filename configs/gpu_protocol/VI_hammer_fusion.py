@@ -124,6 +124,10 @@ def create_system(options, system, dma_devices, ruby_system):
         all_sequencers.append(gpu_seq)
         gpu_cluster.add(l1_cntrl)
 
+        # Connect the controller to the network
+        l1_cntrl.requestFromL1Cache = ruby_system.network.slave
+        l1_cntrl.responseToL1Cache = ruby_system.network.master
+
     l2_index_start = block_size_bits + l2_bits
     # Use L2 cache and interconnect latencies to calculate protocol latencies
     # NOTES! 1) These latencies are in Ruby (cache) cycles, not SM cycles
@@ -163,6 +167,16 @@ def create_system(options, system, dma_devices, ruby_system):
         l2_cluster.add(l2_cntrl)
         gpu_cluster.add(l2_cluster)
         l2_clusters.append(l2_cluster)
+
+        # Connect the controller to the network
+        l2_cntrl.responseToL1Cache = ruby_system.network.slave
+        l2_cntrl.requestFromCache = ruby_system.network.slave
+        l2_cntrl.responseFromCache = ruby_system.network.slave
+        l2_cntrl.unblockFromCache = ruby_system.network.slave
+
+        l2_cntrl.requestFromL1Cache = ruby_system.network.master
+        l2_cntrl.forwardToCache = ruby_system.network.master
+        l2_cntrl.responseToCache = ruby_system.network.master
 
     ############################################################################
     # Pagewalk cache
@@ -219,6 +233,16 @@ def create_system(options, system, dma_devices, ruby_system):
 
     gpu_cluster.add(l1_cntrl)
 
+    # Connect the L1 controller and the network
+    # Connect the buffers from the controller to network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = ruby_system.network.slave
+
+    # Connect the buffers from the network to the controller
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
+
 
     #
     # Create controller for the copy engine to connect to in GPU cluster
@@ -243,6 +267,9 @@ def create_system(options, system, dma_devices, ruby_system):
     ruby_system.l1_cntrl_ce = gpu_ce_cntrl
 
     all_sequencers.append(gpu_ce_seq)
+
+    gpu_ce_cntrl.responseFromDir = ruby_system.network.master
+    gpu_ce_cntrl.reqToDirectory = ruby_system.network.slave
 
     complete_cluster = Cluster(intBW = 32, extBW = 32)
     complete_cluster.add(gpu_ce_cntrl)

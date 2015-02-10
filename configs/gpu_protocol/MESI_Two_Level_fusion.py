@@ -120,6 +120,13 @@ def create_system(options, system, dma_devices, ruby_system):
         cpu_sequencers.append(cpu_seq)
         topology.addController(l1_cntrl)
 
+        l1_cntrl.requestFromL1Cache = ruby_system.network.slave
+        l1_cntrl.responseFromL1Cache = ruby_system.network.slave
+        l1_cntrl.unblockFromL1Cache = ruby_system.network.slave
+
+        l1_cntrl.requestToL1Cache = ruby_system.network.master
+        l1_cntrl.responseToL1Cache = ruby_system.network.master
+
         cntrl_count += 1
 
     ############################################################################
@@ -170,6 +177,13 @@ def create_system(options, system, dma_devices, ruby_system):
 
     topology.addController(l1_cntrl)
 
+    l1_cntrl.requestFromL1Cache = ruby_system.network.slave
+    l1_cntrl.responseFromL1Cache = ruby_system.network.slave
+    l1_cntrl.unblockFromL1Cache = ruby_system.network.slave
+
+    l1_cntrl.requestToL1Cache = ruby_system.network.master
+    l1_cntrl.responseToL1Cache = ruby_system.network.master
+
 
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
@@ -204,5 +218,12 @@ def create_system(options, system, dma_devices, ruby_system):
 
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)
+
+    l1_cntrl.requestFromL1Cache = ruby_system.network.slave
+    l1_cntrl.responseFromL1Cache = ruby_system.network.slave
+    l1_cntrl.unblockFromL1Cache = ruby_system.network.slave
+
+    l1_cntrl.requestToL1Cache = ruby_system.network.master
+    l1_cntrl.responseToL1Cache = ruby_system.network.master
 
     return (cpu_sequencers, dir_cntrls, topology)

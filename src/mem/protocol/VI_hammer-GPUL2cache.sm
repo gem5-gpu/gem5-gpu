@@ -1,24 +1,31 @@
 
 machine(GPUL2Cache, "Simple write back L2 cache")
-  : CacheMemory * L2cache,
-  Cycles l2_request_latency = 2,
-  Cycles l2_response_latency = 2,
-  Cycles cache_response_latency = 30,
-{
+  : CacheMemory * L2cache;
+  Cycles l2_request_latency := 2;
+  Cycles l2_response_latency := 2;
+  Cycles cache_response_latency := 30;
 
   // NETWORK BUFFERS
   // Buffers to and from L1 caches
-  MessageBuffer requestFromL1Cache, network="From", virtual_network="7", ordered="true", vnet_type="request";
-  MessageBuffer responseToL1Cache, network="To", virtual_network="6", ordered="true", vnet_type="response";
+  MessageBuffer * requestFromL1Cache, network="From", virtual_network="7",
+        ordered="true", vnet_type="request";
+  MessageBuffer * responseToL1Cache, network="To", virtual_network="6",
+        ordered="true", vnet_type="response";
 
   // Buffers to / from the dir and other caches
-  MessageBuffer requestFromCache, network="To", virtual_network="2", ordered="false", vnet_type="request";
-  MessageBuffer responseFromCache, network="To", virtual_network="4", ordered="false", vnet_type="response";
-  MessageBuffer unblockFromCache, network="To", virtual_network="5", ordered="false", vnet_type="unblock";
+  MessageBuffer * requestFromCache, network="To", virtual_network="2",
+        ordered="false", vnet_type="request";
+  MessageBuffer * responseFromCache, network="To", virtual_network="4",
+        ordered="false", vnet_type="response";
+  MessageBuffer * unblockFromCache, network="To", virtual_network="5",
+        ordered="false", vnet_type="unblock";
 
-  MessageBuffer forwardToCache, network="From", virtual_network="3", ordered="false", vnet_type="forward";
-  MessageBuffer responseToCache, network="From", virtual_network="4", ordered="false", vnet_type="response";
+  MessageBuffer * forwardToCache, network="From", virtual_network="3",
+        ordered="false", vnet_type="forward";
+  MessageBuffer * responseToCache, network="From", virtual_network="4",
+        ordered="false", vnet_type="response";
 
+{
   // STATES
   state_declaration(State, desc="Cache states") {
     I, AccessPermission:Invalid, desc="Idle";

@@ -102,4 +102,14 @@ def create_system(options, system, dma_ports, ruby_system):
     cpu_sequencers.append(gpu_ce_seq)
     topology.addController(l1_cntrl)
 
+    # Connect the L1 controller and the network
+    # Connect the buffers from the controller to network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = ruby_system.network.slave
+
+    # Connect the buffers from the network to the controller
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
+
     return (cpu_sequencers, dir_cntrl_nodes, topology)

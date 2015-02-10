@@ -100,6 +100,12 @@ def create_system(options, system, dma_devices, ruby_system):
         cpu_sequencers.append(cpu_seq)
         topology.addController(l1_cntrl)
 
+        # Connect the L1 controllers and the network
+        l1_cntrl.requestFromCache = ruby_system.network.slave
+        l1_cntrl.responseFromCache = ruby_system.network.slave
+        l1_cntrl.forwardToCache = ruby_system.network.master
+        l1_cntrl.responseToCache = ruby_system.network.master
+
     ############################################################################
     # Pagewalk cache
     # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
@@ -136,6 +142,12 @@ def create_system(options, system, dma_devices, ruby_system):
 
     topology.addController(l1_cntrl)
 
+    # Connect the L1 controllers and the network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
+
     #copy engine cache (make as small as possible, ideally 0)
     cache = Cache(size = "4kB", assoc = 2)
 
@@ -163,5 +175,11 @@ def create_system(options, system, dma_devices, ruby_system):
 
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)
+
+    # Connect the L1 controllers and the network
+    l1_cntrl.requestFromCache = ruby_system.network.slave
+    l1_cntrl.responseFromCache = ruby_system.network.slave
+    l1_cntrl.forwardToCache = ruby_system.network.master
+    l1_cntrl.responseToCache = ruby_system.network.master
 
     return cpu_sequencers, dir_cntrls, topology

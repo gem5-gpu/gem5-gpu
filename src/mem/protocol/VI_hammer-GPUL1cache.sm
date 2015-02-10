@@ -1,17 +1,20 @@
 
 machine(GPUL1Cache, "VI GPU L1 Cache")
-: Sequencer * sequencer,
-  CacheMemory * cache,
-  int l2_select_num_bits,
-  int num_l2,
-  Cycles issue_latency = 2,
+: Sequencer * sequencer;
+  CacheMemory * cache;
+  int l2_select_num_bits;
+  int num_l2;
+  Cycles issue_latency := 2;
+
+
+   // NETWORK BUFFERS
+  MessageBuffer * requestFromL1Cache, network="To", virtual_network="7",
+        ordered="true", vnet_type="request";
+
+  MessageBuffer * responseToL1Cache, network="From", virtual_network="6",
+        ordered="true", vnet_type="response";
+
 {
-
-  // NETWORK BUFFERS
-  MessageBuffer requestFromL1Cache, network="To", virtual_network="7", ordered="true", vnet_type="request";
-
-  MessageBuffer responseToL1Cache, network="From", virtual_network="6", ordered="true", vnet_type="response";
-
   // STATES
   state_declaration(State, desc="Cache states") {
     I, AccessPermission:Invalid, desc="Not Present/Invalid";

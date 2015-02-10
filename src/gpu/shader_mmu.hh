@@ -99,7 +99,7 @@ private:
                            BaseTLB::Mode _mode, ThreadContext *_tc,
                            bool prefetch=false);
         void markDelayed() { wrappedTranslation->markDelayed(); }
-        void finish(Fault fault, RequestPtr _req, ThreadContext *_tc,
+        void finish(const Fault &fault, RequestPtr _req, ThreadContext *_tc,
                     BaseTLB::Mode _mode)
         {
             assert(_mode == mode);
