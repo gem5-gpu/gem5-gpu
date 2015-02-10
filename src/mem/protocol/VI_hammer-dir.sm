@@ -1303,12 +1303,6 @@ machine(Directory, "AMD Hammer-like protocol")
       assert(in_msg.MessageSize == MessageSizeType:Writeback_Control);
       DPRINTF(RubySlicc, "%s\n", in_msg.DataBlk);
       DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
-
-      // NOTE: The following check would not be valid in a real
-      // implementation.  We include the data in the "dataless"
-      // message so we can assert the clean data matches the datablock
-      // in memory
-      assert(getDirectoryEntry(address).DataBlk == in_msg.DataBlk);
     }
   }
 
