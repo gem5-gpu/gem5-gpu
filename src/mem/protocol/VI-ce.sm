@@ -64,8 +64,12 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
   void setAccessPermission(Address addr, State state) {
   }
 
-  DataBlock getDataBlock(Address addr), return_by_ref="yes" {
-    error("DMA Controller does not support getDataBlock function.\n");
+  void functionalRead(Address addr, Packet *pkt) {
+    error("CE does not support functional read.");
+  }
+
+  int functionalWrite(Address addr, Packet *pkt) {
+    error("CE does not support functional write.");
   }
 
   out_port(reqToDirectory_out, DMARequestMsg, reqToDirectory, desc="...");

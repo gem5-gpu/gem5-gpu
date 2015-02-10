@@ -211,20 +211,6 @@ machine(Directory, "AMD Hammer-like protocol")
     return dir_entry;
   }
 
-  DataBlock getDataBlock(Address addr), return_by_ref="yes" {
-    Entry dir_entry := getDirectoryEntry(addr);
-    if(is_valid(dir_entry)) {
-        return dir_entry.DataBlk;
-    }
-
-    TBE tbe := TBEs[addr];
-    if(is_valid(tbe)) {
-      return tbe.DataBlk;
-    }
-
-    error("Data block missing!");
-  }
-
   PfEntry getProbeFilterEntry(Address addr), return_by_pointer="yes" {
     if (probe_filter_enabled || full_bit_dir_enabled) {
       PfEntry pfEntry := static_cast(PfEntry, "pointer", probeFilter.lookup(addr));
@@ -293,6 +279,28 @@ machine(Directory, "AMD Hammer-like protocol")
 
   void setAccessPermission(PfEntry pf_entry, Address addr, State state) {
     getDirectoryEntry(addr).changePermission(Directory_State_to_permission(state));
+  }
+
+  void functionalRead(Address addr, Packet *pkt) {
+    TBE tbe := TBEs[addr];
+    if(is_valid(tbe)) {
+      testAndRead(addr, tbe.DataBlk, pkt);
+    } else {
+      functionalMemoryRead(pkt);
+    }
+  }
+
+  int functionalWrite(Address addr, Packet *pkt) {
+    int num_functional_writes := 0;
+
+    TBE tbe := TBEs[addr];
+    if(is_valid(tbe)) {
+      num_functional_writes := num_functional_writes +
+        testAndWrite(addr, tbe.DataBlk, pkt);
+    }
+
+    num_functional_writes := num_functional_writes + functionalMemoryWrite(pkt);
+    return num_functional_writes;
   }
 
   Event cache_request_to_event(CoherenceRequestType type) {
