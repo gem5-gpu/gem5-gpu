@@ -394,7 +394,7 @@ void GPUCopyEngine::finishTranslation(WholeTranslationState *state)
     } else if (state->mode == BaseTLB::Write) {
         pkt = new Packet(state->mainReq, MemCmd::WriteReq);
         uint8_t *pkt_data = (uint8_t *)state->mainReq->getExtraData();
-        pkt->dataDynamicArray(pkt_data);
+        pkt->dataDynamic(pkt_data);
         writePort->sendPacket(pkt);
     } else {
         panic("Finished translation of unknown mode: %d\n", state->mode);

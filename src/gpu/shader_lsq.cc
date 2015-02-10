@@ -378,7 +378,7 @@ ShaderLSQ::finishTranslation(WholeTranslationState *state)
     // Initialize the packet using the translated access and in the case that
     // this is a write access, set the data to be sent to cache
     PacketPtr pkt = mem_access;
-    pkt->reinitFromRequest();
+    mem_access->reinitFromRequest();
     if (pkt->isWrite()) {
         mem_access->moveDataToPacket();
     } else {
