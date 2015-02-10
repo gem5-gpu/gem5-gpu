@@ -49,22 +49,22 @@ def setMemoryControlOptions(system, options):
     low_bank_bit = low_dir_bit + dir_bits + 1
 
     for i in xrange(options.num_dirs):
-        cntrl = eval("system.ruby.dir_cntrl%d" % i)
+        memBuffer = system.mem_ctrls[i]
         if options.mem_freq:
-            cntrl.memBuffer.clk_domain = cpu_mem_ctl_clk
+            memBuffer.clk_domain = cpu_mem_ctl_clk
         if options.mem_ctl_latency >= 0:
-            cntrl.memBuffer.mem_ctl_latency = options.mem_ctl_latency
+            memBuffer.mem_ctl_latency = options.mem_ctl_latency
         if options.membus_busy_cycles > 0:
-            cntrl.memBuffer.basic_bus_busy_time = options.membus_busy_cycles
+            memBuffer.basic_bus_busy_time = options.membus_busy_cycles
         if options.membank_busy_time:
-            mem_cycle_seconds = float(cntrl.memBuffer.clk_domain.clock.period)
+            mem_cycle_seconds = float(memBuffer.clk_domain.clock.period)
             bank_latency_seconds = Latency(options.membank_busy_time)
-            cntrl.memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
-        cntrl.memBuffer.bank_bit_0 = low_bank_bit
-        bank_bits = int(math.log(cntrl.memBuffer.banks_per_rank, 2))
-        cntrl.memBuffer.rank_bit_0 = low_bank_bit + bank_bits
-        rank_bits = int(math.log(cntrl.memBuffer.ranks_per_dimm, 2))
-        cntrl.memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
+            memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+        memBuffer.bank_bit_0 = low_bank_bit
+        bank_bits = int(math.log(memBuffer.banks_per_rank, 2))
+        memBuffer.rank_bit_0 = low_bank_bit + bank_bits
+        rank_bits = int(math.log(memBuffer.ranks_per_dimm, 2))
+        memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
 
     dev_dir_bits = 0
     if options.num_dev_dirs > 0:
@@ -73,6 +73,9 @@ def setMemoryControlOptions(system, options):
     low_bank_bit = low_dir_bit + dev_dir_bits + 1
 
     if options.split:
+        panic("Untested since major gem5 update (Feb 2015).")
+        # NOTE: Special attention will need to be paid to the memBuffers since
+        #       gem5/ruby siginificantly change how Ruby memory controller works
         for i in xrange(options.num_dev_dirs):
             cntrl = eval("system.ruby.dev_dir_cntrl%d" % i)
             if options.gpu_mem_freq:

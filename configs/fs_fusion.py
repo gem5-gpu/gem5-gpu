@@ -53,6 +53,17 @@ from SysPaths import *
 from Benchmarks import *
 # from Caches import *
 
+def cmd_line_template():
+    if options.command_line and options.command_line_file:
+        print "Error: --command-line and --command-line-file are " \
+              "mutually exclusive"
+        sys.exit(1)
+    if options.command_line:
+        return options.command_line
+    if options.command_line_file:
+        return open(options.command_line_file).read().strip()
+    return None
+
 parser = optparse.OptionParser()
 GPUConfig.addGPUOptions(parser)
 GPUMemConfig.addMemCtrlOptions(parser)
@@ -106,7 +117,8 @@ if options.cacheline_size != 128:
 #
 # Instantiate system
 #
-system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True)
+system = makeLinuxX86System(test_mem_mode, options.num_cpus, bm[0], True,
+                            cmdline=cmd_line_template())
 system.cache_line_size = options.cacheline_size
 system.voltage_domain = VoltageDomain(voltage = options.sys_voltage)
 system.clk_domain = SrcClockDomain(clock = options.sys_clock,
@@ -130,12 +142,6 @@ if options.script is not None:
 #
 system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 
-# Create the appropriate memory controllers and connect them to the
-# PIO bus
-system.mem_ctrls = [SimpleMemory(range = r) for r in system.mem_ranges]
-for i in xrange(len(system.mem_ctrls)):
-    system.mem_ctrls[i].port = system.iobus.master
-
 if options.split:
     system.mem_ranges.append(gpu_mem_range)
     system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
@@ -146,10 +152,13 @@ if options.split:
 #
 system.ruby_clk_domain = SrcClockDomain(clock = options.ruby_clock,
                                         voltage_domain = system.voltage_domain)
-Ruby.create_system(options, system, system.iobus, system._dma_ports)
+Ruby.create_system(options, True, system, system.iobus, system._dma_ports)
 
 system.gpu.ruby = system.ruby
 system.ruby.clk_domain = system.ruby_clk_domain
+
+# connect the PIO bus
+system.iobus.master = system.ruby._io_port.slave
 
 #
 # Connect CPU ports
@@ -174,14 +183,13 @@ for (i, cpu) in enumerate(system.cpu):
     else:
         fatal("Not sure how to connect TLB walker ports in non-x86 system!")
 
-    system.ruby._cpu_ports[i].access_phys_mem = True
-
 #
 # Connect GPU ports
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-GPUMemConfig.setMemoryControlOptions(system, options)
+if options.mem_type == "ruby_memory":
+    GPUMemConfig.setMemoryControlOptions(system, options)
 
 #
 # Finalize setup and run

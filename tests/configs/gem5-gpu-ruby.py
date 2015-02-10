@@ -85,7 +85,9 @@ Ruby.define_options(parser)
 
 (options, args) = parser.parse_args()
 
+# Use ruby
 options.ruby = True
+options.mem_type = "ruby_memory"
 
 if not args or len(args) != 1:
     print "Error: script expects a single positional argument"
@@ -166,7 +168,7 @@ if options.split:
 #
 system.ruby_clk_domain = SrcClockDomain(clock = options.ruby_clock,
                                         voltage_domain = system.voltage_domain)
-Ruby.create_system(options, system)
+Ruby.create_system(options, False, system)
 
 system.gpu.ruby = system.ruby
 system.ruby.clk_domain = system.ruby_clk_domain
@@ -192,14 +194,13 @@ for (i, cpu) in enumerate(system.cpu):
         cpu.interrupts.int_master = ruby_port.slave
         cpu.interrupts.int_slave = ruby_port.master
 
-    system.ruby._cpu_ports[i].access_phys_mem = True
-
 #
 # Connect GPU ports
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-GPUMemConfig.setMemoryControlOptions(system, options)
+if options.mem_type == "ruby_memory":
+    GPUMemConfig.setMemoryControlOptions(system, options)
 
 #
 # Finalize setup and benchmark, and then run

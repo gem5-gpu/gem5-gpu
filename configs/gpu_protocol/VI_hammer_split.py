@@ -79,7 +79,6 @@ def create_system(options, system, dma_devices, ruby_system):
     cpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc,
                                icache = cache,
                                dcache = cache,
-                               access_phys_mem = True,
                                max_outstanding_requests = 64,
                                ruby_system = ruby_system,
                                connect_to_io = False)
@@ -135,7 +134,6 @@ def create_system(options, system, dma_devices, ruby_system):
         gpu_seq = RubySequencer(version = options.num_cpus + i,
                             icache = cache,
                             dcache = cache,
-                            access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
                             deadlock_threshold = 2000000,
@@ -295,7 +293,6 @@ def create_system(options, system, dma_devices, ruby_system):
     gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc + 1,
                                icache = cache,
                                dcache = cache,
-                               access_phys_mem = True,
                                max_outstanding_requests = 64,
                                support_inst_reqs = False,
                                ruby_system = ruby_system,

@@ -45,10 +45,13 @@ class L1Cache(RubyCache):
 class L2Cache(RubyCache):
     latency = 10
 
-def create_system(options, system, dma_ports, ruby_system):
+def create_system(options, full_system, system, dma_ports, ruby_system):
 
     if not buildEnv['GPGPU_SIM']:
         m5.util.panic("This script requires GPGPU-Sim integration to be built.")
+
+
+    options.access_backing_store = True
 
     print "Creating system for GPU"
 
@@ -58,7 +61,7 @@ def create_system(options, system, dma_ports, ruby_system):
     exec "import %s" % protocol
     try:
         (cpu_sequencers, dir_cntrl_nodes, topology) = \
-            eval("%s.create_system(options, system, dma_ports, ruby_system)" % protocol)
+            eval("%s.create_system(options, full_system, system, dma_ports, ruby_system)" % protocol)
     except:
         print "Error: could not create system for ruby protocol inside fusion system %s" % protocol
         raise
@@ -99,7 +102,6 @@ def create_system(options, system, dma_ports, ruby_system):
         cpu_seq = RubySequencer(version = options.num_cpus + i,
                                 icache = l1i_cache,
                                 dcache = l1d_cache,
-                                access_phys_mem = True,
                                 max_outstanding_requests = options.gpu_l1_buf_depth,
                                 ruby_system = ruby_system,
                                 connect_to_io = False)
@@ -167,7 +169,6 @@ def create_system(options, system, dma_ports, ruby_system):
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
                             icache = pwd_cache, # Never get data from pwi_cache
                             dcache = pwd_cache,
-                            access_phys_mem = True,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
                             deadlock_threshold = 2000000,
@@ -214,7 +215,6 @@ def create_system(options, system, dma_ports, ruby_system):
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc + 1,
                             icache = l1i_cache,
                             dcache = l1d_cache,
-                            access_phys_mem = True,
                             max_outstanding_requests = 64,
                             ruby_system = ruby_system,
                             connect_to_io = False)

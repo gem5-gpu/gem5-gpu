@@ -59,10 +59,12 @@ def define_options(parser):
     parser.add_option("--dir-on", action="store_true",
           help="Hammer: enable Full-bit Directory")
 
-def create_system(options, system, dma_ports, ruby_system):
+def create_system(options, full_system, system, dma_ports, ruby_system):
 
     if 'VI_hammer' not in buildEnv['PROTOCOL']:
         panic("This script requires the VI_hammer protocol to be built.")
+
+    options.access_backing_store = True
 
     cpu_sequencers = []
 
@@ -106,7 +108,6 @@ def create_system(options, system, dma_ports, ruby_system):
         cpu_seq = RubySequencer(version = i,
                                 icache = l1i_cache,
                                 dcache = l1d_cache,
-                                access_phys_mem = True,
                                 ruby_system = ruby_system)
 
         l1_cntrl.sequencer = cpu_seq
@@ -163,8 +164,6 @@ def create_system(options, system, dma_ports, ruby_system):
         # Create the Ruby objects associated with the directory controller
         #
 
-        mem_cntrl = RubyMemoryControl(version = i, ruby_system = ruby_system)
-
         dir_size = MemorySize('0B')
         dir_size.value = mem_module_size
 
@@ -176,13 +175,9 @@ def create_system(options, system, dma_ports, ruby_system):
                                          RubyDirectoryMemory( \
                                                     version = i,
                                                     size = dir_size,
-                                                    use_map = options.use_map,
-                                                    map_levels = \
-                                                    options.map_levels,
                                                     numa_high_bit = \
                                                       options.numa_high_bit),
                                          probeFilter = pf,
-                                         memBuffer = mem_cntrl,
                                          probe_filter_enabled = options.pf_on,
                                          full_bit_dir_enabled = options.dir_on,
                                          ruby_system = ruby_system)
@@ -224,6 +219,21 @@ def create_system(options, system, dma_ports, ruby_system):
 
         # Connect the dma controller to the network
         dma_cntrl.responseFromDir = ruby_system.network.master
-        dma_cntrl.requestToDir = ruby_system.network.slave
+        dma_cntrl.reqToDirectory = ruby_system.network.slave
+
+    # Create the io controller and the sequencer
+    if full_system:
+        io_seq = DMASequencer(version=len(dma_ports), ruby_system=ruby_system)
+        ruby_system._io_port = io_seq
+        io_controller = DMA_Controller(version = len(dma_ports),
+                                       dma_sequencer = io_seq,
+                                       ruby_system = ruby_system)
+        ruby_system.io_controller = io_controller
+
+        # Connect the dma controller to the network
+        io_controller.responseFromDir = ruby_system.network.master
+        io_controller.reqToDirectory = ruby_system.network.slave
+
+        dma_cntrl_nodes.append(io_controller)
 
     return (cpu_sequencers, dir_cntrl_nodes, dma_cntrl_nodes, topology)
