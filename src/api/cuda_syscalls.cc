@@ -1096,7 +1096,7 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
     // Get primary arguments
     __cudaFatCudaBinary* fat_cubin = new __cudaFatCudaBinary;
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // Size of fat binary in 32-bit simulated system is 64B
     #define FATBIN_PACKAGE_SIZE 64
     // Add 4B to keep last 64-bit pointer math from reading other stack junk
@@ -1118,9 +1118,11 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
     fat_cubin->dependends = unpackPointer<__cudaFatCudaBinaryRec*>(fatbin_package, 52);
     fat_cubin->characteristic = unpackData<unsigned int>(fatbin_package, 56);
     fat_cubin->elf = unpackPointer<__cudaFatElfEntry*>(fatbin_package, 60);
-#else
+#elif THE_ISA == X86_ISA
     // x86 64-bit, we can just read directly from memory
     helper->readBlob(sim_fatCubin, (uint8_t*)fat_cubin, sizeof(struct __cudaFatCudaBinaryRec));
+#else
+    #error Currently gem5-gpu is only known to support x86 and ARM
 #endif
 
     if (sim_binSize < 0) {
@@ -1137,7 +1139,7 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
             memcpy(temp_ptx_entry_buf, ptx_entries, sizeof(__cudaFatPtxEntry) * ptx_count);
         }
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
         // Size of PTX entry in 32-bit simulated system is 8B
         #define PTXENTRY_PACKAGE_SIZE 8
         // Add 4B to keep last 64-bit pointer math from reading other stack junk
@@ -1152,7 +1154,7 @@ void registerFatBinaryTop(GPUSyscallHelper *helper, Addr sim_fatCubin, size_t si
                                     unpackPointer<char*>(ptx_entry_package, 0);
         temp_ptx_entry_ptr[ptx_count].ptx =
                                     unpackPointer<char*>(ptx_entry_package, 4);
-#else
+#elif THE_ISA == X86_ISA
         helper->readBlob((Addr)(fat_cubin->ptx + ptx_count),
                 temp_ptx_entry_buf + sizeof(__cudaFatPtxEntry) * ptx_count,
                 sizeof(__cudaFatPtxEntry));

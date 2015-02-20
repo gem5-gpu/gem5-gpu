@@ -38,11 +38,13 @@
 #include "params/ShaderMMU.hh"
 #include "sim/full_system.hh"
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // TODO: To enable full-system mode ARM interrupts may require including
     // an ARM instruction with a GPU interrupt handler
-#else
+#elif THE_ISA == X86_ISA
     #include "arch/x86/generated/decoder.hh"
+#else
+    #error Currently gem5-gpu is only known to support x86 and ARM
 #endif
 
 using namespace std;
@@ -315,12 +317,12 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
     tc->setMiscRegNoEffect(MISCREG_GPU_FAULTADDR, translation->req->getVaddr());
     tc->setMiscRegNoEffect(MISCREG_GPU_FAULTCODE, code);
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     panic("You must be executing in FullSystem mode with ARM:\n"
           "ShaderMMU cannot yet handle ARM page faults");
     // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
     // interrupts device
-#else
+#elif THE_ISA == X86_ISA
     // Delay the fault if the thread is in kernel mode
     HandyM5Reg m5reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
     if (m5reg.cpl != 3) {
@@ -343,13 +345,13 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 
     assert(outstandingFaultStatus != None);
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     panic("You must be executing in FullSystem mode with ARM ISA:\n"
           "ShaderMMU cannot yet handle ARM page faults");
     // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
     // interrupts device
     // TODO: Add sanity check for correct page table
-#else
+#elif THE_ISA == X86_ISA
     if (outstandingFaultStatus == Pending) {
         DPRINTF(ShaderMMU, "Invoking the pending fault\n");
         outstandingFaultStatus = InKernel;
@@ -567,10 +569,10 @@ ShaderMMU *ShaderMMUParams::create() {
     return new ShaderMMU(this);
 }
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // TODO: Need to define an analogous function to be called from an ARM
     // instruction at the end of the interrupt handler
-#else
+#elif THE_ISA == X86_ISA
 
 // Global function which the x86 microop gpufinishfault calls.
 namespace X86ISAInst {

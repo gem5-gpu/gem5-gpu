@@ -102,7 +102,7 @@ GPUSyscallHelper::decode_package()
 {
     assert(sim_params_ptr);
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // Size of sim_params in 32-bit simulated system is 20B
     #define SIM_PARAMS_SIZE 20 // 4B each for 5 members of gpusyscall_t
     // Add 4B to keep last 64-bit pointer math from reading other stack junk
@@ -113,9 +113,11 @@ GPUSyscallHelper::decode_package()
     sim_params.arg_lengths = unpackPointer<Addr>(params_package, 8);
     sim_params.args = unpackPointer<Addr>(params_package, 12);
     sim_params.ret = unpackPointer<Addr>(params_package, 16);
-#else
+#elif THE_ISA == X86_ISA
     // NOTE: sizeof() call assumes gem5-gpu built on 64-bit machine
     readBlob(sim_params_ptr, (unsigned char*)&sim_params, sizeof(gpusyscall_t));
+#else
+    #error Currently gem5-gpu is only known to support x86 and ARM
 #endif
 
     arg_lengths = new int[sim_params.num_args];

@@ -33,7 +33,7 @@
 #include "base/types.hh"
 #include "cpu/thread_context.hh"
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // Currently supports 32-bit ARM platform
     #define __POINTER_SIZE__ 4
     #define __POINTER_MASK__ 0xFFFFFFFF
@@ -50,10 +50,12 @@
         return (T) ((Addr)unpackData<T>(package, index) & __POINTER_MASK__);
     }
 
-#else
+#elif THE_ISA == X86_ISA
     // Currently supports 64-bit x86 platform
     #define __POINTER_SIZE__ 8
     #define __POINTER_MASK__ 0xFFFFFFFFFFFFFFFF
+#else
+    #error Currently gem5-gpu is only known to support x86 and ARM
 #endif
 
 typedef struct gpucall {

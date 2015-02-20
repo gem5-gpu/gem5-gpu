@@ -33,11 +33,13 @@
 #include "gpu/shader_tlb.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // May need to include appropriate files for fault handling
-#else // x86_64
+#elif THE_ISA == X86_ISA
     #include "arch/x86/insts/microldstop.hh"
     #include "arch/x86/regs/misc.hh"
+#else
+    #error Currently gem5-gpu is only known to support x86 and ARM
 #endif
 
 using namespace std;
@@ -96,7 +98,7 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
                            Translation *translation, Mode mode)
 {
 
-#ifdef TARGET_ARM
+#if THE_ISA == ARM_ISA
     // @TODO: Currently, translateTiming should only be called for translating
     // the copy engine's host-side addresses under ARM. These should not raise
     // page faults under SE mode, but it would still be good to check that the
@@ -106,7 +108,7 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
     // For some reason, this request flag must be set to verify that data
     // accesses are aligned properly (note: not required for inst fetches)
     req->setFlags(TLB::MustBeOne);
-#else // x86_64
+#elif THE_ISA == X86_ISA
 
     // Include some sanity checking
     uint32_t flags = req->getFlags();
