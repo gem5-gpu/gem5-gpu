@@ -45,9 +45,16 @@ def getTestFilename(test_location):
     test_filename = test_filename.replace('/opt/','/')
     test_filename = test_filename.replace('/debug/','/')
     test_filename = test_filename.replace('/fast/','/')
-    isa = 'x86'
-    if not isa in test_filename:
-        fatal('ISA of this test is not supported')
+    print test_filename
+    supported_isas = [ 'arm', 'x86' ]
+    isa = None
+    for test_isa in supported_isas:
+        if test_isa in test_filename:
+            isa = test_isa
+            break
+
+    if not isa:
+        fatal('ISA not found in test: %s' % test_filename)
 
     file_chop_index = test_filename.find('%s/' % isa)
     if file_chop_index >= len(test_filename):
@@ -93,8 +100,8 @@ if not args or len(args) != 1:
     print "Error: script expects a single positional argument"
     sys.exit(1)
 
-if buildEnv['TARGET_ISA'] != "x86":
-    fatal("gem5-gpu doesn't currently work with non-x86 system!")
+if buildEnv['TARGET_ISA'] != "x86" and buildEnv['TARGET_ISA'] != "arm":
+    fatal("gem5-gpu doesn't currently work with non-ARM or non-x86 system!")
 
 #
 # Setup test benchmark to be run

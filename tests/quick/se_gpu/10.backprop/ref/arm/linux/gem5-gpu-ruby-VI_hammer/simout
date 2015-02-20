@@ -1,0 +1,312 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Feb 20 2015 01:16:58
+gem5 started Feb 20 2015 01:17:15
+gem5 executing on artery
+command line: build/ARM_VI_hammer_GPU/gem5.opt -d build/ARM_VI_hammer_GPU/tests/opt/quick/se_gpu/10.backprop/arm/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/ARM_VI_hammer_GPU/tests/opt/quick/se_gpu/10.backprop/arm/linux/gem5-gpu-ruby-VI_hammer
+tests/quick/se_gpu/10.backprop/arm/linux/gem5-gpu-ruby-VI_hammer
+Warning: Only block size currently supported is 128B. Defaulting to 128.
+Using template and command line options for gpgpusim.config
+Global frequency set at 1000000000000 ticks per second
+      0: system.cpu.isa: ISA system set to: 0 0x3b6aa80
+
+
+        *** GPGPU-Sim Simulator Version 3.2.2  [build 17315] ***
+
+
+GPGPU-Sim PTX: simulation mode 0 (can change with PTX_SIM_MODE_FUNC environment variable:
+               1=functional simulation only, 0=detailed performance simulator)
+GPGPU-Sim: Configuration options:
+
+-network_mode                           1 # Interconnection network mode
+-inter_config_file   build/ARM_VI_hammer_GPU/tests/opt/quick/se_gpu/10.backprop/arm/linux/gem5-gpu-ruby-VI_hammer/config_fermi_islip.icnt # Interconnection network config file
+-gpgpu_ptx_use_cuobjdump                    0 # Use cuobjdump to extract ptx and sass from binaries
+-gpgpu_experimental_lib_support                    0 # Try to extract code from cuda libraries [Broken because of unknown cudaGetExportTable]
+-gpgpu_ptx_convert_to_ptxplus                    0 # Convert SASS (native ISA) to ptxplus and run ptxplus
+-gpgpu_ptx_force_max_capability                   20 # Force maximum compute capability
+-gpgpu_ptx_inst_debug_to_file                    0 # Dump executed instructions' debug information to file
+-gpgpu_ptx_inst_debug_file       inst_debug.txt # Executed instructions' debug output file
+-gpgpu_ptx_inst_debug_thread_uid                    1 # Thread UID for executed instructions' debug output
+-gpgpu_simd_model                       1 # 1 = post-dominator
+-gpgpu_shader_core_pipeline              1536:32 # shader core pipeline config, i.e., {<nthread>:<warpsize>}
+-gpgpu_tex_cache:l1  4:128:24,L:R:m:N,F:128:4,128:2 # per-shader L1 texture cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
+-gpgpu_const_cache:l1 64:64:2,L:R:f:N,A:2:32,4 # per-shader L1 constant memory cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:il1     8:128:4,L:R:f:N,A:2:32,4 # shader L1 instruction cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:dl1                     none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PreShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gmem_skip_L1D                          0 # global memory access skip L1D cache (implements -Xptxas -dlcm=cg, default=no skip)
+-gpgpu_perfect_mem                      0 # enable perfect memory mode (no cache miss)
+-n_regfile_gating_group                    4 # group of lanes that should be read/written together)
+-gpgpu_clock_gated_reg_file                    0 # enable clock gated reg file for power calculations
+-gpgpu_clock_gated_lanes                    0 # enable clock gated lanes for power calculations
+-gpgpu_shader_registers                32768 # Number of registers per shader core. Limits number of concurrent CTAs. (default 8192)
+-gpgpu_shader_cta                       8 # Maximum number of concurrent CTAs in shader (default 8)
+-gpgpu_n_clusters                       4 # number of processing clusters
+-gpgpu_n_cores_per_cluster                    1 # number of simd cores per cluster
+-gpgpu_n_cluster_ejection_buffer_size                    8 # number of packets in ejection buffer
+-gpgpu_n_ldst_response_buffer_size                    2 # number of response packets in ld/st unit ejection buffer
+-gpgpu_shmem_size                   16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size                   49152 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefL1                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefShared                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_num_banks                   32 # Number of banks in the shared memory in each shader core (default 16)
+-gpgpu_shmem_limited_broadcast                    0 # Limit shared memory to do one broadcast per cycle (default on)
+-gpgpu_shmem_warp_parts                    1 # Number of portions a warp is divided into for shared memory bank conflict check 
+-gpgpu_warpdistro_shader                   -1 # Specify which shader core to collect the warp size distribution from
+-gpgpu_warp_issue_shader                    0 # Specify which shader core to collect the warp issue distribution from
+-gpgpu_local_mem_map                    1 # Mapping from local memory space address to simulated GPU physical address space (default = enabled)
+-gpgpu_num_reg_banks                   16 # Number of register banks (default = 8)
+-gpgpu_reg_bank_use_warp_id                    0 # Use warp ID in mapping registers to banks (default = off)
+-gpgpu_operand_collector_num_units_sp                    6 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_sfu                    8 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_mem                    2 # number of collector units (default = 2)
+-gpgpu_operand_collector_num_units_gen                    0 # number of collector units (default = 0)
+-gpgpu_operand_collector_num_in_ports_sp                    2 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_operand_collector_num_out_ports_sp                    2 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_coalesce_arch                   13 # Coalescing arch (default = 13, anything else is off for now)
+-gpgpu_num_sched_per_core                    2 # Number of warp schedulers per core
+-gpgpu_max_insn_issue_per_warp                    1 # Max number of instructions that can be issued per warp in one cycle by scheduler
+-gpgpu_simt_core_sim_order                    1 # Select the simulation order of cores in a cluster (0=Fix, 1=Round-Robin)
+-gpgpu_pipeline_widths        2,1,1,2,1,1,2 # Pipeline widths ID_OC_SP,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_SFU,OC_EX_MEM,EX_WB
+-gpgpu_num_sp_units                     2 # Number of SP units (default=1)
+-gpgpu_num_sfu_units                    1 # Number of SF units (default=1)
+-gpgpu_num_mem_units                    1 # Number if ldst units (default=1) WARNING: not hooked up to anything
+-gpgpu_scheduler                      gto # Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
+-gpgpu_dram_scheduler                    1 # 0 = fifo, 1 = FR-FCFS (defaul)
+-gpgpu_dram_partition_queues              8:8:8:8 # i2$:$2d:d2$:$2i
+-l2_ideal                               0 # Use a ideal L2 cache that always hit
+-gpgpu_cache:dl2     64:256:8,L:B:m:W,A:32:4,4:0,32 # unified banked L2 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
+-gpgpu_cache:dl2_texture_only                    0 # L2 cache used for texture only
+-gpgpu_n_mem                            1 # number of memory modules (e.g. memory controllers) in gpu
+-gpgpu_n_sub_partition_per_mchannel                    2 # number of memory subpartition in each memory module
+-gpgpu_n_mem_per_ctrlr                    2 # number of memory chips per memory controller
+-gpgpu_memlatency_stat                   14 # track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
+-gpgpu_frfcfs_dram_sched_queue_size                   16 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_return_queue_size                  116 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_buswidth                    4 # default = 4 bytes (8 bytes per cycle at DDR)
+-gpgpu_dram_burst_length                    8 # Burst length of each DRAM request (default = 4 data bus cycle)
+-dram_data_command_freq_ratio                    4 # Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
+-gpgpu_dram_timing_opt nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=4:CCDL=3:RTPL=2 # DRAM timing parameters = {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
+-rop_latency                          120 # ROP queue latency (default 85)
+-dram_latency                         100 # DRAM latency (default 30)
+-gpgpu_mem_addr_mapping dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.BBBCCCCB.CCSSSSSS # mapping memory address to dram model {dramid@<start bit>;<memory address map>}
+-gpgpu_mem_addr_test                    0 # run sweep test to check address mapping for aliased address
+-gpgpu_mem_address_mask                    1 # 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
+-gpuwattch_xml_file         gpuwattch.xml # GPUWattch XML file
+-power_simulation_enabled                    0 # Turn on power simulator (1=On, 0=Off)
+-power_per_cycle_dump                    0 # Dump detailed power output each cycle
+-power_trace_enabled                    0 # produce a file for the power trace (1=On, 0=Off)
+-power_trace_zlevel                     6 # Compression level of the power trace output log (0=no comp, 9=highest)
+-steady_power_levels_enabled                    0 # produce a file for the steady power levels (1=On, 0=Off)
+-steady_state_definition                  8:4 # allowed deviation:number of samples
+-gpgpu_max_cycle                        0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_insn                         0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_cta                          0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_runtime_stat                 50000 # display runtime statistics such as dram utilization {<freq>:<flag>}
+-liveness_message_freq                    1 # Minimum number of seconds between simulation liveness messages (0 = always print)
+-gpgpu_flush_l1_cache                    0 # Flush L1 cache at the end of each kernel call
+-gpgpu_flush_l2_cache                    0 # Flush L2 cache at the end of each kernel call
+-gpgpu_deadlock_detect                    1 # Stop the simulation at deadlock (1=on (default), 0=off)
+-gpgpu_ptx_instruction_classification                    0 # if enabled will classify ptx instruction types per kernel (Max 255 kernels now)
+-gpgpu_ptx_sim_mode                     0 # Select between Performance (default) or Functional simulation (1)
+-gpgpu_clock_domains 700.0:1400.0:700.0:1848.0 # Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT Clock>:<L2 Clock>:<DRAM Clock>}
+-gpgpu_max_concurrent_kernel                    8 # maximum kernels that can run concurrently on GPU
+-gpgpu_cflog_interval                    0 # Interval between each snapshot in control flow logger
+-visualizer_enabled                     0 # Turn on visualizer output (1=On, 0=Off)
+-visualizer_outputfile                 NULL # Specifies the output log file for visualizer
+-visualizer_zlevel                      6 # Compression level of the visualizer output log (0=no comp, 9=highest)
+-trace_enabled                          0 # Turn on traces
+-trace_components                    none # comma seperated list of traces to enable. Complete list found in trace_streams.tup. Default none
+-trace_sampling_core                    0 # The core which is printed using CORE_DPRINTF. Default 0
+-trace_sampling_memory_partition                   -1 # The memory partition which is printed using MEMPART_DPRINTF. Default -1 (i.e. all)
+-enable_ptx_file_line_stats                    0 # Turn on PTX source line statistic profiling. (1 = On)
+-ptx_line_stats_filename gpgpu_inst_stats.txt # Output file for PTX source line statistics.
+-save_embedded_ptx                      0 # saves ptx files embedded in binary as <n>.ptx
+-keep                                   0 # keep intermediate files created by GPGPU-Sim when interfacing with external programs
+-gpgpu_ptx_save_converted_ptxplus                    0 # Saved converted ptxplus to a file
+-ptx_opcode_latency_int         4,13,4,5,145 # Opcode latencies for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,19,25,145
+-ptx_opcode_latency_fp          4,13,4,5,39 # Opcode latencies for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,30
+-ptx_opcode_latency_dp         8,19,8,8,330 # Opcode latencies for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,335
+-ptx_opcode_initiation_int            1,2,2,1,8 # Opcode initiation intervals for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,4,4,32
+-ptx_opcode_initiation_fp            1,2,1,1,4 # Opcode initiation intervals for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,5
+-ptx_opcode_initiation_dp         8,16,8,8,130 # Opcode initiation intervals for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,130
+DRAM Timing Options:
+nbk                                    16 # number of banks
+CCD                                     2 # column to column delay
+RRD                                     6 # minimal delay between activation of rows in different banks
+RCD                                    12 # row to column delay
+RAS                                    28 # time needed to activate row
+RP                                     12 # time needed to precharge (deactivate) row
+RC                                     40 # row cycle time
+CDLR                                    5 # switching from write to read (changes tWTR)
+WR                                     12 # last data-in to row precharge
+CL                                     12 # CAS latency
+WL                                      4 # Write latency
+nbkgrp                                  4 # number of bank groups
+CCDL                                    3 # column to column delay between accesses to different bank groups
+RTPL                                    2 # read to precharge delay between accesses to different bank groups
+Total number of memory sub partition = 2
+addr_dec_mask[CHIP]  = 0000000000000000 	high:64 low:0
+addr_dec_mask[BK]    = 000000000000e100 	high:16 low:8
+addr_dec_mask[ROW]   = 000000000fff0000 	high:28 low:16
+addr_dec_mask[COL]   = 0000000000001eff 	high:13 low:0
+addr_dec_mask[BURST] = 000000000000003f 	high:6 low:0
+sub_partition_id_mask = 0000000000000100
+GPGPU-Sim uArch: clock freqs: 700000000.000000:1400000000.000000:700000000.000000:1848000000.000000
+GPGPU-Sim uArch: clock periods: 0.00000000142857142857:0.00000000071428571429:0.00000000142857142857:0.00000000054112554113
+*** Initializing Memory Statistics ***
+GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
+GPGPU-Sim uArch: Memory nodes ID start from index: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: interconnect node reverse map (icntID to shaderID+MemID)
+GPGPU-Sim uArch: Memory nodes start from ID: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: performance model initialization complete.
+**** REAL SIMULATION ****
+info: Entering event queue @ 0.  Starting simulation...
+info: Increasing stack size by one page.
+gem5 + GPGPU-Sim CUDA RT: __cudaRegisterFatBinary2(*fatCubin = 0x8d11c, size = 10584)
+gem5 + GPGPU-Sim CUDA RT: Touching parts/pages of the binary...
+gem5 + GPGPU-Sim CUDA RT: magic: 518347265
+gem5 + GPGPU-Sim CUDA RT: ident: backprop_cuda.cu
+gem5 + GPGPU-Sim CUDA RT: elf: ELF3
+gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 221
+gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
+GPGPU-Sim PTX: allocating shared region for "__cuda___cuda_local_var_35839_34_non_const_input_node40" from 0x0 to 0x40 (shared memory space)
+GPGPU-Sim PTX: allocating shared region for "__cuda___cuda_local_var_35840_34_non_const_weight_matrix104" from 0x80 to 0x480 (shared memory space)
+GPGPU-Sim PTX: instruction assembly for function '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...   done.
+GPGPU-Sim PTX: finding reconvergence points for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding immediate dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding immediate postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x048 (_1.ptx:74) @!%p1 bra $Lt_0_3586;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x090 (_1.ptx:86) bar.sync 0;
+GPGPU-Sim PTX:  2 (potential) branch divergence @  PC=0x190 (_1.ptx:123) @!%p2 bra $Lt_0_4098;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x290 (_1.ptx:166) @!%p1 bra $Lt_0_5634;
+GPGPU-Sim PTX:  3 (potential) branch divergence @  PC=0x1e8 (_1.ptx:137) @%p3 bra $Lt_0_4866;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x268 (_1.ptx:158) bar.sync 0;
+GPGPU-Sim PTX:  4 (potential) branch divergence @  PC=0x288 (_1.ptx:163) @%p4 bra $Lt_0_4610;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x290 (_1.ptx:166) @!%p1 bra $Lt_0_5634;
+GPGPU-Sim PTX:  5 (potential) branch divergence @  PC=0x290 (_1.ptx:166) @!%p1 bra $Lt_0_5634;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x2f8 (_1.ptx:182) exit;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'.
+GPGPU-Sim PTX: instruction assembly for function '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...   done.
+GPGPU-Sim PTX: finding reconvergence points for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding immediate dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding immediate postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x518 (_1.ptx:271) @%p1 bra $Lt_1_1282;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x5e8 (_1.ptx:301) exit;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'.
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_qwgVM2"
+Running: cat _ptx_qwgVM2 | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_h3y6Tg
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_h3y6Tg --output-file  /dev/null 2> _ptx_qwgVM2info"
+GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
+GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=11, lmem=0, smem=1088, cmem=72
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_qwgVM2 _ptx2_h3y6Tg _ptx_qwgVM2info"
+Random number generator seed: 7
+Input layer size : 256
+Starting training kernel
+Performing GPU computation
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' transfer to GPU hardware scheduler
+GPGPU-Sim uArch: Shader 1 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: CTA/core = 6, limited by: threads
+GPGPU-Sim uArch: Shader 2 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 3 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation kernel
+GPGPU-Sim PTX: 100000 instructions simulated : ctaid=(0,14,0) tid=(15,5,0)
+GPGPU-Sim PTX: 200000 instructions simulated : ctaid=(0,15,0) tid=(15,4,0)
+GPGPU-Sim PTX: 300000 instructions simulated : ctaid=(0,4,0) tid=(15,5,0)
+GPGPU-Sim PTX: 400000 instructions simulated : ctaid=(0,9,0) tid=(9,3,0)
+GPGPU-Sim uArch: Shader 2 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: Shader 1 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: Shader 3 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: Shader 0 empty (release kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii').
+GPGPU-Sim uArch: GPU detected kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' finished on shader 0.
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' transfer to GPU hardware scheduler
+GPGPU-Sim uArch: Shader 1 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: CTA/core = 5, limited by: regs
+GPGPU-Sim uArch: Shader 2 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 3 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 0 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim PTX: 500000 instructions simulated : ctaid=(0,5,0) tid=(15,13,0)
+GPGPU-Sim PTX: 600000 instructions simulated : ctaid=(0,14,0) tid=(15,13,0)
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 2 operations
+GPGPU-Sim API:       0 :  stream operation kernel
+GPGPU-Sim API:       1 :  stream operation memcpy device-to-host
+GPGPU-Sim PTX: 700000 instructions simulated : ctaid=(0,0,0) tid=(15,3,0)
+GPGPU-Sim uArch: Shader 3 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
+GPGPU-Sim uArch: Shader 0 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
+GPGPU-Sim uArch: Shader 2 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
+GPGPU-Sim uArch: Shader 1 empty (release kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_').
+GPGPU-Sim uArch: GPU detected kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' finished on shader 1.
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+Partial Sums:
+4.275950 4.734868 2.874354 5.054187 3.928178 3.309635 4.324253 3.887026 3.863262 3.934807 3.852685 3.789847 5.251437 3.881083 3.909277 4.852769 
+3.641418 4.058307 2.199587 5.161760 3.350158 3.384806 4.480379 4.230636 4.023535 3.285430 3.087807 4.475940 5.719292 2.919547 4.145242 5.117166 
+4.050351 3.940653 2.460814 3.844094 3.225811 4.367218 3.545944 3.493372 5.258082 2.924891 3.924680 5.730507 3.703322 2.893347 3.936705 4.494379 
+4.765889 3.606734 2.478872 4.456573 3.222248 3.743761 4.733800 3.087456 4.052861 2.121247 2.759517 4.983421 5.476392 3.214695 2.314641 3.901151 
+3.009573 3.299771 2.961456 3.643616 3.058146 3.568402 4.451119 3.972745 4.769839 2.208332 2.391686 4.745997 4.512333 3.230078 4.679140 4.809241 
+3.852239 3.464092 2.631302 5.226839 2.923340 3.603000 4.999715 3.151311 5.014257 3.683132 3.101538 3.240314 5.813438 3.660281 3.770446 4.248713 
+4.589979 3.507756 2.555776 4.508624 3.269417 4.163193 5.876275 4.118747 4.977607 2.546761 3.413185 6.093236 5.036434 3.233208 2.904959 3.344204 
+3.319860 4.520933 2.948520 4.966562 2.680223 3.816752 4.187061 3.147207 5.577978 3.939478 4.789152 3.776286 3.878432 2.928572 2.912799 4.509400 
+4.126599 4.670166 2.009886 4.042368 3.312262 3.572205 4.766007 3.535113 4.076043 3.190467 3.298230 4.210813 3.740674 2.778723 3.501407 4.786942 
+4.130794 2.913332 1.675026 4.805018 3.307306 3.634336 4.614725 4.017138 3.750221 2.770861 3.783681 3.984369 4.224809 4.422170 4.819413 3.836341 
+3.975122 3.772122 2.717403 3.781084 4.249462 2.809303 5.510015 3.601676 4.230814 2.184890 3.780618 2.878697 4.132626 2.546049 3.859830 3.485080 
+3.800902 4.050434 2.220248 4.570007 3.359034 4.346059 4.324863 3.509471 5.173290 3.025912 4.852645 4.881157 3.719191 2.133462 3.288687 4.415679 
+3.604953 3.680932 2.528894 5.857372 2.834278 3.544619 3.734676 3.166102 4.468240 2.880993 4.122583 3.233181 5.707394 2.745472 2.762188 3.646513 
+4.555337 3.555561 2.020047 3.787688 3.037014 3.563951 6.280908 3.921253 5.466686 2.109557 2.974697 4.747082 3.334054 4.174500 3.078282 4.635928 
+5.050097 4.674252 1.998113 4.476627 2.753950 4.333980 5.545210 4.359592 4.895395 3.807277 3.098881 6.317118 5.980325 3.466854 4.426937 3.293004 
+3.150114 4.585974 2.765559 6.405347 4.251238 3.859239 4.562426 3.162374 4.684288 2.814405 3.525342 4.128234 4.124644 2.430800 2.606746 5.024062 
+
+Input Weights:
+0.486904 0.867977 0.592591 0.214710 0.010227 0.514819 0.995948 0.031932 0.601565 0.055345 0.526780 0.089374 0.764437 0.815492 0.888972 0.163899 0.215504 0.787683 0.788698 0.066646 0.432544 0.053380 0.340932 0.509839 0.016025 0.261370 0.363697 0.759423 0.035923 0.072407 0.181554 0.522827 0.940385 0.774145 0.737537 0.950611 0.288963 0.733485 0.982543 0.890529 0.788830 0.509323 0.979903 0.553267 0.324815 0.868875 0.717166 0.540320 0.656558 0.505863 0.606965 0.089101 0.559243 0.947897 0.598940 0.575268 0.209267 0.962637 0.334692 0.245191 0.035044 0.516245 0.768018 0.975429 0.290390 0.505555 0.926040 0.579353 0.239040 0.908583 0.469882 0.027870 0.417907 0.449784 0.581137 0.742722 0.318659 0.298303 0.283042 0.975217 0.804166 0.890007 0.064319 0.363410 0.837905 0.663259 0.938678 0.047172 0.625896 0.273369 0.292363 0.660940 0.789614 0.060380 0.636369 0.080004 0.565935 0.562409 0.659357 0.804976 0.470993 0.129239 0.832846 0.888900 0.579023 0.413983 0.631622 0.897682 0.712286 0.914663 0.872900 0.516452 0.804671 0.937218 0.879862 0.642575 0.600477 0.818539 0.689747 0.226373 0.091909 0.982110 0.887314 0.881523 0.042491 0.523683 0.961527 0.608426 0.086092 0.620884 0.413401 0.557085 0.750123 0.246247 0.445984 0.329147 0.660230 0.077606 0.226829 0.372516 0.992269 0.099729 0.888968 0.796940 0.036947 0.768830 0.439515 0.637424 0.587369 0.129263 0.863797 0.679278 0.111373 0.751111 0.560800 0.153863 0.274794 0.522328 0.762289 0.360886 0.143212 0.175690 0.917970 0.893335 0.421937 0.363955 0.222482 0.082168 0.441560 0.449311 0.454684 0.433830 0.549040 0.343652 0.230769 0.585986 0.112481 0.670285 0.223410 0.699850 0.799547 0.087208 0.379128 0.910920 0.838318 0.939928 0.064783 0.113112 0.462256 0.827072 0.473998 0.605468 0.002762 0.391968 0.498804 0.424699 0.755923 0.721286 0.506867 0.197483 0.170596 0.961550 0.631313 0.719636 0.305202 0.862082 0.305622 0.417684 0.532367 0.529033 0.117534 0.331914 0.616240 0.496662 0.242833 0.454559 0.436590 0.307616 0.567671 0.898846 0.134688 0.041669 0.504314 0.137450 0.433637 0.003118 0.562149 0.189559 0.724403 0.069016 0.387043 0.895000 0.030566 0.018355 0.614636 0.335768 0.880437 0.920258 0.753452 0.412804 0.449291 0.870986 0.744718 0.065531 0.367647 0.987551 0.520090 0.804237 0.295167 0.087761 0.703084 0.429855 0.129430 0.207398 0.567304 0.563067 0.210515 0.129453 0.752626 0.934919 0.198469 0.139669 0.829918 0.229035 0.158024 0.444554 0.564803 0.038461 0.364812 0.318255 0.451265 0.814103 0.189240 0.195983 0.879634 0.556888 0.183534 0.399724 0.361125 0.478701 0.487485 0.064209 0.908556 0.616915 0.271606 0.475861 0.179982 0.482122 0.605314 0.932608 0.417040 0.803783 0.072277 0.246959 0.032817 0.230301 0.691513 0.597620 0.268762 0.056325 0.915875 0.720027 0.870427 0.105115 0.916010 0.750062 0.662003 0.099545 0.149786 0.023128 0.578246 0.637271 0.087336 0.486802 0.254186 0.358942 0.962663 0.434168 0.841064 0.567977 0.366776 0.258104 0.371759 0.439053 0.505063 0.404576 0.669353 0.196575 0.002197 0.938115 0.252900 0.918072 0.658143 0.123328 0.023187 0.574153 0.873389 0.685189 0.673698 0.023175 0.708317 0.251944 0.660446 0.795653 0.738746 0.914632 0.154595 0.701408 0.348800 0.995659 0.269385 0.715576 0.253763 0.641144 0.154629 0.758826 0.045720 0.823982 0.955402 0.047917 0.762098 0.208302 0.965989 0.420240 0.331630 0.989175 0.994394 0.205019 0.674364 0.668091 0.228194 0.382681 0.920035 0.888640 0.178334 0.658781 0.803272 0.332929 0.360189 0.152072 0.328589 0.629574 0.867648 0.582352 0.270718 0.022277 0.341178 0.316439 0.846259 0.296580 0.364356 0.608356 0.504882 0.330344 0.028597 0.836511 0.319520 0.022990 0.041530 0.993884 0.691082 0.269724 0.376565 0.611117 0.158364 0.554899 0.269898 0.961636 0.887829 0.630087 0.113707 0.216417 0.259661 0.981355 0.798769 0.530380 0.003632 0.139948 0.846818 0.849891 0.436528 0.211174 0.458247 0.941410 0.541519 0.486843 0.777921 0.861038 0.509834 0.819451 0.854922 0.200915 0.089175 0.231488 0.812032 0.247539 0.786387 0.081930 0.209175 0.674216 0.712018 0.322882 0.890633 0.971679 0.304237 0.689403 0.502059 0.307869 0.829350 0.348877 0.157759 0.265878 0.560051 0.616006 0.207287 0.101570 0.102850 0.985208 0.962608 0.612683 0.804660 0.817530 0.813599 0.893835 0.049018 0.625631 0.141374 0.835405 0.707562 0.350548 0.509621 0.419579 0.673430 0.400254 0.391258 0.977667 0.089657 0.893317 0.285536 0.919007 0.242194 0.443296 0.184885 0.802245 0.059302 0.392172 0.903814 0.162152 0.377381 0.866422 0.774835 0.182040 0.683953 0.588434 0.075875 0.732971 0.214065 0.217249 0.568376 0.921627 0.567797 0.077997 0.341206 0.241228 0.478251 0.732464 0.218895 0.567908 0.625781 0.504431 0.486915 0.867974 0.947727 0.671799 0.670219 0.007029 0.063972 0.574033 0.169181 0.441352 0.440456 0.944016 0.623392 0.124408 0.532449 0.699267 0.857379 0.746514 0.916516 0.425755 0.668141 0.484314 0.503752 0.009347 0.725541 0.982003 0.741810 0.944437 0.549911 0.367591 0.448868 0.036825 0.235565 0.396595 0.708625 0.905784 0.403625 0.772596 0.479817 0.572805 0.213948 0.920273 0.516821 0.837341 0.044681 0.049270 0.536608 0.902060 0.795785 0.453124 0.327816 0.463926 0.937438 0.831568 0.473272 0.662980 0.813571 0.215083 0.607416 0.363482 0.582674 0.056284 0.400307 0.818239 0.452880 0.108932 0.724023 0.856504 0.881528 0.203840 0.429310 0.095477 0.124113 0.946131 0.932817 0.168794 0.995401 0.469425 0.070854 0.791186 0.922550 0.398670 0.255112 0.859988 0.230238 0.728384 0.522967 0.043809 0.943467 0.130384 0.407290 0.526141 0.186668 0.807598 0.344380 0.639548 0.916529 0.068402 0.496052 0.798058 0.272242 0.925361 0.893534 0.396355 0.871492 0.826352 0.565149 0.866893 0.295777 0.636003 0.658079 0.218327 0.034674 0.913191 0.078315 0.264911 0.641575 0.601282 0.308720 0.585042 0.731665 0.716011 0.111183 0.918333 0.523608 0.455562 0.557881 0.440137 0.523965 0.053933 0.238195 0.796207 0.979294 0.131730 0.192562 0.850786 0.958081 0.757712 0.717679 0.253859 0.393715 0.375759 0.472185 0.428389 0.288950 0.550500 0.693300 0.930525 0.151782 0.002020 0.515567 0.883447 0.718031 0.626750 0.801781 0.241639 0.082312 0.359661 0.681776 0.606277 0.413594 0.919971 0.402484 0.392888 0.051701 0.595047 0.243674 0.009782 0.352758 0.961353 0.263641 0.746473 0.337112 0.735826 0.174862 0.626061 0.286326 0.868162 0.556586 0.438108 0.870182 0.072153 0.321555 0.588213 0.698903 0.123336 0.829852 0.781215 0.482997 0.511628 0.387492 0.896591 0.431599 0.789977 0.289479 0.483300 0.385023 0.533153 0.493082 0.737782 0.494506 0.756722 0.484255 0.831618 0.492548 0.659117 0.457679 0.778874 0.527279 0.014266 0.216982 0.397461 0.086419 0.538537 0.985674 0.785322 0.661873 0.815526 0.566537 0.144870 0.327154 0.954029 0.041462 0.758753 0.744006 0.330941 0.242052 0.129029 0.864094 0.735134 0.866811 0.358600 0.491856 0.351066 0.190218 0.984404 0.010183 0.647898 0.763278 0.537462 0.662163 0.980260 0.934923 0.748582 0.518797 0.920598 0.533904 0.180670 0.736124 0.100441 0.325540 0.063277 0.054470 0.367002 0.822030 0.798476 0.697943 0.064082 0.927505 0.562037 0.799215 0.794315 0.920637 0.291071 0.145381 0.110856 0.275475 0.155563 0.758753 0.038753 0.693025 0.420917 0.019013 0.627949 0.169498 0.537810 0.548546 0.703402 0.718481 0.284670 0.803843 0.044021 0.347947 0.858313 0.411023 0.169977 0.656788 0.108966 0.234059 0.584293 0.671004 0.033274 0.378608 0.591641 0.324345 0.523989 0.702497 0.599821 0.679553 0.461250 0.638574 0.372578 0.882167 0.657588 0.000526 0.051665 0.195398 0.549073 0.755067 0.913879 0.833743 0.558910 0.957900 0.181690 0.417223 0.368923 0.351666 0.074011 0.477889 0.585725 0.658304 0.148893 0.618999 0.036913 0.740534 0.943344 0.560902 0.443030 0.543165 0.240454 0.904280 0.181739 0.613032 0.786447 0.839327 0.613559 0.838112 0.034725 0.162631 0.593180 0.948603 0.996374 0.152090 0.906503 0.178064 0.569313 0.275426 0.529730 0.643324 0.753315 0.115455 0.301629 0.902207 0.734454 0.338541 0.642741 0.677798 0.899443 0.085771 0.220963 0.139898 0.990052 0.402702 0.752930 0.776499 0.242029 0.366488 0.614611 0.276754 0.529120 0.207790 0.225357 0.525494 0.359880 0.131860 0.703557 0.929193 0.407286 0.233287 0.572517 0.160600 0.348742 0.874146 0.062807 0.083195 0.212687 0.705548 0.760993 0.112130 0.791319 0.981957 0.252028 0.781371 0.384659 0.004957 0.557870 0.626688 0.371446 0.172480 0.903442 0.900566 0.380271 0.128800 0.426060 0.740151 0.260660 0.129617 0.669343 0.667945 0.362904 0.241860 0.828546 0.711646 0.116006 0.891353 0.794841 0.328693 0.596901 0.555835 0.440823 0.388221 0.537791 0.692851 0.169591 0.922450 0.697808 0.727461 0.549139 0.069254 0.899941 0.452581 0.969820 0.280212 0.581380 0.395879 0.020363 0.842040 0.525496 0.689706 0.509985 0.888400 0.931566 0.338531 0.600046 0.047572 0.229884 0.394887 0.376265 0.826785 0.950722 0.817088 0.215005 0.488513 0.509939 0.384597 0.410964 0.207747 0.112058 0.960102 0.277001 0.011999 0.412683 0.246821 0.292211 0.994063 0.642700 0.312574 0.836103 0.168196 0.002280 0.346089 0.056596 0.933847 0.684620 0.656642 0.981419 0.914503 0.051529 0.357685 0.741288 0.002251 0.174773 0.956294 0.490765 0.684712 0.340890 0.901728 0.892459 0.452948 0.861831 0.169460 0.464948 0.274514 0.416281 0.757159 0.268577 0.058981 0.069733 0.104680 0.227177 0.072014 0.450769 0.283773 0.005861 0.135389 0.940415 0.987280 0.049892 0.991944 0.344965 0.791180 0.994195 0.519737 0.747474 0.484960 0.204449 0.088365 0.386688 0.096908 0.541313 0.248519 0.266368 0.006261 0.523032 0.682649 0.763420 0.791609 0.741630 0.833153 0.896290 0.968806 0.905167 0.347059 0.252579 0.911028 0.482448 0.192993 0.898308 0.532340 0.184937 0.243272 0.323521 0.179132 0.763010 0.070995 0.664092 0.967459 0.159360 0.050780 0.064367 0.700673 0.299299 0.330736 0.706933 0.822331 0.013385 0.470354 0.613941 0.755014 0.303507 0.510231 0.723820 0.208674 0.857290 0.976399 0.119702 0.339738 0.169392 0.018010 0.872078 0.354329 0.261283 0.195599 0.533461 0.024292 0.266594 0.197553 0.991752 0.425954 0.248333 0.056119 0.126627 0.547632 0.386855 0.833560 0.369964 0.400240 0.303914 0.983904 0.155254 0.607421 0.494135 0.879074 0.816095 0.351425 0.855473 0.935798 0.691163 0.024865 0.953808 0.563242 0.379195 0.215090 0.758841 0.912656 0.239383 0.025435 0.110209 0.231135 0.451389 0.358543 0.287254 0.578016 0.906175 0.674109 0.411576 0.276138 0.074348 0.715490 0.260043 0.229602 0.322911 0.754178 0.108676 0.139006 0.105603 0.964149 0.074804 0.796766 0.989015 0.028612 0.360008 0.368209 0.243702 0.118848 0.280865 0.483085 0.144284 0.391074 0.714219 0.595673 0.749617 0.001473 0.173689 0.655792 0.675581 0.585266 0.931930 0.749929 0.300756 0.191973 0.979531 0.623667 0.946151 0.088207 0.762673 0.051754 0.052357 0.837477 0.848520 0.041371 0.866089 0.208527 0.409580 0.109790 0.327376 0.690445 0.592875 0.471660 0.081520 0.307094 0.067333 0.831136 0.308567 0.241022 0.486928 0.984149 0.826288 0.418858 0.734078 0.127044 0.610831 0.713609 0.750711 0.556982 0.801817 0.513384 0.608736 0.854173 0.350861 0.457255 0.895545 0.216950 0.665783 0.305125 0.326740 0.993159 0.995570 0.919615 0.464818 0.077090 0.226709 0.532151 0.908226 0.535276 0.773173 0.395155 0.519425 0.599461 0.814013 0.253503 0.726505 0.424844 0.967112 0.477216 0.981826 0.768929 0.990600 0.590561 0.623102 0.341461 0.047817 0.518647 0.558411 0.713600 0.823772 0.885151 0.706758 0.819342 0.804766 0.171576 0.896432 0.031475 0.703727 0.804659 0.566752 0.476901 0.199813 0.086177 0.076362 0.013826 0.339680 0.802867 0.438670 0.306792 0.280083 0.420495 0.075721 0.270683 0.011057 0.698823 0.612144 0.058874 0.217470 0.170555 0.772473 0.041242 0.055706 0.479231 0.860584 0.860472 0.650808 0.757016 0.891947 0.354535 0.561675 0.458699 0.831436 0.761488 0.544875 0.907797 0.775314 0.884555 0.710665 0.213983 0.191347 0.990748 0.634479 0.267067 0.261431 0.645535 0.965890 0.873575 0.704409 0.183360 0.044130 0.476882 0.224602 0.099836 0.956114 0.085186 0.960308 0.606921 0.842202 0.852255 0.961456 0.403877 0.310953 0.792892 0.165365 0.855829 0.700689 0.940678 0.740384 0.411354 0.154661 0.931730 0.402101 0.789140 0.198798 0.663532 0.434675 0.164688 0.537107 0.139085 0.348049 0.581237 0.615967 0.572651 0.681074 0.572081 0.657837 0.641381 0.179002 0.500039 0.493636 0.140458 0.903916 0.804590 0.933350 0.069280 0.660419 0.634039 0.009959 0.400802 0.045393 0.164620 0.332533 0.447494 0.953760 0.531331 0.111027 0.388436 0.696019 0.648134 0.527520 0.044067 0.229371 0.143487 0.616718 0.910445 0.715568 0.274555 0.551826 0.894569 0.774594 0.045463 0.035027 0.678510 0.850052 0.968377 0.747790 0.510471 0.602417 0.757748 0.911273 0.647810 0.922369 0.243806 0.095304 0.876129 0.775137 0.206331 0.264564 0.471156 0.854465 0.792084 0.515223 0.083836 0.935571 0.131941 0.994281 0.651139 0.406496 0.546107 0.545708 0.181090 0.591569 0.580736 0.859600 0.441622 0.549113 0.607390 0.952093 0.151530 0.365138 0.863366 0.799340 0.287507 0.107172 0.894644 0.163635 0.882309 0.100975 0.428199 0.353465 0.955440 0.220284 0.868688 0.039276 0.155855 0.000630 0.033556 0.806994 0.407126 0.579663 0.352702 0.588216 0.171233 0.933438 0.447815 0.612854 0.482551 0.055205 0.564947 0.634081 0.420343 0.428313 0.433421 0.707850 0.535486 0.328066 0.871485 0.417795 0.429041 0.299684 0.771260 0.384480 0.519968 0.639948 0.423756 0.675823 0.640578 0.457312 0.482817 0.047704 0.036976 0.835520 0.635919 0.208208 0.768958 0.083735 0.821063 0.251509 0.138940 0.386010 0.885591 0.559283 0.814324 0.319012 0.267132 0.349809 0.647078 0.138617 0.767604 0.076118 0.438301 0.538864 0.460599 0.958269 0.178812 0.884355 0.634092 0.819390 0.341667 0.116909 0.867094 0.378643 0.952429 0.503013 0.586852 0.721387 0.586748 0.407915 0.972896 0.725688 0.793925 0.858486 0.284970 0.608248 0.177498 0.552102 0.958058 0.824576 0.690719 0.725662 0.900694 0.129020 0.264526 0.361293 0.087289 0.443339 0.245648 0.721381 0.262729 0.587315 0.838291 0.129823 0.965959 0.790720 0.632836 0.552810 0.512106 0.219584 0.960725 0.485002 0.945271 0.754650 0.343488 0.230242 0.362898 0.520987 0.782344 0.320956 0.345563 0.473063 0.046618 0.246257 0.602084 0.311144 0.607550 0.689373 0.754483 0.853198 0.410755 0.017212 0.440514 0.249045 0.147035 0.406472 0.039765 0.779871 0.959282 0.551871 0.999454 0.920007 0.036873 0.944726 0.674657 0.380361 0.174967 0.037554 0.901348 0.957311 0.358510 0.246911 0.430375 0.405128 0.493168 0.032459 0.716272 0.100718 0.721832 0.470755 0.953917 0.132586 0.487967 0.394430 0.381631 0.635002 0.800903 0.421396 0.414872 0.760185 0.973267 0.414327 0.680192 0.010139 0.359052 0.354848 0.390500 0.534020 0.392403 0.291848 0.491331 0.750913 0.538759 0.921706 0.156041 0.031927 0.954164 0.872313 0.132645 0.675996 0.343068 0.086562 0.808582 0.831035 0.480992 0.190213 0.466037 0.281894 0.611609 0.880910 0.042079 0.584876 0.295236 0.722271 0.595015 0.654289 0.077120 0.985516 0.188308 0.469522 0.277364 0.679639 0.220435 0.816122 0.601345 0.376476 0.848049 0.555509 0.248789 0.980694 0.231505 0.591857 0.067255 0.040087 0.422893 0.548247 0.230301 0.888930 0.830142 0.841910 0.769839 0.872221 0.426786 0.065076 0.594492 0.021802 0.719364 0.671612 0.007317 0.907673 0.141134 0.284681 0.587312 0.361569 0.100803 0.188657 0.738046 0.948852 0.744166 0.986835 0.929546 0.975671 0.578692 0.996801 0.015759 0.001585 0.545048 0.246059 0.890514 0.375190 0.087969 0.660354 0.247411 0.514755 0.725430 0.841904 0.536557 0.444794 0.513516 0.543874 0.352467 0.654650 0.828555 0.939779 0.016219 0.929358 0.128436 0.754265 0.878210 0.872602 0.741100 0.807755 0.848274 0.319792 0.804556 0.864032 
+Net Inputs:
+0.000000 0.343988 0.907949 0.248971 0.262799 0.509827 0.193412 0.917344 0.843621 0.475334 0.768918 0.856501 0.936714 0.068548 0.142551 0.113426 0.216216 0.630174 0.643607 0.693848 0.425566 0.914685 0.751377 0.364456 0.020707 0.362568 0.624793 0.772704 0.341113 0.774520 0.164369 0.283668 0.118508 0.072318 0.532639 0.381307 0.582144 0.726052 0.298651 0.425765 0.201386 0.067569 0.282267 0.138100 0.136117 0.424817 0.251526 0.352333 0.054991 0.895133 0.046181 0.480557 0.809818 0.797558 0.845013 0.830525 0.160127 0.469806 0.603229 0.501240 0.244326 0.767598 0.784908 0.362835 0.839916 0.317548 0.744142 0.422061 0.043599 0.042793 0.847826 0.244986 0.110363 0.130093 0.383086 0.246480 0.554910 0.634612 0.598813 0.609901 0.529745 0.644994 0.090458 0.339563 0.442553 0.935471 0.170088 0.602679 0.405278 0.773317 0.103920 0.649604 0.540916 0.888828 0.012439 0.380832 0.206375 0.756581 0.802893 0.249975 
+Training done
+Exiting @ tick 11878235000 because target called exit()

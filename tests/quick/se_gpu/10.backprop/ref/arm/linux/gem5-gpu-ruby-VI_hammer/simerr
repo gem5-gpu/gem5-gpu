@@ -1,0 +1,28 @@
+warn: system.ruby.network adopting orphan SimObject param 'int_links'
+warn: system.ruby.network adopting orphan SimObject param 'ext_links'
+warn: Sockets disabled, not accepting gdb connections
+warn: Should add sanity check for access-host-pagetable under ARM!
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
+warn: Parameter size is 8B, but 4B passed, possibly a pointer:
+      Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU
+      This may fail if using structs/unions containing pointer types
