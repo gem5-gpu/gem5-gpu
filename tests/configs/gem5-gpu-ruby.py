@@ -1,5 +1,5 @@
 # Copyright (c) 2006-2008 The Regents of The University of Michigan
-# Copyright (c) 2012-2013 Mark D. Hill and David A. Wood
+# Copyright (c) 2012-2015 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
 #
 # Memory space configuration
 #
-(cpu_mem_range, gpu_mem_range) = GPUConfig.configureMemorySpaces(options)
+(cpu_mem_range, gpu_mem_range, total_mem_range) = GPUConfig.configureMemorySpaces(options)
 
 # Hard code the cache block width to 128B for now
 # TODO: Remove this if/when block size can be different than 128B
@@ -149,19 +149,12 @@ system.cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
                                        voltage_domain =
                                        system.cpu_voltage_domain)
 
-mem_ctrls = [SimpleMemory(range = cpu_mem_range)]
-system.mem_ctrls = mem_ctrls
-
 Simulation.setWorkCountOptions(system, options)
 
 #
 # Create the GPU
 #
 system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
-
-if options.split:
-    system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
-    system.mem_ranges.append(gpu_mem_range)
 
 #
 # Setup Ruby
@@ -172,6 +165,14 @@ Ruby.create_system(options, False, system)
 
 system.gpu.ruby = system.ruby
 system.ruby.clk_domain = system.ruby_clk_domain
+
+if options.split:
+    if options.access_backing_store:
+        #
+        # Reset Ruby's phys_mem to add the device memory range
+        #
+        system.ruby.phys_mem = SimpleMemory(range=total_mem_range,
+                                            in_addr_map=False)
 
 #
 # Connect CPU ports

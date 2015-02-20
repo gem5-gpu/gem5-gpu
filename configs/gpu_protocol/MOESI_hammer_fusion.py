@@ -130,67 +130,71 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
         cntrl_count += 1
 
-    ############################################################################
-    # Pagewalk cache
-    # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
-    #       cache coherence (as the GPU L1 caches are incoherent without flushes
-    #       The L2 cache is small, and should have minimal affect on the
-    #       performance (see Section 6.2 of Power et al. HPCA 2014).
-    pwd_cache = L1Cache(size = options.pwc_size,
-                            assoc = 16, # 64 is fully associative @ 8kB
-                            replacement_policy = "LRU",
-                            start_index_bit = block_size_bits,
-                            latency = 8,
-                            resourceStalls = False)
-    # Small cache since CPU L1 requires I and D
-    pwi_cache = L1Cache(size = "512B",
-                            assoc = 2,
-                            replacement_policy = "LRU",
-                            start_index_bit = block_size_bits,
-                            latency = 8,
-                            resourceStalls = False)
-    # Small cache since CPU L1 controller requires L2
-    l2_cache = L2Cache(size = "512B",
-                           assoc = 2,
-                           start_index_bit = block_size_bits,
-                           latency = 1,
-                           resourceStalls = False)
+    if not options.split:
+        ########################################################################
+        # Pagewalk cache
+        # NOTE: We use a CPU L1 cache controller here. This is to facilatate MMU
+        #       cache coherence (as the GPU L1 caches are incoherent without
+        #       flushes. The L2 cache is small, and should have minimal affect
+        #       on the performance (see Section 6.2 of Power et al. HPCA 2014).
+        pwd_cache = L1Cache(size = options.pwc_size,
+                                assoc = 16, # 64 is fully associative @ 8kB
+                                replacement_policy = "LRU",
+                                start_index_bit = block_size_bits,
+                                latency = 8,
+                                resourceStalls = False)
+        # Small cache since CPU L1 requires I and D
+        pwi_cache = L1Cache(size = "512B",
+                                assoc = 2,
+                                replacement_policy = "LRU",
+                                start_index_bit = block_size_bits,
+                                latency = 8,
+                                resourceStalls = False)
+        # Small cache since CPU L1 controller requires L2
+        l2_cache = L2Cache(size = "512B",
+                               assoc = 2,
+                               start_index_bit = block_size_bits,
+                               latency = 1,
+                               resourceStalls = False)
 
-    l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  L1Icache = pwi_cache,
-                                  L1Dcache = pwd_cache,
-                                  L2cache = l2_cache,
-                                  send_evictions = False,
-                                  cache_response_latency = 1,
-                                  l2_cache_hit_latency = 1,
-                                  number_of_TBEs = options.gpu_l1_buf_depth,
-                                  ruby_system = ruby_system)
+        l1_cntrl = L1Cache_Controller(version = options.num_cpus + \
+                                                options.num_sc,
+                                      L1Icache = pwi_cache,
+                                      L1Dcache = pwd_cache,
+                                      L2cache = l2_cache,
+                                      send_evictions = False,
+                                      cache_response_latency = 1,
+                                      l2_cache_hit_latency = 1,
+                                      number_of_TBEs = options.gpu_l1_buf_depth,
+                                      ruby_system = ruby_system)
 
-    cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
-                            icache = pwd_cache, # Never get data from pwi_cache
-                            dcache = pwd_cache,
-                            max_outstanding_requests = options.gpu_l1_buf_depth,
-                            ruby_system = ruby_system,
-                            deadlock_threshold = 2000000,
-                            connect_to_io = False)
+        cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
+                                # Never get data from pwi_cache
+                                icache = pwd_cache,
+                                dcache = pwd_cache,
+                                max_outstanding_requests = \
+                                    options.gpu_l1_buf_depth,
+                                ruby_system = ruby_system,
+                                deadlock_threshold = 2000000,
+                                connect_to_io = False)
 
-    l1_cntrl.sequencer = cpu_seq
+        l1_cntrl.sequencer = cpu_seq
 
 
-    ruby_system.l1_pw_cntrl = l1_cntrl
-    cpu_sequencers.append(cpu_seq)
+        ruby_system.l1_pw_cntrl = l1_cntrl
+        cpu_sequencers.append(cpu_seq)
 
-    topology.addController(l1_cntrl)
+        topology.addController(l1_cntrl)
 
-    # Connect the L1 controller and the network
-    # Connect the buffers from the controller to network
-    l1_cntrl.requestFromCache = ruby_system.network.slave
-    l1_cntrl.responseFromCache = ruby_system.network.slave
-    l1_cntrl.unblockFromCache = ruby_system.network.slave
+        # Connect the L1 controller and the network
+        # Connect the buffers from the controller to network
+        l1_cntrl.requestFromCache = ruby_system.network.slave
+        l1_cntrl.responseFromCache = ruby_system.network.slave
+        l1_cntrl.unblockFromCache = ruby_system.network.slave
 
-    # Connect the buffers from the network to the controller
-    l1_cntrl.forwardToCache = ruby_system.network.master
-    l1_cntrl.responseToCache = ruby_system.network.master
+        # Connect the buffers from the network to the controller
+        l1_cntrl.forwardToCache = ruby_system.network.master
+        l1_cntrl.responseToCache = ruby_system.network.master
 
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)

@@ -1,5 +1,5 @@
 # Copyright (c) 2009-2012 Advanced Micro Devices, Inc.
-# Copyright (c) 2012-2013 Mark D. Hill and David A. Wood
+# Copyright (c) 2012-2015 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,7 @@ if options.cpu_type != "timing" and options.cpu_type != "detailed":
 #
 # Memory space configuration
 #
-(cpu_mem_range, gpu_mem_range) = GPUConfig.configureMemorySpaces(options)
+(cpu_mem_range, gpu_mem_range, total_mem_range) = GPUConfig.configureMemorySpaces(options)
 
 #
 # Setup benchmark to be run
@@ -142,11 +142,6 @@ if options.script is not None:
 #
 system.gpu = GPUConfig.createGPU(options, gpu_mem_range)
 
-if options.split:
-    system.mem_ranges.append(gpu_mem_range)
-    system.gpu_physmem = SimpleMemory(range = gpu_mem_range)
-    system.gpu_physmem.port = system.iobus.master
-
 #
 # Setup Ruby
 #
@@ -159,6 +154,14 @@ system.ruby.clk_domain = system.ruby_clk_domain
 
 # connect the PIO bus
 system.iobus.master = system.ruby._io_port.slave
+
+if options.split:
+    if options.access_backing_store:
+        #
+        # Reset Ruby's phys_mem to add the device memory range
+        #
+        system.ruby.phys_mem = SimpleMemory(range=total_mem_range,
+                                            in_addr_map=False)
 
 #
 # Connect CPU ports

@@ -81,7 +81,7 @@ def configureMemorySpaces(options):
         cpu_mem_range = AddrRange(options.total_mem_size)
     else:
         buildEnv['PROTOCOL'] +=  '_fusion'
-    return (cpu_mem_range, gpu_mem_range)
+    return (cpu_mem_range, gpu_mem_range, total_mem_range)
 
 def parseGpgpusimConfig(options):
     # parse gpgpu config file
