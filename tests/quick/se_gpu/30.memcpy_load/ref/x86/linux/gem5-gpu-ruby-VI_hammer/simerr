@@ -1,0 +1,4 @@
+warn: system.ruby.network adopting orphan SimObject param 'int_links'
+warn: system.ruby.network adopting orphan SimObject param 'ext_links'
+warn: Sockets disabled, not accepting gdb connections
+warn: ignoring syscall access(4998977, ...)

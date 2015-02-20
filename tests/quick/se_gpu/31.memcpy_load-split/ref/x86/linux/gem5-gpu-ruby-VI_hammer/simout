@@ -1,0 +1,287 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Feb 20 2015 00:01:19
+gem5 started Feb 20 2015 09:35:44
+gem5 executing on artery
+command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer
+tests/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer
+Warning: Only block size currently supported is 128B. Defaulting to 128.
+Using template and command line options for gpgpusim.config
+Global frequency set at 1000000000000 ticks per second
+
+
+        *** GPGPU-Sim Simulator Version 3.2.2  [build 17315] ***
+
+
+GPGPU-Sim PTX: simulation mode 0 (can change with PTX_SIM_MODE_FUNC environment variable:
+               1=functional simulation only, 0=detailed performance simulator)
+GPGPU-Sim: Configuration options:
+
+-network_mode                           1 # Interconnection network mode
+-inter_config_file   build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer/config_fermi_islip.icnt # Interconnection network config file
+-gpgpu_ptx_use_cuobjdump                    0 # Use cuobjdump to extract ptx and sass from binaries
+-gpgpu_experimental_lib_support                    0 # Try to extract code from cuda libraries [Broken because of unknown cudaGetExportTable]
+-gpgpu_ptx_convert_to_ptxplus                    0 # Convert SASS (native ISA) to ptxplus and run ptxplus
+-gpgpu_ptx_force_max_capability                   20 # Force maximum compute capability
+-gpgpu_ptx_inst_debug_to_file                    0 # Dump executed instructions' debug information to file
+-gpgpu_ptx_inst_debug_file       inst_debug.txt # Executed instructions' debug output file
+-gpgpu_ptx_inst_debug_thread_uid                    1 # Thread UID for executed instructions' debug output
+-gpgpu_simd_model                       1 # 1 = post-dominator
+-gpgpu_shader_core_pipeline              1536:32 # shader core pipeline config, i.e., {<nthread>:<warpsize>}
+-gpgpu_tex_cache:l1  4:128:24,L:R:m:N,F:128:4,128:2 # per-shader L1 texture cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
+-gpgpu_const_cache:l1 64:64:2,L:R:f:N,A:2:32,4 # per-shader L1 constant memory cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:il1     8:128:4,L:R:f:N,A:2:32,4 # shader L1 instruction cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:dl1                     none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PreShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gmem_skip_L1D                          0 # global memory access skip L1D cache (implements -Xptxas -dlcm=cg, default=no skip)
+-gpgpu_perfect_mem                      0 # enable perfect memory mode (no cache miss)
+-n_regfile_gating_group                    4 # group of lanes that should be read/written together)
+-gpgpu_clock_gated_reg_file                    0 # enable clock gated reg file for power calculations
+-gpgpu_clock_gated_lanes                    0 # enable clock gated lanes for power calculations
+-gpgpu_shader_registers                32768 # Number of registers per shader core. Limits number of concurrent CTAs. (default 8192)
+-gpgpu_shader_cta                       8 # Maximum number of concurrent CTAs in shader (default 8)
+-gpgpu_n_clusters                       4 # number of processing clusters
+-gpgpu_n_cores_per_cluster                    1 # number of simd cores per cluster
+-gpgpu_n_cluster_ejection_buffer_size                    8 # number of packets in ejection buffer
+-gpgpu_n_ldst_response_buffer_size                    2 # number of response packets in ld/st unit ejection buffer
+-gpgpu_shmem_size                   16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size                   49152 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefL1                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefShared                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_num_banks                   32 # Number of banks in the shared memory in each shader core (default 16)
+-gpgpu_shmem_limited_broadcast                    0 # Limit shared memory to do one broadcast per cycle (default on)
+-gpgpu_shmem_warp_parts                    1 # Number of portions a warp is divided into for shared memory bank conflict check 
+-gpgpu_warpdistro_shader                   -1 # Specify which shader core to collect the warp size distribution from
+-gpgpu_warp_issue_shader                    0 # Specify which shader core to collect the warp issue distribution from
+-gpgpu_local_mem_map                    1 # Mapping from local memory space address to simulated GPU physical address space (default = enabled)
+-gpgpu_num_reg_banks                   16 # Number of register banks (default = 8)
+-gpgpu_reg_bank_use_warp_id                    0 # Use warp ID in mapping registers to banks (default = off)
+-gpgpu_operand_collector_num_units_sp                    6 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_sfu                    8 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_mem                    2 # number of collector units (default = 2)
+-gpgpu_operand_collector_num_units_gen                    0 # number of collector units (default = 0)
+-gpgpu_operand_collector_num_in_ports_sp                    2 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_operand_collector_num_out_ports_sp                    2 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_coalesce_arch                   13 # Coalescing arch (default = 13, anything else is off for now)
+-gpgpu_num_sched_per_core                    2 # Number of warp schedulers per core
+-gpgpu_max_insn_issue_per_warp                    1 # Max number of instructions that can be issued per warp in one cycle by scheduler
+-gpgpu_simt_core_sim_order                    1 # Select the simulation order of cores in a cluster (0=Fix, 1=Round-Robin)
+-gpgpu_pipeline_widths        2,1,1,2,1,1,2 # Pipeline widths ID_OC_SP,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_SFU,OC_EX_MEM,EX_WB
+-gpgpu_num_sp_units                     2 # Number of SP units (default=1)
+-gpgpu_num_sfu_units                    1 # Number of SF units (default=1)
+-gpgpu_num_mem_units                    1 # Number if ldst units (default=1) WARNING: not hooked up to anything
+-gpgpu_scheduler                      gto # Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
+-gpgpu_dram_scheduler                    1 # 0 = fifo, 1 = FR-FCFS (defaul)
+-gpgpu_dram_partition_queues              8:8:8:8 # i2$:$2d:d2$:$2i
+-l2_ideal                               0 # Use a ideal L2 cache that always hit
+-gpgpu_cache:dl2     64:256:8,L:B:m:W,A:32:4,4:0,32 # unified banked L2 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
+-gpgpu_cache:dl2_texture_only                    0 # L2 cache used for texture only
+-gpgpu_n_mem                            1 # number of memory modules (e.g. memory controllers) in gpu
+-gpgpu_n_sub_partition_per_mchannel                    2 # number of memory subpartition in each memory module
+-gpgpu_n_mem_per_ctrlr                    2 # number of memory chips per memory controller
+-gpgpu_memlatency_stat                   14 # track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
+-gpgpu_frfcfs_dram_sched_queue_size                   16 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_return_queue_size                  116 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_buswidth                    4 # default = 4 bytes (8 bytes per cycle at DDR)
+-gpgpu_dram_burst_length                    8 # Burst length of each DRAM request (default = 4 data bus cycle)
+-dram_data_command_freq_ratio                    4 # Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
+-gpgpu_dram_timing_opt nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=4:CCDL=3:RTPL=2 # DRAM timing parameters = {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
+-rop_latency                          120 # ROP queue latency (default 85)
+-dram_latency                         100 # DRAM latency (default 30)
+-gpgpu_mem_addr_mapping dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.BBBCCCCB.CCSSSSSS # mapping memory address to dram model {dramid@<start bit>;<memory address map>}
+-gpgpu_mem_addr_test                    0 # run sweep test to check address mapping for aliased address
+-gpgpu_mem_address_mask                    1 # 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
+-gpuwattch_xml_file         gpuwattch.xml # GPUWattch XML file
+-power_simulation_enabled                    0 # Turn on power simulator (1=On, 0=Off)
+-power_per_cycle_dump                    0 # Dump detailed power output each cycle
+-power_trace_enabled                    0 # produce a file for the power trace (1=On, 0=Off)
+-power_trace_zlevel                     6 # Compression level of the power trace output log (0=no comp, 9=highest)
+-steady_power_levels_enabled                    0 # produce a file for the steady power levels (1=On, 0=Off)
+-steady_state_definition                  8:4 # allowed deviation:number of samples
+-gpgpu_max_cycle                        0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_insn                         0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_cta                          0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_runtime_stat                 50000 # display runtime statistics such as dram utilization {<freq>:<flag>}
+-liveness_message_freq                    1 # Minimum number of seconds between simulation liveness messages (0 = always print)
+-gpgpu_flush_l1_cache                    0 # Flush L1 cache at the end of each kernel call
+-gpgpu_flush_l2_cache                    0 # Flush L2 cache at the end of each kernel call
+-gpgpu_deadlock_detect                    1 # Stop the simulation at deadlock (1=on (default), 0=off)
+-gpgpu_ptx_instruction_classification                    0 # if enabled will classify ptx instruction types per kernel (Max 255 kernels now)
+-gpgpu_ptx_sim_mode                     0 # Select between Performance (default) or Functional simulation (1)
+-gpgpu_clock_domains 700.0:1400.0:700.0:1848.0 # Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT Clock>:<L2 Clock>:<DRAM Clock>}
+-gpgpu_max_concurrent_kernel                    8 # maximum kernels that can run concurrently on GPU
+-gpgpu_cflog_interval                    0 # Interval between each snapshot in control flow logger
+-visualizer_enabled                     0 # Turn on visualizer output (1=On, 0=Off)
+-visualizer_outputfile                 NULL # Specifies the output log file for visualizer
+-visualizer_zlevel                      6 # Compression level of the visualizer output log (0=no comp, 9=highest)
+-trace_enabled                          0 # Turn on traces
+-trace_components                    none # comma seperated list of traces to enable. Complete list found in trace_streams.tup. Default none
+-trace_sampling_core                    0 # The core which is printed using CORE_DPRINTF. Default 0
+-trace_sampling_memory_partition                   -1 # The memory partition which is printed using MEMPART_DPRINTF. Default -1 (i.e. all)
+-enable_ptx_file_line_stats                    0 # Turn on PTX source line statistic profiling. (1 = On)
+-ptx_line_stats_filename gpgpu_inst_stats.txt # Output file for PTX source line statistics.
+-save_embedded_ptx                      0 # saves ptx files embedded in binary as <n>.ptx
+-keep                                   0 # keep intermediate files created by GPGPU-Sim when interfacing with external programs
+-gpgpu_ptx_save_converted_ptxplus                    0 # Saved converted ptxplus to a file
+-ptx_opcode_latency_int         4,13,4,5,145 # Opcode latencies for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,19,25,145
+-ptx_opcode_latency_fp          4,13,4,5,39 # Opcode latencies for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,30
+-ptx_opcode_latency_dp         8,19,8,8,330 # Opcode latencies for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,335
+-ptx_opcode_initiation_int            1,2,2,1,8 # Opcode initiation intervals for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,4,4,32
+-ptx_opcode_initiation_fp            1,2,1,1,4 # Opcode initiation intervals for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,5
+-ptx_opcode_initiation_dp         8,16,8,8,130 # Opcode initiation intervals for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,130
+DRAM Timing Options:
+nbk                                    16 # number of banks
+CCD                                     2 # column to column delay
+RRD                                     6 # minimal delay between activation of rows in different banks
+RCD                                    12 # row to column delay
+RAS                                    28 # time needed to activate row
+RP                                     12 # time needed to precharge (deactivate) row
+RC                                     40 # row cycle time
+CDLR                                    5 # switching from write to read (changes tWTR)
+WR                                     12 # last data-in to row precharge
+CL                                     12 # CAS latency
+WL                                      4 # Write latency
+nbkgrp                                  4 # number of bank groups
+CCDL                                    3 # column to column delay between accesses to different bank groups
+RTPL                                    2 # read to precharge delay between accesses to different bank groups
+Total number of memory sub partition = 2
+addr_dec_mask[CHIP]  = 0000000000000000 	high:64 low:0
+addr_dec_mask[BK]    = 000000000000e100 	high:16 low:8
+addr_dec_mask[ROW]   = 000000000fff0000 	high:28 low:16
+addr_dec_mask[COL]   = 0000000000001eff 	high:13 low:0
+addr_dec_mask[BURST] = 000000000000003f 	high:6 low:0
+sub_partition_id_mask = 0000000000000100
+GPGPU-Sim uArch: clock freqs: 700000000.000000:1400000000.000000:700000000.000000:1848000000.000000
+GPGPU-Sim uArch: clock periods: 0.00000000142857142857:0.00000000071428571429:0.00000000142857142857:0.00000000054112554113
+*** Initializing Memory Statistics ***
+GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
+GPGPU-Sim uArch: Memory nodes ID start from index: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: interconnect node reverse map (icntID to shaderID+MemID)
+GPGPU-Sim uArch: Memory nodes start from ID: 4
+GPGPU-Sim uArch:    0   1
+GPGPU-Sim uArch:    2   3
+GPGPU-Sim uArch:    4   5
+GPGPU-Sim uArch: performance model initialization complete.
+**** REAL SIMULATION ****
+info: Entering event queue @ 0.  Starting simulation...
+info: Increasing stack size by one page.
+gem5 + GPGPU-Sim CUDA RT: __cudaRegisterFatBinary2(*fatCubin = 0x6dee80, size = 2248)
+gem5 + GPGPU-Sim CUDA RT: Touching parts/pages of the binary...
+gem5 + GPGPU-Sim CUDA RT: magic: 518347265
+gem5 + GPGPU-Sim CUDA RT: ident: memcpy_load.cu
+gem5 + GPGPU-Sim CUDA RT: elf: ELF3
+gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 9
+gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_0dUp2M"
+Running: cat _ptx_0dUp2M | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_nHH8Dm
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_nHH8Dm --output-file  /dev/null 2> _ptx_0dUp2Minfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_0dUp2M _ptx2_nHH8Dm _ptx_0dUp2Minfo"
+Touch pages proof hash: 0
+Testing copy host-to-device:
+Size:	Malloc (s):	Copy (s):	Copy (GB/s):
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
+16384	0.000004	0.000012	5.059700
+24576	0.000002	0.000012	7.444522
+32768	0.000002	0.000014	8.992951
+49152	0.000002	0.000016	11.194319
+65536	0.000002	0.000019	12.786248
+98304	0.000002	0.000024	14.955321
+131072	0.000002	0.000030	16.299948
+196608	0.000002	0.000041	18.000488
+262144	0.000002	0.000052	18.925263
+393216	0.000002	0.000073	19.974416
+524288	0.000002	0.000095	20.588251
+
+
+Testing copy device-to-host:
+Size:	Malloc (s):	Copy (s):	Copy (GB/s):
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim API:    stream 0 has 1 operations
+GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
+16384	0.000002	0.000011	5.523044
+24576	0.000002	0.000012	7.454220
+32768	0.000002	0.000014	8.892068
+49152	0.000002	0.000016	11.097974
+65536	0.000002	0.000019	12.621000
+98304	0.000002	0.000025	14.691336
+131072	0.000002	0.000031	15.961598
+196608	0.000002	0.000042	17.511162
+262144	0.000002	0.000053	18.468918
+393216	0.000002	0.000075	19.452920
+524288	0.000002	0.000098	20.021578
+
+Exiting @ tick 1401212000 because target called exit()
