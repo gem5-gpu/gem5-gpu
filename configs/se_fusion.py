@@ -128,9 +128,6 @@ system.cpu_clk_domain = SrcClockDomain(clock = options.cpu_clock,
                                        voltage_domain =
                                        system.cpu_voltage_domain)
 
-mem_ctrls = [SimpleMemory(range = cpu_mem_range)]
-system.mem_ctrls = mem_ctrls
-
 Simulation.setWorkCountOptions(system, options)
 
 #
