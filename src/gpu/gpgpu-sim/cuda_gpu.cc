@@ -100,9 +100,8 @@ CudaGPU::CudaGPU(const Params *p) :
     physicalGPUBrkAddr = gpuMemoryRange.start();
 
     // Initialize GPGPU-Sim
-    theGPU = gem5_ptx_sim_init_perf(&streamManager, getSharedMemDelay(), getConfigPath());
+    theGPU = gem5_ptx_sim_init_perf(&streamManager, this, getConfigPath());
     theGPU->init();
-    theGPU->setCudaGPU(this);
 
     // Set up the component wrappers in order to cycle the GPGPU-Sim
     // shader cores, interconnect, L2 cache and DRAM
