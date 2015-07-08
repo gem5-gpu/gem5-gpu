@@ -870,6 +870,8 @@ cudaFuncGetAttributes(ThreadContext *tc, gpusyscall_t *call_params)
     Addr sim_attr = *((Addr*)helper.getParam(0, true));
     Addr sim_hostFun = *((Addr*)helper.getParam(1, true));
 
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaFuncGetAttributes(attr* = %x, hostFun* = %x)\n", sim_attr, sim_hostFun);
+
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     function_info *entry = cudaGPU->get_kernel((const char*)sim_hostFun);
 
