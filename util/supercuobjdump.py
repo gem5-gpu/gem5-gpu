@@ -41,6 +41,7 @@ def cleanVisibleFuncLine(line):
     return line[start:end]
 
 parser = optparse.OptionParser()
+parser.add_option("--debug", action="store_true", default=False, help="Debug print all lines")
 parser.add_option("--decimal", action="store_true", default=False, help="Print PCs in decimal")
 (options, args) = parser.parse_args()
 
@@ -65,6 +66,8 @@ last_func_line = ''
 pc = 0
 
 for line in output.split('\n'):
+    if options.debug:
+        print 'DEBUG: %s' % line
     line = line.replace('\t','    ')
     end = line.find('//')
     if end < 0:
