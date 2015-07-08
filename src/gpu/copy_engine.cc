@@ -342,7 +342,9 @@ int GPUCopyEngine::memcpy(Addr src, Addr dst, size_t length, stream_operation_ty
         readsDone[i] = false;
     }
 
-    schedule(tickEvent, nextCycle() + driverDelay);
+    if (!tickEvent.scheduled()) {
+        schedule(tickEvent, nextCycle() + driverDelay);
+    }
 
     return 0;
 }
@@ -381,7 +383,9 @@ int GPUCopyEngine::memset(Addr dst, int value, size_t length)
         readsDone[i] = true;
     }
 
-    schedule(tickEvent, nextCycle() + driverDelay);
+    if (!tickEvent.scheduled()) {
+        schedule(tickEvent, nextCycle() + driverDelay);
+    }
 
     return 0;
 }
