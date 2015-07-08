@@ -63,6 +63,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_tlb_entries", type="int", default=0, help="Number of entries in GPU TLB. 0 implies infinite")
     parser.add_option("--gpu_tlb_assoc", type="int", default=0, help="Associativity of the L1 TLB. 0 implies infinite")
     parser.add_option("--pwc_size", default="8kB", help="Capacity of the page walk cache")
+    parser.add_option("--ce_buffering", type="int", default=128, help="Maximum cache lines buffered in the GPU CE. 0 implies infinite")
 
 def configureMemorySpaces(options):
     total_mem_range = AddrRange(options.total_mem_size)
@@ -207,7 +208,9 @@ def createGPU(options, gpu_mem_range):
     warps_per_core = options.gpu_threads_per_core / options.gpu_warp_size
     gpu.shader_cores = [CudaCore(id = i, warp_contexts = warps_per_core)
                             for i in xrange(options.num_sc)]
-    gpu.ce = GPUCopyEngine(driver_delay = 5000000)
+
+    gpu.ce = GPUCopyEngine(driver_delay = 5000000,
+                           buffering = options.ce_buffering)
 
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()

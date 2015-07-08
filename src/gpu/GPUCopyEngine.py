@@ -43,6 +43,10 @@ class GPUCopyEngine(MemObject):
     # @TODO: This will need to be removed when CUDA syscalls manage copies
     gpu = Param.CudaGPU(Parent.any, "The GPU")
 
+    cache_line_size = Param.Unsigned(Parent.cache_line_size, "Cache line size in bytes")
+    buffering = Param.Unsigned(0, "The maximum cache lines that the copy engine"
+                                  "can buffer (0 implies effectively infinite)")
+
     host_dtb = Param.ShaderTLB(ShaderTLB(access_host_pagetable = True), "TLB for the host memory space")
     device_dtb = Param.ShaderTLB(ShaderTLB(), "TLB for the device memory space")
 

@@ -249,28 +249,49 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     #
     cache = L1Cache(size = "4096B", assoc = 2)
 
+    # Setting options.ce_buffering = 0 indicates that the CE can use infinite
+    # buffering, but we need to specify a finite number of outstandng accesses
+    # that the CE is allowed to issue. Just set it to some large number greater
+    # than normal memory access latencies to ensure that the sequencer could
+    # service one access per cycle.
+    max_out_reqs = options.ce_buffering
+    if max_out_reqs == 0:
+        max_out_reqs = 1024
+
     gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc+1,
                                icache = cache,
                                dcache = cache,
-                               max_outstanding_requests = 64,
+                               max_outstanding_requests = max_out_reqs,
                                support_inst_reqs = False,
                                ruby_system = ruby_system,
                                connect_to_io = False)
 
     gpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
                                   sequencer = gpu_ce_seq,
-                                  number_of_TBEs = 256,
+                                  number_of_TBEs = max_out_reqs,
                                   ruby_system = ruby_system)
+
+    gpu_ce_cntrl.responseFromDir = ruby_system.network.master
+    gpu_ce_cntrl.reqToDirectory = ruby_system.network.slave
 
     ruby_system.l1_cntrl_ce = gpu_ce_cntrl
 
     all_sequencers.append(gpu_ce_seq)
 
-    gpu_ce_cntrl.responseFromDir = ruby_system.network.master
-    gpu_ce_cntrl.reqToDirectory = ruby_system.network.slave
+    # To limit the copy engine's bandwidth, we add it to a limited bandwidth
+    # cluster. Approximate settings are as follows (assuming 2GHz Ruby clock):
+    #   PCIe v1.x x16 effective bandwidth ~= 4GB/s: intBW = 3, extBW = 3
+    #   PCIe v2.x x16 effective bandwidth ~= 8GB/s: intBW = 5, extBW = 5
+    #   PCIe v3.x x16 effective bandwidth ~= 16GB/s: intBW = 10, extBW = 10
+    #   PCIe v4.x x16 effective bandwidth ~= 32GB/s: intBW = 21, extBW = 21
+    # NOTE: Bandwidth may bottleneck at other parts of the memory hierarchy,
+    # so bandwidth considerations should be made in other parts of the memory
+    # hierarchy also.
+    gpu_ce_cluster = Cluster(intBW = 10, extBW = 10)
+    gpu_ce_cluster.add(gpu_ce_cntrl)
 
     complete_cluster = Cluster(intBW = 32, extBW = 32)
-    complete_cluster.add(gpu_ce_cntrl)
+    complete_cluster.add(gpu_ce_cluster)
     complete_cluster.add(cpu_cluster)
     complete_cluster.add(gpu_cluster)
 

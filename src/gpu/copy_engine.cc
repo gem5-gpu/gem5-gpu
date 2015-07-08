@@ -36,8 +36,6 @@
 #include "params/GPUCopyEngine.hh"
 #include "sim/system.hh"
 
-#define READ_AMOUNT 128
-
 using namespace std;
 
 GPUCopyEngine::GPUCopyEngine(const Params *p) :
@@ -45,7 +43,8 @@ GPUCopyEngine::GPUCopyEngine(const Params *p) :
     hostPort(name() + ".hostPort", this, 0),
     devicePort(name() + ".devicePort", this, 0), readPort(NULL),
     writePort(NULL), tickEvent(this), masterId(p->sys->getMasterId(name())),
-    cudaGPU(p->gpu), driverDelay(p->driver_delay), hostDTB(p->host_dtb),
+    cudaGPU(p->gpu), cacheLineSize(p->cache_line_size),
+    driverDelay(p->driver_delay), hostDTB(p->host_dtb),
     deviceDTB(p->device_dtb), readDTB(NULL), writeDTB(NULL)
 {
     DPRINTF(GPUCopyEngine, "Created copy engine\n");
@@ -57,6 +56,8 @@ GPUCopyEngine::GPUCopyEngine(const Params *p) :
     registerExitCallback(&ceExitCB);
 
     cudaGPU->registerCopyEngine(this);
+
+    bufferDepth = p->buffering * cacheLineSize;
 }
 
 Tick GPUCopyEngine::CEPort::recvAtomic(PacketPtr pkt)
@@ -173,11 +174,11 @@ void GPUCopyEngine::tryRead()
     }
 
     int size;
-    if (currentReadAddr % READ_AMOUNT) {
-        size = READ_AMOUNT - (currentReadAddr % READ_AMOUNT);
+    if (currentReadAddr % cacheLineSize) {
+        size = cacheLineSize - (currentReadAddr % cacheLineSize);
         DPRINTF(GPUCopyEngine, "Aligning\n");
     } else {
-        size = READ_AMOUNT;
+        size = cacheLineSize;
     }
     size = readLeft > (size - 1) ? size : readLeft;
     req->setVirt(asid, currentReadAddr, size, flags, masterId, pc);
@@ -217,11 +218,11 @@ void GPUCopyEngine::tryWrite()
     }
 
     int size;
-    if (currentWriteAddr % READ_AMOUNT) {
-        size = READ_AMOUNT - (currentWriteAddr % READ_AMOUNT);
+    if (currentWriteAddr % cacheLineSize) {
+        size = cacheLineSize - (currentWriteAddr % cacheLineSize);
         DPRINTF(GPUCopyEngine, "Aligning\n");
     } else {
-        size = READ_AMOUNT;
+        size = cacheLineSize;
     }
     size = writeLeft > size-1 ? size : writeLeft;
 
@@ -262,13 +263,18 @@ void GPUCopyEngine::tryWrite()
     }
 }
 
+bool GPUCopyEngine::buffersFull() {
+    unsigned amount_buffered = readDone - (totalLength - writeLeft);
+    return (bufferDepth > 0) && (amount_buffered > bufferDepth);
+}
+
 void GPUCopyEngine::tick()
 {
     if (!running) return;
     if (readPort->isStalled() && writePort->isStalled()) {
         DPRINTF(GPUCopyEngine, "Stalled\n");
     } else {
-        if (needToRead && !readPort->isStalled()) {
+        if (needToRead && !readPort->isStalled() && !buffersFull()) {
             DPRINTF(GPUCopyEngine, "trying read\n");
             tryRead();
         }

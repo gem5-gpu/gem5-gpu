@@ -118,6 +118,9 @@ private:
 private:
     CudaGPU *cudaGPU;
 
+    unsigned cacheLineSize;
+    unsigned bufferDepth;
+    bool buffersFull();
     void tick();
 
     int driverDelay;
