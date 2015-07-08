@@ -490,7 +490,8 @@ class CudaGPU : public ClockedObject
     void memcpy(void *src, void *dst, size_t count, struct CUstream_st *stream, stream_operation_type type);
 
     /// Begins a timing memory copy from src to/from the symbol+offset
-    void memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *stream);
+    void memcpy_to_symbol(const char *hostVar, const void *src, size_t count, size_t offset, struct CUstream_st *stream);
+    void memcpy_from_symbol(void *dst, const char *hostVar, size_t count, size_t offset, struct CUstream_st *stream);
 
     /// Begins a timing memory set of value to dst
     void memset(Addr dst, int value, size_t count, struct CUstream_st *stream);

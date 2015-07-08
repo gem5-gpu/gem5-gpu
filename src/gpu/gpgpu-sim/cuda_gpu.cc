@@ -463,27 +463,42 @@ void CudaGPU::memcpy(void *src, void *dst, size_t count, struct CUstream_st *_st
     copyEngine->memcpy((Addr)src, (Addr)dst, count, type);
 }
 
-void CudaGPU::memcpy_symbol(const char *hostVar, const void *src, size_t count, size_t offset, int to, struct CUstream_st *_stream) {
+void CudaGPU::memcpy_to_symbol(const char *hostVar, const void *src, size_t count, size_t offset, struct CUstream_st *_stream) {
     // First, initialize the stream operation
     beginStreamOperation(_stream);
 
     // Lookup destination address for transfer:
     std::string sym_name = gpgpu_ptx_sim_hostvar_to_sym_name(hostVar);
     std::map<std::string,symbol_table*>::iterator st = g_sym_name_to_symbol_table.find(sym_name.c_str());
-    assert( st != g_sym_name_to_symbol_table.end() );
+    assert(st != g_sym_name_to_symbol_table.end());
     symbol_table *symtab = st->second;
 
     symbol *sym = symtab->lookup(sym_name.c_str());
     assert(sym);
     unsigned dst = sym->get_address() + offset;
-    printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes %s symbol %s+%zu @0x%x ...\n",
-           count, (to ? "to" : "from"), sym_name.c_str(), offset, dst);
+    printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes to symbol %s+%zu @0x%x ...\n",
+           count, sym_name.c_str(), offset, dst);
 
-    if (to) {
-        copyEngine->memcpy((Addr)src, (Addr)dst, count, stream_memcpy_host_to_device);
-    } else {
-        copyEngine->memcpy((Addr)dst, (Addr)src, count, stream_memcpy_device_to_host);
-    }
+    copyEngine->memcpy((Addr)src, (Addr)dst, count, stream_memcpy_host_to_device);
+}
+
+void CudaGPU::memcpy_from_symbol(void *dst, const char *hostVar, size_t count, size_t offset, struct CUstream_st *_stream) {
+    // First, initialize the stream operation
+    beginStreamOperation(_stream);
+
+    // Lookup destination address for transfer:
+    std::string sym_name = gpgpu_ptx_sim_hostvar_to_sym_name(hostVar);
+    std::map<std::string,symbol_table*>::iterator st = g_sym_name_to_symbol_table.find(sym_name.c_str());
+    assert(st != g_sym_name_to_symbol_table.end());
+    symbol_table *symtab = st->second;
+
+    symbol *sym = symtab->lookup(sym_name.c_str());
+    assert(sym);
+    unsigned src = sym->get_address() + offset;
+    printf("GPGPU-Sim PTX: gpgpu_ptx_sim_memcpy_symbol: copying %zu bytes from symbol %s+%zu @0x%x ...\n",
+           count, sym_name.c_str(), offset, src);
+
+    copyEngine->memcpy((Addr)src, (Addr)dst, count, stream_memcpy_device_to_host);
 }
 
 void CudaGPU::memset(Addr dst, int value, size_t count, struct CUstream_st *_stream) {

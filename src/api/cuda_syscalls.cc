@@ -505,10 +505,30 @@ cudaMemcpyToSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
     helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
 
-//__host__ cudaError_t CUDARTAPI cudaMemcpyFromSymbol(void *dst, const char *symbol, size_t count, size_t offset __dv(0), enum cudaMemcpyKind kind __dv(cudaMemcpyDeviceToHost)) {
 void
 cudaMemcpyFromSymbol(ThreadContext *tc, gpusyscall_t *call_params) {
-    cuda_not_implemented(__my_func__,__LINE__);
+    GPUSyscallHelper helper(tc, call_params);
+
+    Addr sim_dst = *((Addr*)helper.getParam(0, true));
+    Addr sim_symbol = *((Addr*)helper.getParam(1, true));
+    size_t sim_count = *((size_t*)helper.getParam(2));
+    size_t sim_offset = *((size_t*)helper.getParam(3));
+    enum cudaMemcpyKind sim_kind = *((enum cudaMemcpyKind*)helper.getParam(4));
+
+    CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
+
+    DPRINTF(GPUSyscalls, "gem5 GPU Syscall: cudaMemcpyToSymbol(symbol = %x, src = %x, count = %d, offset = %d, kind = %s)\n",
+            sim_symbol, sim_dst, sim_count, sim_offset, cudaMemcpyKindStrings[sim_kind]);
+
+    assert(sim_kind == cudaMemcpyDeviceToHost);
+    stream_operation mem_op((const char*)sim_symbol, (void*)sim_dst, sim_count, sim_offset, NULL);
+    mem_op.setThreadContext(tc);
+    g_stream_manager->push(mem_op);
+
+    bool suspend = cudaGPU->needsToBlock();
+    assert(suspend);
+    g_last_cudaError = cudaSuccess;
+    helper.setReturn((uint8_t*)&suspend, sizeof(bool));
 }
 
 /*******************************************************************************
