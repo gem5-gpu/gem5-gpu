@@ -408,6 +408,7 @@ class CudaGPU : public ClockedObject
     };
     GPUPageTable pageTable;
     bool manageGPUMemory;
+    bool accessHostPageTable;
     AddrRange gpuMemoryRange;
     Addr physicalGPUBrkAddr;
     Addr virtualGPUBrkAddr;

@@ -71,6 +71,7 @@ CudaGPU::CudaGPU(const Params *p) :
     runningTC(NULL), runningStream(NULL), runningTID(-1), clearTick(0),
     dumpKernelStats(p->dump_kernel_stats), pageTable(),
     manageGPUMemory(p->manage_gpu_memory),
+    accessHostPageTable(p->access_host_pagetable),
     gpuMemoryRange(p->gpu_memory_range), shaderMMU(p->shader_mmu)
 {
     // Register this device as a CUDA-enabled GPU
@@ -671,7 +672,7 @@ void CudaGPU::GPUPageTable::unserialize(Checkpoint *cp, const std::string &secti
 
 void CudaGPU::registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size)
 {
-    if (manageGPUMemory) return;
+    if (manageGPUMemory || accessHostPageTable) return;
     DPRINTF(CudaGPUPageTable, "Registering device memory vaddr: %x, size: %d\n", vaddr, size);
     // Get the physical address of full memory allocation (i.e. all pages)
     Addr page_vaddr, page_paddr;

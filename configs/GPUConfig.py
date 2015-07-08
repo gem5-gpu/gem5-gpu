@@ -223,6 +223,7 @@ def createGPU(options, gpu_mem_range):
 
     # This is a stop-gap solution until we implement a better way to register device memory
     if options.access_host_pagetable:
+        gpu.access_host_pagetable = True
         for sc in gpu.shader_cores:
             sc.itb.access_host_pagetable = True
             sc.lsq.data_tlb.access_host_pagetable = True
