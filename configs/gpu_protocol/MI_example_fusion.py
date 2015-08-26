@@ -33,8 +33,7 @@ import m5
 from m5.objects import *
 from m5.defines import buildEnv
 
-class Cache(RubyCache):
-    latency = 1
+class Cache(RubyCache): pass
 
 def create_system(options, full_system, system, dma_devices, ruby_system):
 
@@ -122,7 +121,6 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                      assoc = 16, # 64 is fully associative @ 8kB
                      replacement_policy = "LRU",
                      start_index_bit = block_size_bits,
-                     latency = 8,
                      resourceStalls = False)
 
     prefetcher = RubyPrefetcher.Prefetcher()
@@ -135,6 +133,8 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
                             icache = pw_cache,
                             dcache = pw_cache,
+                            icache_hit_latency = 8,
+                            dcache_hit_latency = 8,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
                             connect_to_io = False)

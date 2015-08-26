@@ -33,23 +33,9 @@ from m5.objects import *
 from m5.defines import buildEnv
 import MemConfig
 
-#
-# Note: the L1 Cache latency is only used by the sequencer on fast path hits
-#
-class L1Cache(RubyCache):
-    latency = 1
-
-#
-# Note: the L2 Cache latency is not currently used
-#
-class L2Cache(RubyCache):
-    latency = 10
-
-#
-# Probe filter is a cache, latency is not used
-#
-class ProbeFilter(RubyCache):
-    latency = 1
+class L1Cache(RubyCache): pass
+class L2Cache(RubyCache): pass
+class ProbeFilter(RubyCache): pass
 
 def create_system(options, full_system, system, dma_ports, ruby_system):
 

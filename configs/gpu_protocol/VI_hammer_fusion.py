@@ -34,17 +34,8 @@ from m5.objects import *
 from m5.defines import buildEnv
 from Cluster import Cluster
 
-#
-# Note: the L1 Cache latency is only used by the sequencer on fast path hits
-#
-class L1Cache(RubyCache):
-    latency = 1
-
-#
-# Note: the L2 Cache latency is not currently used
-#
-class L2Cache(RubyCache):
-    latency = 15
+class L1Cache(RubyCache): pass
+class L2Cache(RubyCache): pass
 
 def create_system(options, full_system, system, dma_devices, ruby_system):
 
@@ -201,21 +192,18 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                             assoc = 16, # 64 is fully associative @ 8kB
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits,
-                            latency = 8,
                             resourceStalls = False)
     # Small cache since CPU L1 requires I and D
     pwi_cache = L1Cache(size = "512B",
                             assoc = 2,
                             replacement_policy = "LRU",
                             start_index_bit = block_size_bits,
-                            latency = 8,
                             resourceStalls = False)
 
     # Small cache since CPU L1 controller requires L2
     l2_cache = L2Cache(size = "512B",
                            assoc = 2,
                            start_index_bit = block_size_bits,
-                           latency = 1,
                            resourceStalls = False)
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus,
@@ -232,6 +220,8 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
                             icache = pwd_cache, # Never get data from pwi_cache
                             dcache = pwd_cache,
+                            dcache_hit_latency = 8,
+                            icache_hit_latency = 8,
                             max_outstanding_requests = options.gpu_l1_buf_depth,
                             ruby_system = ruby_system,
                             deadlock_threshold = 2000000,
