@@ -33,7 +33,6 @@
 
 #include "mem/protocol/MachineType.hh"
 #include "mem/ruby/common/Address.hh"
-#include "mem/ruby/common/Global.hh"
 #include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/common/NetDest.hh"
 #include "mem/ruby/structures/DirectoryMemory.hh"
