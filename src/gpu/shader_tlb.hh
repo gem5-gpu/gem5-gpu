@@ -34,7 +34,7 @@
 
 #include "base/statistics.hh"
 #include "params/ShaderTLB.hh"
-#include "sim/tlb.hh"
+#include "arch/generic/tlb.hh"
 
 class ShaderMMU;
 class CudaGPU;

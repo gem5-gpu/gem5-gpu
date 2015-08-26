@@ -43,7 +43,7 @@
 #include "gpu/shader_tlb.hh"
 #include "sim/clocked_object.hh"
 #include "sim/faults.hh"
-#include "sim/tlb.hh"
+#include "arch/generic/tlb.hh"
 
 class ShaderMMU : public ClockedObject
 {
