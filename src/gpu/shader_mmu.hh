@@ -172,6 +172,10 @@ public:
     // Called after the pagetable walk from TranslationRequest
     void finishWalk(TranslationRequest *translation, Fault fault);
 
+    // Return whether there is a pending GPU fault for decisions about CPU
+    // thread handling
+    bool isFaultInFlight(ThreadContext *tc);
+
     /// Handle a page fault once it's done (called from CUDA API via CudaGPU)
     void handleFinishPageFault(ThreadContext *tc);
 

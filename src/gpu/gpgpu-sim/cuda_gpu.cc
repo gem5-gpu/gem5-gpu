@@ -539,9 +539,13 @@ void CudaGPU::blockThread(ThreadContext *tc, Addr signal_ptr)
         blockedThreads.erase(tc);
         unblockNeeded = false;
     } else {
-        DPRINTF(CudaGPU, "Blocking thread %p for GPU syscall\n", tc);
-        blockedThreads[tc] = signal_ptr;
-        tc->suspend();
+        if (!shaderMMU->isFaultInFlight(tc)) {
+            DPRINTF(CudaGPU, "Blocking thread %p for GPU syscall\n", tc);
+            blockedThreads[tc] = signal_ptr;
+            tc->suspend();
+        } else {
+            DPRINTF(CudaGPU, "Pending GPU fault must be handled: Not blocking thread\n");
+        }
     }
 }
 

@@ -402,6 +402,13 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
     }
 }
 
+bool
+ShaderMMU::isFaultInFlight(ThreadContext *tc)
+{
+    GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
+    return (fault_reg.inFault != 0) && (outstandingFaultStatus == InKernel || outstandingFaultStatus == Pending);
+}
+
 void
 ShaderMMU::setWalkerFree(TLB *walker)
 {
