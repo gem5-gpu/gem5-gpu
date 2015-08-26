@@ -94,7 +94,7 @@ Ruby.define_options(parser)
 
 # Use ruby
 options.ruby = True
-options.mem_type = "ruby_memory"
+options.mem_type = "RubyMemoryControl"
 
 if not args or len(args) != 1:
     print "Error: script expects a single positional argument"
@@ -207,7 +207,7 @@ for (i, cpu) in enumerate(system.cpu):
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-if options.mem_type == "ruby_memory":
+if options.mem_type == "RubyMemoryControl":
     GPUMemConfig.setMemoryControlOptions(system, options)
 
 #

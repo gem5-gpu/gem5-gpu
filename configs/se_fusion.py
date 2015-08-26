@@ -179,7 +179,7 @@ for (i, cpu) in enumerate(system.cpu):
 #
 GPUConfig.connectGPUPorts(system.gpu, system.ruby, options)
 
-if options.mem_type == "ruby_memory":
+if options.mem_type == "RubyMemoryControl":
     GPUMemConfig.setMemoryControlOptions(system, options)
 
 #
