@@ -293,7 +293,7 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
         assert(active_lanes.size() > 0);
 
         // Set this request to be a locked read-modify-write (swap)
-        flags.set(Request::LOCKED | Request::MEM_SWAP);
+        flags.set(Request::LOCKED_RMW | Request::MEM_SWAP);
 
         // The maximum number of atomic operations that can be sent to each
         // cache subblock (i.e. (1) above)
