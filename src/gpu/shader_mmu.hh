@@ -50,6 +50,9 @@ class ShaderMMU : public ClockedObject
 private:
     std::vector<TheISA::TLB*> pagewalkers;
     std::vector<bool> activeWalkers;
+#if THE_ISA == ARM_ISA
+    TheISA::Stage2MMU *stage2MMU;
+#endif
 
     // Latency for requests to reach the MMU from the L1 TLBs
     Cycles latency;

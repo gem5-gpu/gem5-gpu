@@ -44,6 +44,7 @@ class ShaderMMU(ClockedObject):
     elif buildEnv['TARGET_ISA'] == 'arm':
         from ArmTLB import ArmTLB
         pagewalkers = VectorParam.ArmTLB("wrapped TLB")
+        stage2_mmu = Param.ArmStage2MMU("Stage 2 MMU for port")
     else:
         fatal('ShaderMMU only supports x86 and ARM architectures currently')
 
@@ -55,6 +56,9 @@ class ShaderMMU(ClockedObject):
     prefetch_buffer_size = Param.Int(0, "Size of the prefetch buffer")
 
     def setUpPagewalkers(self, num, port, bypass_l1):
+        if buildEnv['TARGET_ISA'] == 'arm':
+            from ArmTLB import ArmTLB, ArmStage2DMMU
+            self.stage2_mmu = ArmStage2DMMU(tlb = ArmTLB())
         tlbs = []
         for i in range(num):
             # set to only a single entry here so that all requests are misses
@@ -63,7 +67,6 @@ class ShaderMMU(ClockedObject):
                 t = X86TLB(size=1)
                 t.walker.bypass_l1 = bypass_l1
             elif buildEnv['TARGET_ISA'] == 'arm':
-                from ArmTLB import ArmTLB
                 t = ArmTLB(size=1)
                 # ArmTLB does not yet include bypass_l1 option
             else:
@@ -72,4 +75,3 @@ class ShaderMMU(ClockedObject):
             t.walker.port = port
             tlbs.append(t)
         self.pagewalkers = tlbs
-

@@ -51,8 +51,11 @@ using namespace std;
 using namespace TheISA;
 
 ShaderMMU::ShaderMMU(const Params *p) :
-    ClockedObject(p), pagewalkers(p->pagewalkers), latency(p->latency),
-    outstandingFaultStatus(None), curOutstandingWalks(0),
+    ClockedObject(p), pagewalkers(p->pagewalkers),
+#if THE_ISA == ARM_ISA
+    stage2MMU(p->stage2_mmu),
+#endif
+    latency(p->latency), outstandingFaultStatus(None), curOutstandingWalks(0),
     prefetchBufferSize(p->prefetch_buffer_size)
 {
     activeWalkers.resize(pagewalkers.size());
@@ -61,6 +64,14 @@ ShaderMMU::ShaderMMU(const Params *p) :
     } else {
         tlb = NULL;
     }
+#if THE_ISA == ARM_ISA
+    vector<TheISA::TLB*>::iterator iter = pagewalkers.begin();
+    MasterID curr_walker_id = 0;
+    for (; iter != pagewalkers.end(); iter++) {
+        (*iter)->setMMU(stage2MMU, curr_walker_id);
+        curr_walker_id++;
+    }
+#endif
 }
 
 ShaderMMU::~ShaderMMU()
