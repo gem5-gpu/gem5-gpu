@@ -112,7 +112,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         #
         cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
-                            replacement_policy = "LRU",
+                            replacement_policy = LRUReplacementPolicy(),
                             start_index_bit = block_size_bits,
                             dataArrayBanks = 4,
                             tagArrayBanks = 4,
@@ -169,7 +169,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         l2_cache = L2Cache(size = options.sc_l2_size,
                            assoc = options.sc_l2_assoc,
                            start_index_bit = l2_index_start,
-                           replacement_policy = "LRU",
+                           replacement_policy = LRUReplacementPolicy(),
                            dataArrayBanks = 4,
                            tagArrayBanks = 4,
                            dataAccessLatency = 4,

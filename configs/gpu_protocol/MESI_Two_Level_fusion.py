@@ -76,11 +76,11 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         #
         l1i_cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
-                            replacement_policy = "LRU",
+                            replacement_policy = LRUReplacementPolicy(),
                             start_index_bit = block_size_bits)
         l1d_cache = L1Cache(size = options.sc_l1_size,
                             assoc = options.sc_l1_assoc,
-                            replacement_policy = "LRU",
+                            replacement_policy = LRUReplacementPolicy(),
                             start_index_bit = block_size_bits)
 
         prefetcher = RubyPrefetcher.Prefetcher()
@@ -138,13 +138,13 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     #       performance (see Section 6.2 of Power et al. HPCA 2014).
     pwd_cache = L1Cache(size = options.pwc_size,
                             assoc = 16, # 64 is fully associative @ 8kB
-                            replacement_policy = "LRU",
+                            replacement_policy = LRUReplacementPolicy(),
                             start_index_bit = block_size_bits,
                             resourceStalls = False)
     # Small cache since CPU L1 requires I and D
     pwi_cache = L1Cache(size = "512B",
                             assoc = 2,
-                            replacement_policy = "LRU",
+                            replacement_policy = LRUReplacementPolicy(),
                             start_index_bit = block_size_bits,
                             resourceStalls = False)
 

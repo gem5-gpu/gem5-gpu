@@ -72,7 +72,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         #
         cache = Cache(size = options.sc_l1_size,
                       assoc = options.sc_l1_assoc,
-                      replacement_policy = "LRU",
+                      replacement_policy = LRUReplacementPolicy(),
                       start_index_bit = block_size_bits)
 
 
@@ -119,7 +119,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     #       performance (see Section 6.2 of Power et al. HPCA 2014).
     pw_cache = Cache(size = options.pwc_size,
                      assoc = 16, # 64 is fully associative @ 8kB
-                     replacement_policy = "LRU",
+                     replacement_policy = LRUReplacementPolicy(),
                      start_index_bit = block_size_bits,
                      resourceStalls = False)
 
