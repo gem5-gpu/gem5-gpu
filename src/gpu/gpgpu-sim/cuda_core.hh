@@ -244,7 +244,7 @@ class CudaCore : public MemObject
                                           PortID idx = -1);
 
     // For checkpoint restore (empty unserialize)
-    virtual void unserialize(Checkpoint *cp, const std::string &section);
+    virtual void unserialize(CheckpointIn &cp);
 
     // Perform initialization. Called from SPA
     void initialize();

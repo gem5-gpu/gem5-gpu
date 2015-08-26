@@ -403,8 +403,8 @@ class CudaGPU : public ClockedObject
             return false;
         }
         /// For checkpointing
-        void serialize(std::ostream &os);
-        void unserialize(Checkpoint *cp, const std::string &section);
+        void serialize(CheckpointOut &cp) const;
+        void unserialize(CheckpointIn &cp);
     };
     GPUPageTable pageTable;
     bool manageGPUMemory;
@@ -423,8 +423,8 @@ class CudaGPU : public ClockedObject
     CudaGPU(const Params *p);
 
     /// For checkpointing
-    virtual void serialize(std::ostream &os);
-    virtual void unserialize(Checkpoint *cp, const std::string &section);
+    virtual void serialize(CheckpointOut &cp) const;
+    virtual void unserialize(CheckpointIn &cp);
 
     /// Called after constructor, but before any real simulation
     virtual void startup();

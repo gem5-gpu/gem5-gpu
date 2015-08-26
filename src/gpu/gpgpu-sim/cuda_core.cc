@@ -105,7 +105,7 @@ CudaCore::getMasterPort(const std::string &if_name, PortID idx)
 }
 
 void
-CudaCore::unserialize(Checkpoint *cp, const std::string &section)
+CudaCore::unserialize(CheckpointIn &cp)
 {
     // Intentionally left blank to keep from trying to read shader header from
     // checkpoint files. Allows for restore into any number of shader cores.

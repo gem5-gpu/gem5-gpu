@@ -138,7 +138,7 @@ public:
     ShaderTLB(const Params *p);
 
     // For checkpoint restore (empty unserialize)
-    virtual void unserialize(Checkpoint *cp, const std::string &section);
+    virtual void unserialize(CheckpointIn &cp);
 
     void beginTranslateTiming(RequestPtr req, BaseTLB::Translation *translation,
                               BaseTLB::Mode mode);

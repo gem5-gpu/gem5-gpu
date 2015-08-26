@@ -58,7 +58,7 @@ ShaderTLB::ShaderTLB(const Params *p) :
 }
 
 void
-ShaderTLB::unserialize(Checkpoint *cp, const std::string &section)
+ShaderTLB::unserialize(CheckpointIn &cp)
 {
     // Intentionally left blank to keep from trying to read shader header from
     // checkpoint files. Allows for restore into any number of shader cores.

@@ -150,7 +150,7 @@ CudaGPU::CudaGPU(const Params *p) :
 
 }
 
-void CudaGPU::serialize(std::ostream &os)
+void CudaGPU::serialize(CheckpointOut &cp) const
 {
     DPRINTF(CudaGPU, "Serializing\n");
     if (running) {
@@ -169,18 +169,18 @@ void CudaGPU::serialize(std::ostream &os)
         stringstream ss;
         ss << i;
         string num = ss.str();
-        paramOut(os, num+"fatBinaries.tid", fatBinaries[i].tid);
-        paramOut(os, num+"fatBinaries.handle", fatBinaries[i].handle);
-        paramOut(os, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
-        paramOut(os, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
-        paramOut(os, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
+        paramOut(cp, num+"fatBinaries.tid", fatBinaries[i].tid);
+        paramOut(cp, num+"fatBinaries.handle", fatBinaries[i].handle);
+        paramOut(cp, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
+        paramOut(cp, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
+        paramOut(cp, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
 
-        paramOut(os, num+"fatBinaries.funcMap.size", fatBinaries[i].funcMap.size());
-        std::map<const void*,string>::iterator it;
+        paramOut(cp, num+"fatBinaries.funcMap.size", fatBinaries[i].funcMap.size());
+        std::map<const void*,string>::const_iterator it = fatBinaries[i].funcMap.begin();
         int j = 0;
-        for (it=fatBinaries[i].funcMap.begin(); it!=fatBinaries[i].funcMap.end(); it++) {
-            paramOut(os, csprintf("%dfatBinaries.funcMap[%d].first", i, j), (uint64_t)it->first);
-            paramOut(os, csprintf("%dfatBinaries.funcMap[%d].second", i, j), it->second);
+        for (; it != fatBinaries[i].funcMap.end(); it++) {
+            paramOut(cp, csprintf("%dfatBinaries.funcMap[%d].first", i, j), (uint64_t)it->first);
+            paramOut(cp, csprintf("%dfatBinaries.funcMap[%d].second", i, j), it->second);
             j++;
         }
     }
@@ -189,19 +189,19 @@ void CudaGPU::serialize(std::ostream &os)
     SERIALIZE_SCALAR(numVars);
     for (int i=0; i<numVars; i++) {
         _CudaVar var = cudaVars[i];
-        paramOut(os, csprintf("cudaVars[%d].sim_deviceAddress", i), var.sim_deviceAddress);
-        paramOut(os, csprintf("cudaVars[%d].deviceName", i), var.deviceName);
-        paramOut(os, csprintf("cudaVars[%d].sim_size", i), var.sim_size);
-        paramOut(os, csprintf("cudaVars[%d].sim_constant", i), var.sim_constant);
-        paramOut(os, csprintf("cudaVars[%d].sim_global", i), var.sim_global);
-        paramOut(os, csprintf("cudaVars[%d].sim_ext", i), var.sim_ext);
-        paramOut(os, csprintf("cudaVars[%d].sim_hostVar", i), var.sim_hostVar);
+        paramOut(cp, csprintf("cudaVars[%d].sim_deviceAddress", i), var.sim_deviceAddress);
+        paramOut(cp, csprintf("cudaVars[%d].deviceName", i), var.deviceName);
+        paramOut(cp, csprintf("cudaVars[%d].sim_size", i), var.sim_size);
+        paramOut(cp, csprintf("cudaVars[%d].sim_constant", i), var.sim_constant);
+        paramOut(cp, csprintf("cudaVars[%d].sim_global", i), var.sim_global);
+        paramOut(cp, csprintf("cudaVars[%d].sim_ext", i), var.sim_ext);
+        paramOut(cp, csprintf("cudaVars[%d].sim_hostVar", i), var.sim_hostVar);
     }
 
-    pageTable.serialize(os);
+    pageTable.serialize(cp);
 }
 
-void CudaGPU::unserialize(Checkpoint *cp, const std::string &section)
+void CudaGPU::unserialize(CheckpointIn &cp)
 {
     DPRINTF(CudaGPU, "UNserializing\n");
 
@@ -223,20 +223,20 @@ void CudaGPU::unserialize(Checkpoint *cp, const std::string &section)
         stringstream ss;
         ss << i;
         string num = ss.str();
-        paramIn(cp, section, num+"fatBinaries.tid", fatBinaries[i].tid);
-        paramIn(cp, section, num+"fatBinaries.handle", fatBinaries[i].handle);
-        paramIn(cp, section, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
-        paramIn(cp, section, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
-        paramIn(cp, section, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
+        paramIn(cp, num+"fatBinaries.tid", fatBinaries[i].tid);
+        paramIn(cp, num+"fatBinaries.handle", fatBinaries[i].handle);
+        paramIn(cp, num+"fatBinaries.sim_fatCubin", fatBinaries[i].sim_fatCubin);
+        paramIn(cp, num+"fatBinaries.sim_binSize", fatBinaries[i].sim_binSize);
+        paramIn(cp, num+"fatBinaries.sim_alloc_ptr", fatBinaries[i].sim_alloc_ptr);
         DPRINTF(CudaGPU, "Got %d %d %d %d\n", fatBinaries[i].handle, fatBinaries[i].sim_fatCubin, fatBinaries[i].sim_binSize, fatBinaries[i].sim_alloc_ptr);
 
         int funcMapSize;
-        paramIn(cp, section, num+"fatBinaries.funcMap.size", funcMapSize);
+        paramIn(cp, num+"fatBinaries.funcMap.size", funcMapSize);
         for (int j=0; j<funcMapSize; j++) {
             uint64_t first;
             string second;
-            paramIn(cp, section, csprintf("%dfatBinaries.funcMap[%d].first", i, j), first);
-            paramIn(cp, section, csprintf("%dfatBinaries.funcMap[%d].second", i, j), second);
+            paramIn(cp, csprintf("%dfatBinaries.funcMap[%d].first", i, j), first);
+            paramIn(cp, csprintf("%dfatBinaries.funcMap[%d].second", i, j), second);
             fatBinaries[i].funcMap[(const void*)first] = second;
         }
     }
@@ -245,16 +245,16 @@ void CudaGPU::unserialize(Checkpoint *cp, const std::string &section)
     UNSERIALIZE_SCALAR(numVars);
     cudaVars.resize(numVars);
     for (int i=0; i<numVars; i++) {
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_deviceAddress", i), cudaVars[i].sim_deviceAddress);
-        paramIn(cp, section, csprintf("cudaVars[%d].deviceName", i), cudaVars[i].deviceName);
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_size", i), cudaVars[i].sim_size);
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_constant", i), cudaVars[i].sim_constant);
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_global", i), cudaVars[i].sim_global);
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_ext", i), cudaVars[i].sim_ext);
-        paramIn(cp, section, csprintf("cudaVars[%d].sim_hostVar", i), cudaVars[i].sim_hostVar);
+        paramIn(cp, csprintf("cudaVars[%d].sim_deviceAddress", i), cudaVars[i].sim_deviceAddress);
+        paramIn(cp, csprintf("cudaVars[%d].deviceName", i), cudaVars[i].deviceName);
+        paramIn(cp, csprintf("cudaVars[%d].sim_size", i), cudaVars[i].sim_size);
+        paramIn(cp, csprintf("cudaVars[%d].sim_constant", i), cudaVars[i].sim_constant);
+        paramIn(cp, csprintf("cudaVars[%d].sim_global", i), cudaVars[i].sim_global);
+        paramIn(cp, csprintf("cudaVars[%d].sim_ext", i), cudaVars[i].sim_ext);
+        paramIn(cp, csprintf("cudaVars[%d].sim_hostVar", i), cudaVars[i].sim_hostVar);
     }
 
-    pageTable.unserialize(cp, section);
+    pageTable.unserialize(cp);
 }
 
 void CudaGPU::startup()
@@ -652,14 +652,14 @@ Addr CudaGPU::GPUPageTable::addrToPage(Addr addr)
     return addr - offset;
 }
 
-void CudaGPU::GPUPageTable::serialize(std::ostream &os)
+void CudaGPU::GPUPageTable::serialize(CheckpointOut &cp) const
 {
     unsigned int num_ptes = pageMap.size();
     unsigned int index = 0;
     Addr* pagetable_vaddrs = new Addr[num_ptes];
     Addr* pagetable_paddrs = new Addr[num_ptes];
-    std::map<Addr, Addr>::iterator it;
-    for (it = pageMap.begin(); it != pageMap.end(); ++it) {
+    std::map<Addr, Addr>::const_iterator it = pageMap.begin();
+    for (; it != pageMap.end(); ++it) {
         pagetable_vaddrs[index] = (*it).first;
         pagetable_paddrs[index++] = (*it).second;
     }
@@ -670,7 +670,7 @@ void CudaGPU::GPUPageTable::serialize(std::ostream &os)
     delete[] pagetable_paddrs;
 }
 
-void CudaGPU::GPUPageTable::unserialize(Checkpoint *cp, const std::string &section)
+void CudaGPU::GPUPageTable::unserialize(CheckpointIn &cp)
 {
     unsigned int num_ptes = 0;
     UNSERIALIZE_SCALAR(num_ptes);
