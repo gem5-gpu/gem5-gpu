@@ -1,4 +1,6 @@
+warn: RubyMemoryControl is deprecated, use a DRAMCtrl subclass instead
 warn: Sockets disabled, not accepting gdb connections
+warn: readlink may yield unexpected results if multiple binaries are used
 warn: Should add sanity check for access-host-pagetable under ARM!
 warn: Parameter size is 8B, but 4B passed, possibly a pointer:
       Assuming a 32-bit CPU arch, promoting arg to 64-bit pointer for GPU

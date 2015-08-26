@@ -1,1 +1,2 @@
+warn: RubyMemoryControl is deprecated, use a DRAMCtrl subclass instead
 warn: Sockets disabled, not accepting gdb connections

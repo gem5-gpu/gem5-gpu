@@ -1,11 +1,11 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Feb 20 2015 00:01:19
-gem5 started Feb 20 2015 09:35:44
+gem5 compiled Aug 22 2015 20:24:04
+gem5 started Aug 22 2015 20:46:51
 gem5 executing on artery
-command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer
-tests/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer
+command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-updating/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/31.memcpy_load-split/x86/linux/gem5-gpu-ruby-VI_hammer
+
 Warning: Only block size currently supported is 128B. Defaulting to 128.
 Using template and command line options for gpgpusim.config
 Global frequency set at 1000000000000 ticks per second
@@ -184,10 +184,10 @@ gem5 + GPGPU-Sim CUDA RT: elf: ELF3
 gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 9
 gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_0dUp2M"
-Running: cat _ptx_0dUp2M | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_nHH8Dm
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_nHH8Dm --output-file  /dev/null 2> _ptx_0dUp2Minfo"
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_0dUp2M _ptx2_nHH8Dm _ptx_0dUp2Minfo"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_g2KmdA"
+Running: cat _ptx_g2KmdA | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_qEf50b
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_qEf50b --output-file  /dev/null 2> _ptx_g2KmdAinfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_g2KmdA _ptx2_qEf50b _ptx_g2KmdAinfo"
 Touch pages proof hash: 0
 Testing copy host-to-device:
 Size:	Malloc (s):	Copy (s):	Copy (GB/s):
@@ -224,17 +224,17 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
-16384	0.000004	0.000012	5.059700
-24576	0.000002	0.000012	7.444522
-32768	0.000002	0.000014	8.992951
-49152	0.000002	0.000016	11.194319
-65536	0.000002	0.000019	12.786248
-98304	0.000002	0.000024	14.955321
-131072	0.000002	0.000030	16.299948
-196608	0.000002	0.000041	18.000488
-262144	0.000002	0.000052	18.925263
-393216	0.000002	0.000073	19.974416
-524288	0.000002	0.000095	20.588251
+16384	0.000003	0.000011	5.455900
+24576	0.000002	0.000012	7.598999
+32768	0.000002	0.000013	9.096826
+49152	0.000002	0.000016	11.320276
+65536	0.000002	0.000019	12.913394
+98304	0.000002	0.000024	15.087172
+131072	0.000002	0.000030	16.428830
+196608	0.000002	0.000041	18.041725
+262144	0.000002	0.000051	19.000749
+393216	0.000002	0.000073	20.047129
+524288	0.000002	0.000095	20.620203
 
 
 Testing copy device-to-host:
@@ -272,16 +272,16 @@ GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
-16384	0.000002	0.000011	5.523044
-24576	0.000002	0.000012	7.454220
-32768	0.000002	0.000014	8.892068
-49152	0.000002	0.000016	11.097974
-65536	0.000002	0.000019	12.621000
-98304	0.000002	0.000025	14.691336
-131072	0.000002	0.000031	15.961598
-196608	0.000002	0.000042	17.511162
-262144	0.000002	0.000053	18.468918
-393216	0.000002	0.000075	19.452920
-524288	0.000002	0.000098	20.021578
+16384	0.000002	0.000011	5.616043
+24576	0.000002	0.000012	7.547006
+32768	0.000002	0.000014	8.994939
+49152	0.000002	0.000016	11.195687
+65536	0.000002	0.000019	12.736221
+98304	0.000002	0.000025	14.763594
+131072	0.000002	0.000030	16.134062
+196608	0.000002	0.000042	17.616882
+262144	0.000002	0.000053	18.530246
+393216	0.000002	0.000075	19.509659
+524288	0.000002	0.000097	20.049325
 
-Exiting @ tick 1401212000 because target called exit()
+Exiting @ tick 1231487500 because target called exit()

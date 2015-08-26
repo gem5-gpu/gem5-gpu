@@ -1,4 +1,7 @@
 warn: system.ruby.network adopting orphan SimObject param 'int_links'
 warn: system.ruby.network adopting orphan SimObject param 'ext_links'
+warn: RubyMemoryControl is deprecated, use a DRAMCtrl subclass instead
+warn: RubyMemoryControl is deprecated, use a DRAMCtrl subclass instead
 warn: Sockets disabled, not accepting gdb connections
+warn: readlink may yield unexpected results if multiple binaries are used
 warn: ignoring syscall access(4998977, ...)
