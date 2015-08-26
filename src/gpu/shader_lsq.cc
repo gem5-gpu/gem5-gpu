@@ -145,7 +145,7 @@ ShaderLSQ::LanePort::recvFunctional(PacketPtr pkt)
 }
 
 void
-ShaderLSQ::LanePort::recvRetry()
+ShaderLSQ::LanePort::recvRespRetry()
 {
     lsq->retryCommitWarpInst();
 }
@@ -183,9 +183,9 @@ ShaderLSQ::ControlPort::recvFunctional(PacketPtr pkt)
 }
 
 void
-ShaderLSQ::ControlPort::recvRetry()
+ShaderLSQ::ControlPort::recvRespRetry()
 {
-    panic("ShaderLSQ::ControlPort::recvRetry() not implemented!\n");
+    panic("ShaderLSQ::ControlPort::recvRespRetry() not implemented!\n");
 }
 
 bool
@@ -195,7 +195,7 @@ ShaderLSQ::CachePort::recvTimingResp(PacketPtr pkt)
 }
 
 void
-ShaderLSQ::CachePort::recvRetry()
+ShaderLSQ::CachePort::recvReqRetry()
 {
     lsq->scheduleRetryInject();
 }

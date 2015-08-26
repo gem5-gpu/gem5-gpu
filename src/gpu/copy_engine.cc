@@ -77,7 +77,7 @@ bool GPUCopyEngine::CEPort::recvTimingResp(PacketPtr pkt)
     return true;
 }
 
-void GPUCopyEngine::CEPort::recvRetry() {
+void GPUCopyEngine::CEPort::recvReqRetry() {
     assert(outstandingPkts.size());
 
     DPRINTF(GPUCopyEngine, "Got a retry...\n");

@@ -486,7 +486,7 @@ CudaCore::recvLSQControlResp(PacketPtr pkt)
 void
 CudaCore::writebackClear()
 {
-    if (writebackBlocked >= 0) lsqPorts[writebackBlocked]->sendRetry();
+    if (writebackBlocked >= 0) lsqPorts[writebackBlocked]->sendRetryResp();
     writebackBlocked = -1;
 }
 
@@ -520,9 +520,9 @@ CudaCore::LSQPort::recvTimingResp(PacketPtr pkt)
 }
 
 void
-CudaCore::LSQPort::recvRetry()
+CudaCore::LSQPort::recvReqRetry()
 {
-    panic("Not sure how to respond to a recvRetry...");
+    panic("Not sure how to respond to a recvReqRetry...");
 }
 
 bool
@@ -533,9 +533,9 @@ CudaCore::LSQControlPort::recvTimingResp(PacketPtr pkt)
 }
 
 void
-CudaCore::LSQControlPort::recvRetry()
+CudaCore::LSQControlPort::recvReqRetry()
 {
-    panic("CudaCore::LSQControlPort::recvRetry() not implemented!");
+    panic("CudaCore::LSQControlPort::recvReqRetry() not implemented!");
 }
 
 bool
@@ -546,7 +546,7 @@ CudaCore::InstPort::recvTimingResp(PacketPtr pkt)
 }
 
 void
-CudaCore::InstPort::recvRetry()
+CudaCore::InstPort::recvReqRetry()
 {
     core->handleRetry();
 }

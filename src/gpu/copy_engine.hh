@@ -81,7 +81,7 @@ private:
 
     protected:
         virtual bool recvTimingResp(PacketPtr pkt);
-        virtual void recvRetry();
+        virtual void recvReqRetry();
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
         void setStalled(PacketPtr pkt)

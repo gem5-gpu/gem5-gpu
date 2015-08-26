@@ -98,7 +98,7 @@ class ShaderLSQ : public MemObject
         virtual bool recvTimingReq(PacketPtr pkt);
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
-        virtual void recvRetry();
+        virtual void recvRespRetry();
         virtual AddrRangeList getAddrRanges() const;
 
     };
@@ -119,7 +119,7 @@ class ShaderLSQ : public MemObject
         virtual bool recvTimingReq(PacketPtr pkt);
         virtual Tick recvAtomic(PacketPtr pkt);
         virtual void recvFunctional(PacketPtr pkt);
-        virtual void recvRetry();
+        virtual void recvRespRetry();
         virtual AddrRangeList getAddrRanges() const;
 
     };
@@ -142,7 +142,7 @@ class ShaderLSQ : public MemObject
             : MasterPort(_name, owner), lsq(owner) {}
 
         bool recvTimingResp(PacketPtr pkt);
-        void recvRetry();
+        void recvReqRetry();
     };
     CachePort cachePort;
 
