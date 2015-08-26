@@ -9,10 +9,10 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
    // NETWORK BUFFERS
   MessageBuffer * requestFromL1Cache, network="To", virtual_network="7",
-        ordered="true", vnet_type="request";
+        vnet_type="request";
 
   MessageBuffer * responseToL1Cache, network="From", virtual_network="6",
-        ordered="true", vnet_type="response";
+        vnet_type="response";
 
 {
   // STATES
@@ -55,7 +55,7 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   // STRUCTURE DEFINITIONS
 
-  MessageBuffer mandatoryQueue, ordered="false";
+  MessageBuffer mandatoryQueue;
 
   // CacheEntry
   structure(Entry, desc="...", interface="AbstractCacheEntry") {

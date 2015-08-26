@@ -120,13 +120,21 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
         # Connect the L1 controller and the network
         # Connect the buffers from the controller to network
-        l1_cntrl.requestFromCache = ruby_system.network.slave
-        l1_cntrl.responseFromCache = ruby_system.network.slave
-        l1_cntrl.unblockFromCache = ruby_system.network.slave
+        l1_cntrl.requestFromCache = MessageBuffer()
+        l1_cntrl.requestFromCache.master = ruby_system.network.slave
+        l1_cntrl.responseFromCache = MessageBuffer()
+        l1_cntrl.responseFromCache.master = ruby_system.network.slave
+        l1_cntrl.unblockFromCache = MessageBuffer()
+        l1_cntrl.unblockFromCache.master = ruby_system.network.slave
+
+        l1_cntrl.triggerQueue = MessageBuffer()
 
         # Connect the buffers from the network to the controller
-        l1_cntrl.forwardToCache = ruby_system.network.master
-        l1_cntrl.responseToCache = ruby_system.network.master
+        l1_cntrl.mandatoryQueue = MessageBuffer()
+        l1_cntrl.forwardToCache = MessageBuffer()
+        l1_cntrl.forwardToCache.slave = ruby_system.network.master
+        l1_cntrl.responseToCache = MessageBuffer()
+        l1_cntrl.responseToCache.slave = ruby_system.network.master
 
         cntrl_count += 1
 
@@ -188,13 +196,21 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
         # Connect the L1 controller and the network
         # Connect the buffers from the controller to network
-        l1_cntrl.requestFromCache = ruby_system.network.slave
-        l1_cntrl.responseFromCache = ruby_system.network.slave
-        l1_cntrl.unblockFromCache = ruby_system.network.slave
+        l1_cntrl.requestFromCache = MessageBuffer()
+        l1_cntrl.requestFromCache.master = ruby_system.network.slave
+        l1_cntrl.responseFromCache = MessageBuffer()
+        l1_cntrl.responseFromCache.master = ruby_system.network.slave
+        l1_cntrl.unblockFromCache = MessageBuffer()
+        l1_cntrl.unblockFromCache.master = ruby_system.network.slave
+
+        l1_cntrl.triggerQueue = MessageBuffer()
 
         # Connect the buffers from the network to the controller
-        l1_cntrl.forwardToCache = ruby_system.network.master
-        l1_cntrl.responseToCache = ruby_system.network.master
+        l1_cntrl.mandatoryQueue = MessageBuffer()
+        l1_cntrl.forwardToCache = MessageBuffer()
+        l1_cntrl.forwardToCache.slave = ruby_system.network.master
+        l1_cntrl.responseToCache = MessageBuffer()
+        l1_cntrl.responseToCache.slave = ruby_system.network.master
 
     # Copy engine cache (make as small as possible, ideally 0)
     l1i_cache = L1Cache(size = "2kB", assoc = 2)
@@ -225,19 +241,27 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
     l1_cntrl.sequencer = cpu_seq
 
-    ruby_system.l1_cntrl_ce = l1_cntrl
+    ruby_system.ce_cntrl = l1_cntrl
 
     cpu_sequencers.append(cpu_seq)
     topology.addController(l1_cntrl)
 
     # Connect the L1 controller and the network
     # Connect the buffers from the controller to network
-    l1_cntrl.requestFromCache = ruby_system.network.slave
-    l1_cntrl.responseFromCache = ruby_system.network.slave
-    l1_cntrl.unblockFromCache = ruby_system.network.slave
+    l1_cntrl.requestFromCache = MessageBuffer()
+    l1_cntrl.requestFromCache.master = ruby_system.network.slave
+    l1_cntrl.responseFromCache = MessageBuffer()
+    l1_cntrl.responseFromCache.master = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = MessageBuffer()
+    l1_cntrl.unblockFromCache.master = ruby_system.network.slave
+
+    l1_cntrl.triggerQueue = MessageBuffer()
 
     # Connect the buffers from the network to the controller
-    l1_cntrl.forwardToCache = ruby_system.network.master
-    l1_cntrl.responseToCache = ruby_system.network.master
+    l1_cntrl.mandatoryQueue = MessageBuffer()
+    l1_cntrl.forwardToCache = MessageBuffer()
+    l1_cntrl.forwardToCache.slave = ruby_system.network.master
+    l1_cntrl.responseToCache = MessageBuffer()
+    l1_cntrl.responseToCache.slave = ruby_system.network.master
 
     return (cpu_sequencers, dir_cntrl_nodes, topology)

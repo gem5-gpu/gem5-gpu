@@ -4,9 +4,9 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
   Cycles request_latency := 6;
 
   MessageBuffer * responseFromDir, network="From", virtual_network="1",
-        ordered="true", vnet_type="response";
+        vnet_type="response";
   MessageBuffer * reqToDirectory, network="To", virtual_network="0",
-        ordered="true", vnet_type="request";
+        vnet_type="request";
 
 {
   state_declaration(State, desc="CE states", default="GPUCopyDMA_State_READY") {
@@ -40,7 +40,7 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
   void set_tbe(TBE b);
   void unset_tbe();
 
-  MessageBuffer mandatoryQueue, ordered="false";
+  MessageBuffer mandatoryQueue;
 
   State getState(TBE tbe, Address addr) {
     if (is_valid(tbe)) {

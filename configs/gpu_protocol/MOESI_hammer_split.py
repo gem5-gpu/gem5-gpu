@@ -138,14 +138,24 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
             dev_dir_cntrls.append(dev_dir_cntrl)
 
             # Connect the directory controller to the network
-            dev_dir_cntrl.forwardFromDir = ruby_system.network.slave
-            dev_dir_cntrl.responseFromDir = ruby_system.network.slave
-            dev_dir_cntrl.dmaResponseFromDir = ruby_system.network.slave
+            dev_dir_cntrl.forwardFromDir = MessageBuffer()
+            dev_dir_cntrl.forwardFromDir.master = ruby_system.network.slave
+            dev_dir_cntrl.responseFromDir = MessageBuffer()
+            dev_dir_cntrl.responseFromDir.master = ruby_system.network.slave
+            dev_dir_cntrl.dmaResponseFromDir = MessageBuffer(ordered = True)
+            dev_dir_cntrl.dmaResponseFromDir.master = ruby_system.network.slave
 
-            dev_dir_cntrl.unblockToDir = ruby_system.network.master
-            dev_dir_cntrl.responseToDir = ruby_system.network.master
-            dev_dir_cntrl.requestToDir = ruby_system.network.master
-            dev_dir_cntrl.dmaRequestToDir = ruby_system.network.master
+            dev_dir_cntrl.triggerQueue = MessageBuffer(ordered = True)
+
+            dev_dir_cntrl.unblockToDir = MessageBuffer()
+            dev_dir_cntrl.unblockToDir.slave = ruby_system.network.master
+            dev_dir_cntrl.responseToDir = MessageBuffer()
+            dev_dir_cntrl.responseToDir.slave = ruby_system.network.master
+            dev_dir_cntrl.requestToDir = MessageBuffer()
+            dev_dir_cntrl.requestToDir.slave = ruby_system.network.master
+            dev_dir_cntrl.dmaRequestToDir = MessageBuffer(ordered = True)
+            dev_dir_cntrl.dmaRequestToDir.slave = ruby_system.network.master
+            dev_dir_cntrl.responseFromMemory = MessageBuffer()
 
             dev_mem_ctrl = MemConfig.create_mem_ctrl(
                 MemConfig.get(options.mem_type), system.gpu.gpu_memory_range,
@@ -188,19 +198,27 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
     l1_cntrl.sequencer = gpu_ce_seq
 
-    ruby_system.l1_cntrl_gpuce = l1_cntrl
+    ruby_system.dev_ce_cntrl = l1_cntrl
 
     cpu_sequencers.append(gpu_ce_seq)
     topology.addController(l1_cntrl)
 
     # Connect the L1 controller and the network
     # Connect the buffers from the controller to network
-    l1_cntrl.requestFromCache = ruby_system.network.slave
-    l1_cntrl.responseFromCache = ruby_system.network.slave
-    l1_cntrl.unblockFromCache = ruby_system.network.slave
+    l1_cntrl.requestFromCache = MessageBuffer()
+    l1_cntrl.requestFromCache.master = ruby_system.network.slave
+    l1_cntrl.responseFromCache = MessageBuffer()
+    l1_cntrl.responseFromCache.master = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = MessageBuffer()
+    l1_cntrl.unblockFromCache.master = ruby_system.network.slave
+
+    l1_cntrl.triggerQueue = MessageBuffer()
 
     # Connect the buffers from the network to the controller
-    l1_cntrl.forwardToCache = ruby_system.network.master
-    l1_cntrl.responseToCache = ruby_system.network.master
+    l1_cntrl.mandatoryQueue = MessageBuffer()
+    l1_cntrl.forwardToCache = MessageBuffer()
+    l1_cntrl.forwardToCache.slave = ruby_system.network.master
+    l1_cntrl.responseToCache = MessageBuffer()
+    l1_cntrl.responseToCache.slave = ruby_system.network.master
 
     return (cpu_sequencers, dir_cntrl_nodes, topology)

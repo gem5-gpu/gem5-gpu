@@ -125,8 +125,12 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         gpu_cluster.add(l1_cntrl)
 
         # Connect the controller to the network
-        l1_cntrl.requestFromL1Cache = ruby_system.network.slave
-        l1_cntrl.responseToL1Cache = ruby_system.network.master
+        l1_cntrl.requestFromL1Cache = MessageBuffer(ordered = True)
+        l1_cntrl.requestFromL1Cache.master = ruby_system.network.slave
+        l1_cntrl.responseToL1Cache = MessageBuffer(ordered = True)
+        l1_cntrl.responseToL1Cache.slave = ruby_system.network.master
+
+        l1_cntrl.mandatoryQueue = MessageBuffer()
 
     l2_index_start = block_size_bits + l2_bits
     # Use L2 cache and interconnect latencies to calculate protocol latencies
@@ -169,14 +173,23 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         l2_clusters.append(l2_cluster)
 
         # Connect the controller to the network
-        l2_cntrl.responseToL1Cache = ruby_system.network.slave
-        l2_cntrl.requestFromCache = ruby_system.network.slave
-        l2_cntrl.responseFromCache = ruby_system.network.slave
-        l2_cntrl.unblockFromCache = ruby_system.network.slave
+        l2_cntrl.responseToL1Cache = MessageBuffer(ordered = True)
+        l2_cntrl.responseToL1Cache.master = ruby_system.network.slave
+        l2_cntrl.requestFromCache = MessageBuffer()
+        l2_cntrl.requestFromCache.master = ruby_system.network.slave
+        l2_cntrl.responseFromCache = MessageBuffer()
+        l2_cntrl.responseFromCache.master = ruby_system.network.slave
+        l2_cntrl.unblockFromCache = MessageBuffer()
+        l2_cntrl.unblockFromCache.master = ruby_system.network.slave
 
-        l2_cntrl.requestFromL1Cache = ruby_system.network.master
-        l2_cntrl.forwardToCache = ruby_system.network.master
-        l2_cntrl.responseToCache = ruby_system.network.master
+        l2_cntrl.requestFromL1Cache = MessageBuffer(ordered = True)
+        l2_cntrl.requestFromL1Cache.slave = ruby_system.network.master
+        l2_cntrl.forwardToCache = MessageBuffer()
+        l2_cntrl.forwardToCache.slave = ruby_system.network.master
+        l2_cntrl.responseToCache = MessageBuffer()
+        l2_cntrl.responseToCache.slave = ruby_system.network.master
+
+        l2_cntrl.triggerQueue = MessageBuffer()
 
     ############################################################################
     # Pagewalk cache
@@ -234,13 +247,21 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
     # Connect the L1 controller and the network
     # Connect the buffers from the controller to network
-    l1_cntrl.requestFromCache = ruby_system.network.slave
-    l1_cntrl.responseFromCache = ruby_system.network.slave
-    l1_cntrl.unblockFromCache = ruby_system.network.slave
+    l1_cntrl.requestFromCache = MessageBuffer()
+    l1_cntrl.requestFromCache.master = ruby_system.network.slave
+    l1_cntrl.responseFromCache = MessageBuffer()
+    l1_cntrl.responseFromCache.master = ruby_system.network.slave
+    l1_cntrl.unblockFromCache = MessageBuffer()
+    l1_cntrl.unblockFromCache.master = ruby_system.network.slave
 
     # Connect the buffers from the network to the controller
-    l1_cntrl.forwardToCache = ruby_system.network.master
-    l1_cntrl.responseToCache = ruby_system.network.master
+    l1_cntrl.forwardToCache = MessageBuffer()
+    l1_cntrl.forwardToCache.slave = ruby_system.network.master
+    l1_cntrl.responseToCache = MessageBuffer()
+    l1_cntrl.responseToCache.slave = ruby_system.network.master
+
+    l1_cntrl.mandatoryQueue = MessageBuffer()
+    l1_cntrl.triggerQueue = MessageBuffer()
 
 
     #
@@ -271,10 +292,14 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                   number_of_TBEs = max_out_reqs,
                                   ruby_system = ruby_system)
 
-    gpu_ce_cntrl.responseFromDir = ruby_system.network.master
-    gpu_ce_cntrl.reqToDirectory = ruby_system.network.slave
+    gpu_ce_cntrl.responseFromDir = MessageBuffer(ordered = True)
+    gpu_ce_cntrl.responseFromDir.slave = ruby_system.network.master
+    gpu_ce_cntrl.reqToDirectory = MessageBuffer(ordered = True)
+    gpu_ce_cntrl.reqToDirectory.master = ruby_system.network.slave
 
-    ruby_system.l1_cntrl_ce = gpu_ce_cntrl
+    gpu_ce_cntrl.mandatoryQueue = MessageBuffer()
+
+    ruby_system.ce_cntrl = gpu_ce_cntrl
 
     all_sequencers.append(gpu_ce_seq)
 
