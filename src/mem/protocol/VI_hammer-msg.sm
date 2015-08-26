@@ -94,7 +94,7 @@ structure(TriggerMsg, desc="...", interface="Message") {
 }
 
 // RequestMsg (and also forwarded requests)
-structure(RequestMsg, desc="...", interface="NetworkMessage") {
+structure(RequestMsg, desc="...", interface="Message") {
   Addr addr,             desc="Physical address for this request";
   CoherenceRequestType Type,   desc="Type of request (GetS, GetX, PutX, etc)";
   MachineID Requestor,            desc="Node who initiated the request";
@@ -114,7 +114,7 @@ structure(RequestMsg, desc="...", interface="NetworkMessage") {
     return false;
   }
 }
-structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
+structure(RequestMsgVI, desc="...", interface="Message") {
     Addr addr,             desc="Physical address for this request";
     CoherenceRequestTypeVI Type,   desc="Type of request (GetS, GetX, PutX, etc)";
     MachineID Requestor,            desc="Node who initiated the request";
@@ -134,7 +134,7 @@ structure(RequestMsgVI, desc="...", interface="NetworkMessage") {
 }
 
 // ResponseMsg (and also unblock requests)
-structure(ResponseMsg, desc="...", interface="NetworkMessage") {
+structure(ResponseMsg, desc="...", interface="Message") {
   Addr addr,             desc="Physical address for this request";
   CoherenceResponseType Type,  desc="Type of response (Ack, Data, etc)";
   MachineID Sender,               desc="Node who sent the data";
@@ -156,7 +156,7 @@ structure(ResponseMsg, desc="...", interface="NetworkMessage") {
     return false;
   }
 }
-structure(ResponseMsgVI, desc="...", interface="NetworkMessage") {
+structure(ResponseMsgVI, desc="...", interface="Message") {
     Addr addr,             desc="Physical address for this request";
     CoherenceResponseTypeVI Type,  desc="Type of response (Ack, Data, etc)";
     MachineID Sender,               desc="Node who sent the data";
@@ -185,7 +185,7 @@ enumeration(DMAResponseType, desc="...", default="DMAResponseType_NULL") {
   NULL,          desc="Invalid";
 }
 
-structure(DMARequestMsg, desc="...", interface="NetworkMessage") {
+structure(DMARequestMsg, desc="...", interface="Message") {
   DMARequestType Type,       desc="Request type (read/write)";
   Addr PhysicalAddress,   desc="Physical address for this request";
   Addr LineAddress,       desc="Line address for this request";
@@ -204,7 +204,7 @@ structure(DMARequestMsg, desc="...", interface="NetworkMessage") {
   }
 }
 
-structure(DMAResponseMsg, desc="...", interface="NetworkMessage") {
+structure(DMAResponseMsg, desc="...", interface="Message") {
   DMAResponseType Type,      desc="Response type (DATA/ACK)";
   Addr PhysicalAddress,   desc="Physical address for this request";
   Addr LineAddress,       desc="Line address for this request";
