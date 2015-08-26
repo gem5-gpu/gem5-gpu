@@ -319,9 +319,9 @@ machine(Directory, "AMD Hammer-like protocol")
     // NOTE: These are really more like tag reads, but since CacheMemory
     // tracks b/w based on data array accesses use that.
     if (type == RequestType:PfRead) {
-      probeFilter.recordRequestType(CacheRequestType:DataArrayRead);
+      probeFilter.recordRequestType(CacheRequestType:DataArrayRead, addr);
     } else if (type == RequestType:PfWrite) {
-      probeFilter.recordRequestType(CacheRequestType:DataArrayWrite);
+      probeFilter.recordRequestType(CacheRequestType:DataArrayWrite, addr);
     } else {
       error("Bad request type passed to recordRequestType");
     }

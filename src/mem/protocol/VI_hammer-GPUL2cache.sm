@@ -231,13 +231,13 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   void recordRequestType(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      L2cache.recordRequestType(CacheRequestType:DataArrayRead);
+      L2cache.recordRequestType(CacheRequestType:DataArrayRead, addr);
     } else if (type == RequestType:DataArrayWrite) {
-      L2cache.recordRequestType(CacheRequestType:DataArrayWrite);
+      L2cache.recordRequestType(CacheRequestType:DataArrayWrite, addr);
     } else if (type == RequestType:TagArrayRead) {
-      L2cache.recordRequestType(CacheRequestType:TagArrayRead);
+      L2cache.recordRequestType(CacheRequestType:TagArrayRead, addr);
     } else if (type == RequestType:TagArrayWrite) {
-      L2cache.recordRequestType(CacheRequestType:TagArrayWrite);
+      L2cache.recordRequestType(CacheRequestType:TagArrayWrite, addr);
     } else {
       error("Bad request type passed to recordRequestType");
     }

@@ -201,13 +201,13 @@ machine(GPUL1Cache, "VI GPU L1 Cache")
 
   void recordRequestType(RequestType type, Address addr) {
     if (type == RequestType:DataArrayRead) {
-      cache.recordRequestType(CacheRequestType:DataArrayRead);
+      cache.recordRequestType(CacheRequestType:DataArrayRead, addr);
     } else if (type == RequestType:DataArrayWrite) {
-      cache.recordRequestType(CacheRequestType:DataArrayWrite);
+      cache.recordRequestType(CacheRequestType:DataArrayWrite, addr);
     } else if (type == RequestType:TagArrayRead) {
-      cache.recordRequestType(CacheRequestType:TagArrayRead);
+      cache.recordRequestType(CacheRequestType:TagArrayRead, addr);
     } else if (type == RequestType:TagArrayWrite) {
-      cache.recordRequestType(CacheRequestType:TagArrayWrite);
+      cache.recordRequestType(CacheRequestType:TagArrayWrite, addr);
     } else {
       error("Bad request type passed to recordRequestType");
     }
