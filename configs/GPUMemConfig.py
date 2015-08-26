@@ -39,6 +39,8 @@ def addMemCtrlOptions(parser):
 def setMemoryControlOptions(system, options):
     from m5.params import Latency
 
+    assert(options.mem_type == "RubyMemoryControl")
+
     cpu_mem_ctl_clk = SrcClockDomain(clock = options.mem_freq,
                                      voltage_domain = system.voltage_domain)
 
@@ -48,23 +50,23 @@ def setMemoryControlOptions(system, options):
     # Add 1 so that 2 consecutive cache lines are in the same bank
     low_bank_bit = low_dir_bit + dir_bits + 1
 
-    for i in xrange(options.num_dirs):
-        memBuffer = system.mem_ctrls[i]
+    for mem_ctrl in system.mem_ctrls:
         if options.mem_freq:
-            memBuffer.clk_domain = cpu_mem_ctl_clk
+            mem_ctrl.clk_domain = cpu_mem_ctl_clk
         if options.mem_ctl_latency >= 0:
-            memBuffer.mem_ctl_latency = options.mem_ctl_latency
+            mem_ctrl.mem_ctl_latency = options.mem_ctl_latency
         if options.membus_busy_cycles > 0:
-            memBuffer.basic_bus_busy_time = options.membus_busy_cycles
+            mem_ctrl.basic_bus_busy_time = options.membus_busy_cycles
         if options.membank_busy_time:
-            mem_cycle_seconds = float(memBuffer.clk_domain.clock.period)
+            assert(len(mem_ctrl.clk_domain.clock) == 1)
+            mem_cycle_seconds = float(mem_ctrl.clk_domain.clock[0].period)
             bank_latency_seconds = Latency(options.membank_busy_time)
-            memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
-        memBuffer.bank_bit_0 = low_bank_bit
-        bank_bits = int(math.log(memBuffer.banks_per_rank, 2))
-        memBuffer.rank_bit_0 = low_bank_bit + bank_bits
-        rank_bits = int(math.log(memBuffer.ranks_per_dimm, 2))
-        memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
+            mem_ctrl.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+        mem_ctrl.bank_bit_0 = low_bank_bit
+        bank_bits = int(math.log(mem_ctrl.banks_per_rank, 2))
+        mem_ctrl.rank_bit_0 = low_bank_bit + bank_bits
+        rank_bits = int(math.log(mem_ctrl.ranks_per_dimm, 2))
+        mem_ctrl.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
 
     dev_dir_bits = 0
     if options.num_dev_dirs > 0:
@@ -73,25 +75,27 @@ def setMemoryControlOptions(system, options):
     low_bank_bit = low_dir_bit + dev_dir_bits + 1
 
     if options.split:
-        for i in xrange(options.num_dev_dirs):
-            memBuffer = system.dev_mem_ctrls[i]
-            if options.gpu_mem_freq:
-                gpu_mem_ctl_clk = SrcClockDomain(clock = options.gpu_mem_freq,
-                                         voltage_domain = system.voltage_domain)
-                memBuffer.clk_domain = gpu_mem_ctl_clk
-            else:
-                memBuffer.clk_domain = cpu_mem_ctl_clk
-            if options.gpu_mem_ctl_latency >= 0:
-                memBuffer.mem_ctl_latency = options.gpu_mem_ctl_latency
-            if options.gpu_membus_busy_cycles > 0:
-                memBuffer.basic_bus_busy_time = options.gpu_membus_busy_cycles
-            if options.gpu_membank_busy_time:
-                mem_cycle_seconds = float(memBuffer.clk_domain.clock.period)
-                bank_latency_seconds = Latency(options.gpu_membank_busy_time)
-                memBuffer.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
+        if options.num_dev_dirs > 0:
+            for mem_ctrl in system.dev_mem_ctrls:
+                if options.gpu_mem_freq:
+                    gpu_mem_ctl_clk = SrcClockDomain(clock = options.gpu_mem_freq,
+                                             voltage_domain = system.voltage_domain)
+                    mem_ctrl.clk_domain = gpu_mem_ctl_clk
+                else:
+                    mem_ctrl.clk_domain = cpu_mem_ctl_clk
+                if options.gpu_mem_ctl_latency >= 0:
+                    mem_ctrl.mem_ctl_latency = options.gpu_mem_ctl_latency
+                if options.gpu_membus_busy_cycles > 0:
+                    mem_ctrl.basic_bus_busy_time = options.gpu_membus_busy_cycles
+                if options.gpu_membank_busy_time:
+                    assert(len(mem_ctrl.clk_domain.clock) == 1)
+                    mem_cycle_seconds = float(mem_ctrl.clk_domain.clock[0].period)
+                    bank_latency_seconds = Latency(options.gpu_membank_busy_time)
+                    mem_ctrl.bank_busy_time = long(bank_latency_seconds.period / mem_cycle_seconds)
 
-            memBuffer.bank_bit_0 = low_bank_bit
-            bank_bits = int(math.log(memBuffer.banks_per_rank, 2))
-            memBuffer.rank_bit_0 = low_bank_bit + bank_bits
-            rank_bits = int(math.log(memBuffer.ranks_per_dimm, 2))
-            memBuffer.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
+                mem_ctrl.bank_bit_0 = low_bank_bit
+                bank_bits = int(math.log(mem_ctrl.banks_per_rank, 2))
+                mem_ctrl.rank_bit_0 = low_bank_bit + bank_bits
+                rank_bits = int(math.log(mem_ctrl.ranks_per_dimm, 2))
+                mem_ctrl.dimm_bit_0 = low_bank_bit + bank_bits + rank_bits
+
