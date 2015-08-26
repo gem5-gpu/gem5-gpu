@@ -33,7 +33,7 @@ import m5
 from m5.objects import *
 from m5.defines import buildEnv
 
-class Cache(RubyCache): pass
+class L1Cache(RubyCache): pass
 
 def create_system(options, full_system, system, dma_devices, ruby_system):
 
@@ -70,10 +70,10 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
         # Only one cache exists for this protocol, so by default use the L1D
         # config parameters.
         #
-        cache = Cache(size = options.sc_l1_size,
-                      assoc = options.sc_l1_assoc,
-                      replacement_policy = LRUReplacementPolicy(),
-                      start_index_bit = block_size_bits)
+        cache = L1Cache(size = options.sc_l1_size,
+                        assoc = options.sc_l1_assoc,
+                        replacement_policy = LRUReplacementPolicy(),
+                        start_index_bit = block_size_bits)
 
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
@@ -117,11 +117,11 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     #       cache coherence (as the GPU L1 caches are incoherent without flushes
     #       The L2 cache is small, and should have minimal affect on the
     #       performance (see Section 6.2 of Power et al. HPCA 2014).
-    pw_cache = Cache(size = options.pwc_size,
-                     assoc = 16, # 64 is fully associative @ 8kB
-                     replacement_policy = LRUReplacementPolicy(),
-                     start_index_bit = block_size_bits,
-                     resourceStalls = False)
+    pw_cache = L1Cache(size = options.pwc_size,
+                       assoc = 16, # 64 is fully associative @ 8kB
+                       replacement_policy = LRUReplacementPolicy(),
+                       start_index_bit = block_size_bits,
+                       resourceStalls = False)
 
     prefetcher = RubyPrefetcher.Prefetcher()
 
@@ -159,7 +159,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     l1_cntrl.responseToCache.slave = ruby_system.network.master
 
     #copy engine cache (make as small as possible, ideally 0)
-    cache = Cache(size = "4kB", assoc = 2)
+    cache = L1Cache(size = "4kB", assoc = 2)
 
     l1_cntrl = L1Cache_Controller(version = \
                                       options.num_cpus + options.num_sc + 1,
