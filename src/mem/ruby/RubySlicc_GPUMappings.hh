@@ -39,13 +39,13 @@
 #include "mem/ruby/structures/DirectoryMemory.hh"
 
 inline MachineID
-getL2ID(Address addr, int num_l2, int select_bits, int select_start_bit)
+getL2ID(Addr addr, int num_l2, int select_bits, int select_start_bit)
 {
     unsigned num = 0;
     if (select_bits) {
         if (num_l2 > pow(2, select_bits))
             fatal("Number of GPU L2 select bits set incorrectly?");
-        uint64 bits = addr.bitSelect(select_start_bit, select_start_bit + select_bits - 1);
+        uint64 bits = bitSelect(addr, select_start_bit, select_start_bit + select_bits - 1);
         num = bits % num_l2;
     }
 

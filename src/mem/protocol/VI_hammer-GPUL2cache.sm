@@ -120,10 +120,10 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   }
 
   structure(TBETable, external="yes") {
-    TBE lookup(Address);
-    void allocate(Address);
-    void deallocate(Address);
-    bool isPresent(Address);
+    TBE lookup(Addr);
+    void allocate(Addr);
+    void deallocate(Addr);
+    bool isPresent(Addr);
   }
 
 
@@ -138,15 +138,15 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   void unset_tbe();
 
   // For hammer
-  void wakeUpBuffers(Address a);
+  void wakeUpBuffers(Addr a);
   void wakeUpAllBuffers();
   Cycles curCycle();
 
-  Entry getCacheEntry(Address address), return_by_pointer="yes" {
+  Entry getCacheEntry(Addr address), return_by_pointer="yes" {
     return static_cast(Entry, "pointer", L2cache.lookup(address));
   }
 
-  State getState(TBE tbe, Entry cache_entry, Address addr) {
+  State getState(TBE tbe, Entry cache_entry, Addr addr) {
     if (is_valid(tbe)) {
       return tbe.TBEState;
     }
@@ -158,7 +158,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  void setState(TBE tbe, Entry cache_entry, Address addr, State state) {
+  void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
     if (is_valid(tbe)) {
       tbe.TBEState := state;
     }
@@ -168,7 +168,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  AccessPermission getAccessPermission(Address addr) {
+  AccessPermission getAccessPermission(Addr addr) {
       TBE tbe := TBEs[addr];
       if(is_valid(tbe)) {
           return GPUL2Cache_State_to_permission(tbe.TBEState);
@@ -182,13 +182,13 @@ machine(GPUL2Cache, "Simple write back L2 cache")
       return AccessPermission:NotPresent;
   }
 
-  void setAccessPermission(Entry cache_entry, Address addr, State state) {
+  void setAccessPermission(Entry cache_entry, Addr addr, State state) {
       if (is_valid(cache_entry)) {
           cache_entry.changePermission(GPUL2Cache_State_to_permission(state));
       }
   }
 
-  void functionalRead(Address addr, Packet *pkt) {
+  void functionalRead(Addr addr, Packet *pkt) {
     Entry cache_entry := getCacheEntry(addr);
     if(is_valid(cache_entry)) {
       testAndRead(addr, cache_entry.DataBlk, pkt);
@@ -202,7 +202,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  int functionalWrite(Address addr, Packet *pkt) {
+  int functionalWrite(Addr addr, Packet *pkt) {
     int num_functional_writes := 0;
 
     Entry cache_entry := getCacheEntry(addr);
@@ -218,7 +218,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     return num_functional_writes;
   }
 
-  Event L1Cache_request_type_to_event(CoherenceRequestTypeVI type, Address addr,
+  Event L1Cache_request_type_to_event(CoherenceRequestTypeVI type, Addr addr,
                                       MachineID requestor, Entry cache_entry) {
     if(type == CoherenceRequestTypeVI:GET) {
       return Event:Get;
@@ -229,7 +229,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  void recordRequestType(RequestType type, Address addr) {
+  void recordRequestType(RequestType type, Addr addr) {
     if (type == RequestType:DataArrayRead) {
       L2cache.recordRequestType(CacheRequestType:DataArrayRead, addr);
     } else if (type == RequestType:DataArrayWrite) {
@@ -243,7 +243,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     }
   }
 
-  bool checkResourceAvailable(RequestType type, Address addr) {
+  bool checkResourceAvailable(RequestType type, Addr addr) {
     if (type == RequestType:DataArrayRead) {
       return L2cache.checkResourceAvailable(CacheResourceType:DataArray, addr);
     } else if (type == RequestType:DataArrayWrite) {
@@ -273,13 +273,13 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     if (triggerQueue_in.isReady()) {
       peek(triggerQueue_in, TriggerMsg) {
 
-        Entry cache_entry := getCacheEntry(in_msg.Addr);
-        TBE tbe := TBEs[in_msg.Addr];
+        Entry cache_entry := getCacheEntry(in_msg.addr);
+        TBE tbe := TBEs[in_msg.addr];
 
         if (in_msg.Type == TriggerType:ALL_ACKS) {
-          trigger(Event:All_acks, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:All_acks, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == TriggerType:ALL_ACKS_NO_SHARERS) {
-          trigger(Event:All_acks_no_sharers, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:All_acks_no_sharers, in_msg.addr, cache_entry, tbe);
         } else {
           error("Unexpected message");
         }
@@ -289,21 +289,21 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   in_port(responseToCache_in, ResponseMsg, responseToCache, rank=2) {
     if (responseToCache_in.isReady()) {
-      peek(responseToCache_in, ResponseMsg, block_on="Addr") {
+      peek(responseToCache_in, ResponseMsg, block_on="addr") {
 
-        Entry cache_entry := getCacheEntry(in_msg.Addr);
-        TBE tbe := TBEs[in_msg.Addr];
+        Entry cache_entry := getCacheEntry(in_msg.addr);
+        TBE tbe := TBEs[in_msg.addr];
 
         if (in_msg.Type == CoherenceResponseType:ACK) {
-          trigger(Event:Ack, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceResponseType:ACK_SHARED) {
-          trigger(Event:Shared_Ack, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Shared_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceResponseType:DATA) {
-          trigger(Event:Data, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Data, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceResponseType:DATA_SHARED) {
-          trigger(Event:Shared_Data, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Shared_Data, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceResponseType:DATA_EXCLUSIVE) {
-          trigger(Event:Exclusive_Data, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Exclusive_Data, in_msg.addr, cache_entry, tbe);
         } else {
           error("Unexpected message");
         }
@@ -313,29 +313,29 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   // Forward Network
   in_port(forwardToCache_in, RequestMsg, forwardToCache, rank=1) {
     if (forwardToCache_in.isReady()) {
-      peek(forwardToCache_in, RequestMsg, block_on="Addr") {
+      peek(forwardToCache_in, RequestMsg, block_on="addr") {
 
-        Entry cache_entry := getCacheEntry(in_msg.Addr);
-        TBE tbe := TBEs[in_msg.Addr];
+        Entry cache_entry := getCacheEntry(in_msg.addr);
+        TBE tbe := TBEs[in_msg.addr];
 
         if ((in_msg.Type == CoherenceRequestType:GETX) || (in_msg.Type == CoherenceRequestType:GETF)) {
-          trigger(Event:Other_GETX, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Other_GETX, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:MERGED_GETS) {
-          trigger(Event:Merged_GETS, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Merged_GETS, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
           if (machineCount(MachineType:L1Cache)+machineCount(MachineType:GPUL2Cache) > 1) {
-            trigger(Event:Other_GETS, in_msg.Addr, cache_entry, tbe);
+            trigger(Event:Other_GETS, in_msg.addr, cache_entry, tbe);
           } else {
-            trigger(Event:NC_DMA_GETS, in_msg.Addr, cache_entry, tbe);
+            trigger(Event:NC_DMA_GETS, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceRequestType:INV) {
-          trigger(Event:Invalidate, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Invalidate, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:WB_ACK) {
-          trigger(Event:Writeback_Ack, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Writeback_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:WB_NACK) {
-          trigger(Event:Writeback_Nack, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Writeback_Nack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:BLOCK_ACK) {
-          trigger(Event:Block_Ack, in_msg.Addr, cache_entry, tbe);
+          trigger(Event:Block_Ack, in_msg.addr, cache_entry, tbe);
         } else {
           error("Unexpected message");
         }
@@ -345,20 +345,20 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   in_port(requestQueue_in, RequestMsgVI, requestFromL1Cache, desc="...") {
     if (requestQueue_in.isReady()) {
-      peek(requestQueue_in, RequestMsgVI, block_on="Addr") {
+      peek(requestQueue_in, RequestMsgVI, block_on="addr") {
 
-        Entry cache_entry := getCacheEntry(in_msg.Addr);
+        Entry cache_entry := getCacheEntry(in_msg.addr);
         if (is_invalid(cache_entry) &&
-            L2cache.cacheAvail(in_msg.Addr) == false ) {
+            L2cache.cacheAvail(in_msg.addr) == false ) {
           // make room for the block
-          trigger(Event:Replacement, L2cache.cacheProbe(in_msg.Addr),
-                  getCacheEntry(L2cache.cacheProbe(in_msg.Addr)),
-                  TBEs[L2cache.cacheProbe(in_msg.Addr)]);
+          trigger(Event:Replacement, L2cache.cacheProbe(in_msg.addr),
+                  getCacheEntry(L2cache.cacheProbe(in_msg.addr)),
+                  TBEs[L2cache.cacheProbe(in_msg.addr)]);
         }
         else {
-          trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.Addr,
+          trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
                                                 in_msg.Requestor, cache_entry),
-            in_msg.Addr, cache_entry, TBEs[in_msg.Addr]);
+            in_msg.addr, cache_entry, TBEs[in_msg.addr]);
         }
       }
     }
@@ -369,7 +369,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(a_issueGETS, "a", desc="Issue GETS") {
     enqueue(requestNetwork_out, RequestMsg, l2_request_latency) {
       assert(is_valid(tbe));
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:GETS;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
@@ -382,7 +382,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(b_issueGETX, "b", desc="Issue GETX") {
     enqueue(requestNetwork_out, RequestMsg, l2_request_latency) {
       assert(is_valid(tbe));
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:GETX;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
@@ -394,7 +394,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   action(d_issuePUT, "d", desc="Issue PUT") {
     enqueue(requestNetwork_out, RequestMsg, l2_request_latency) {
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:PUT;
       out_msg.Requestor := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
@@ -436,7 +436,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     assert(is_valid(cache_entry));
     peek(requestQueue_in, RequestMsgVI) {
       enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseTypeVI:DATA;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -452,7 +452,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     assert(is_valid(tbe));
     peek(responseToCache_in, ResponseMsg) {
       enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseTypeVI:DATA;
         out_msg.Sender := in_msg.Sender;
         out_msg.Destination.add(tbe.Requestor);
@@ -509,7 +509,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(as_ackStore, "as", desc="Ack the requestor that the store is complete") {
     peek(requestQueue_in, RequestMsgVI) {
       enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -522,7 +522,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(aes_ackExternalStore, "aes", desc="Ack the requestor that the store is complete") {
     assert(is_valid(tbe));
     enqueue(responseNetworkL1_out, ResponseMsgVI, l2_response_latency) {
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceResponseTypeVI:WB_ACK;
       out_msg.Sender := machineID;
       out_msg.Destination.add(tbe.Requestor);
@@ -612,7 +612,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     assert(is_valid(tbe));
     if (tbe.NumPendingMsgs == 0) {
       enqueue(triggerQueue_out, TriggerMsg) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         if (tbe.Sharers) {
           out_msg.Type := TriggerType:ALL_ACKS;
         } else {
@@ -654,7 +654,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   action(gm_sendUnblockM, "gm", desc="Send unblock to memory and indicate M/O/E state") {
     enqueue(unblockNetwork_out, ResponseMsg, cache_response_latency) {
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceResponseType:UNBLOCKM;
       out_msg.Sender := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
@@ -665,7 +665,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(gs_sendUnblockS, "gs", desc="Send unblock to memory and indicate S state") {
     enqueue(unblockNetwork_out, ResponseMsg, cache_response_latency) {
       assert(is_valid(tbe));
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceResponseType:UNBLOCKS;
       out_msg.Sender := machineID;
       out_msg.CurOwner := tbe.CurOwner;
@@ -690,7 +690,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
         assert(in_msg.Requestor != machineID);
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(tbe));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -715,7 +715,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
         assert(in_msg.Requestor != machineID);
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(tbe));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_SHARED;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -739,7 +739,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(tbe));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_SHARED;
         out_msg.Sender := machineID;
         out_msg.Destination := in_msg.MergedRequestors;
@@ -758,7 +758,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(qq_sendDataFromTBEToMemory, "\q", desc="Send data from TBE to memory") {
     enqueue(unblockNetwork_out, ResponseMsg, cache_response_latency) {
       assert(is_valid(tbe));
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Sender := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.Dirty := tbe.Dirty;
@@ -779,7 +779,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(t_sendExclusiveDataFromTBEToMemory, "t", desc="Send exclusive data from TBE to memory") {
     enqueue(unblockNetwork_out, ResponseMsg, cache_response_latency) {
       assert(is_valid(tbe));
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Sender := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
       out_msg.DataBlk := tbe.DataBlk;
@@ -801,7 +801,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(f_sendAck, "f", desc="Send ack from cache to requestor") {
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:ACK;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -818,7 +818,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
   action(ff_sendAckShared, "\f", desc="Send shared ack from cache to requestor") {
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:ACK_SHARED;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -834,7 +834,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
 
   action(g_sendUnblock, "g", desc="Send unblock to memory") {
     enqueue(unblockNetwork_out, ResponseMsg, cache_response_latency) {
-      out_msg.Addr := address;
+      out_msg.addr := address;
       out_msg.Type := CoherenceResponseType:UNBLOCK;
       out_msg.Sender := machineID;
       out_msg.Destination.add(map_Address_to_Directory(address));
@@ -846,7 +846,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(cache_entry));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -869,7 +869,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(cache_entry));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_SHARED;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -893,7 +893,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(cache_entry));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_EXCLUSIVE;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
@@ -916,7 +916,7 @@ machine(GPUL2Cache, "Simple write back L2 cache")
     peek(forwardToCache_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache_response_latency) {
         assert(is_valid(cache_entry));
-        out_msg.Addr := address;
+        out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_SHARED;
         out_msg.Sender := machineID;
         out_msg.Destination := in_msg.MergedRequestors;

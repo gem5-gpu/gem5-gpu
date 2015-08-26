@@ -29,10 +29,10 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
   }
 
   structure(TBETable, external="yes") {
-    TBE lookup(Address);
-    void allocate(Address);
-    void deallocate(Address);
-    bool isPresent(Address);
+    TBE lookup(Addr);
+    void allocate(Addr);
+    void deallocate(Addr);
+    bool isPresent(Addr);
     bool areNSlotsAvailable(int);
   }
   TBETable TBEs, template="<GPUCopyDMA_TBE>", constructor="m_number_of_TBEs";
@@ -42,7 +42,7 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
 
   MessageBuffer mandatoryQueue;
 
-  State getState(TBE tbe, Address addr) {
+  State getState(TBE tbe, Addr addr) {
     if (is_valid(tbe)) {
       return tbe.TBEState;
     }
@@ -51,24 +51,24 @@ machine(GPUCopyDMA, "VI Copy Engine Controller")
     }
   }
 
-  void setState(TBE tbe, Address addr, State state) {
+  void setState(TBE tbe, Addr addr, State state) {
     if (is_valid(tbe)) {
       tbe.TBEState := state;
     }
   }
 
-  AccessPermission getAccessPermission(Address addr) {
+  AccessPermission getAccessPermission(Addr addr) {
     return AccessPermission:NotPresent;
   }
 
-  void setAccessPermission(Address addr, State state) {
+  void setAccessPermission(Addr addr, State state) {
   }
 
-  void functionalRead(Address addr, Packet *pkt) {
+  void functionalRead(Addr addr, Packet *pkt) {
     error("CE does not support functional read.");
   }
 
-  int functionalWrite(Address addr, Packet *pkt) {
+  int functionalWrite(Addr addr, Packet *pkt) {
     error("CE does not support functional write.");
   }
 
