@@ -55,8 +55,8 @@ ShaderMMU::ShaderMMU(const Params *p) :
 #if THE_ISA == ARM_ISA
     stage2MMU(p->stage2_mmu),
 #endif
-    latency(p->latency), outstandingFaultStatus(None), curOutstandingWalks(0),
-    prefetchBufferSize(p->prefetch_buffer_size)
+    latency(p->latency), startMissEvent(this), outstandingFaultStatus(None),
+    curOutstandingWalks(0), prefetchBufferSize(p->prefetch_buffer_size)
 {
     activeWalkers.resize(pagewalkers.size());
     if (p->l2_tlb_entries > 0) {
@@ -85,15 +85,33 @@ void
 ShaderMMU::beginTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
                         RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc)
 {
-    TLBMissEvent *e = new TLBMissEvent(this,
-                                       req_tlb, translation, req, mode, tc);
-    schedule(e, clockEdge(Cycles(latency)));
+    // Wrap the translation in another class so we can catch the insertion
+    TranslationRequest *wrapped_translation = new TranslationRequest(this,
+              req_tlb, translation, req, mode, tc, clockEdge(Cycles(latency)));
+
+    startMisses.push(wrapped_translation);
+    if (!startMissEvent.scheduled()) {
+        schedule(startMissEvent, startMisses.front()->getStartTick());
+    }
 }
 
 void
-ShaderMMU::handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
-                         RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc)
+ShaderMMU::handleTLBMiss()
 {
+    TranslationRequest *translation_request = startMisses.front();
+    startMisses.pop();
+
+    assert(!startMissEvent.scheduled());
+    if (!startMisses.empty()) {
+        schedule(startMissEvent, startMisses.front()->getStartTick());
+    }
+
+    ShaderTLB *req_tlb = translation_request->origTLB;
+    BaseTLB::Translation *translation = translation_request->wrappedTranslation;
+    RequestPtr req = translation_request->req;
+    BaseTLB::Mode mode = translation_request->mode;
+    ThreadContext *tc = translation_request->tc;
+
     Addr ppn;
     Addr offset = req->getVaddr() % TheISA::PageBytes;
     Addr vpn = req->getVaddr() - offset;
@@ -105,6 +123,7 @@ ShaderMMU::handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
         req->setPaddr(ppn + offset);
         req_tlb->insert(vpn, ppn);
         translation->finish(NoFault, req, tc, mode);
+        delete translation_request;
         return;
     }
 
@@ -125,25 +144,22 @@ ShaderMMU::handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
         // This was a hit in the prefetch buffer, so we must have done the
         // right thing, Let's see if we get lucky again.
         tryPrefetch(vpn, tc);
+        delete translation_request;
         return;
     }
 
-    // Wrap the translation in another class so we can catch the insertion
-    TranslationRequest *wrappedTranslation =
-            new TranslationRequest(this, req_tlb, translation, req, mode, tc);
-
     DPRINTF(ShaderMMU, "Inserting request for vpn %#x. %d outstanding\n", vpn,
             outstandingWalks[vpn].size());
-    outstandingWalks[vpn].push_back(wrappedTranslation);
+    outstandingWalks[vpn].push_back(translation_request);
     totalRequests++;
 
     if (outstandingWalks[vpn].size() == 1) {
         DPRINTF(ShaderMMU, "Walking for %#x\n", req->getVaddr());
         TLB *walker = getFreeWalker();
         if (walker == NULL) {
-            pendingWalks.push(wrappedTranslation);
+            pendingWalks.push(translation_request);
         } else {
-            wrappedTranslation->walk(walker);
+            translation_request->walk(walker);
             // Try to prefetch on demand misses (but wait until the demand
             // walk has started.)
             tryPrefetch(vpn, tc);
@@ -571,10 +587,11 @@ ShaderMMU::regStats()
 
 ShaderMMU::TranslationRequest::TranslationRequest(ShaderMMU *_mmu,
     ShaderTLB *_tlb, BaseTLB::Translation *translation,
-    RequestPtr _req, BaseTLB::Mode _mode, ThreadContext *_tc, bool prefetch)
+    RequestPtr _req, BaseTLB::Mode _mode, ThreadContext *_tc, Tick start_tick,
+    bool prefetch)
             : mmu(_mmu), origTLB(_tlb),
               wrappedTranslation(translation), req(_req), mode(_mode), tc(_tc),
-              beginFault(0), prefetch(prefetch)
+              beginFault(0), startTick(start_tick), prefetch(prefetch)
 {
     vpn = req->getVaddr() - req->getVaddr() % TheISA::PageBytes;
 }

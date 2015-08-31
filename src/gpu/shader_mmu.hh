@@ -54,33 +54,6 @@ private:
     TheISA::Stage2MMU *stage2MMU;
 #endif
 
-    // Latency for requests to reach the MMU from the L1 TLBs
-    Cycles latency;
-
-    class TLBMissEvent : public Event
-    {
-        ShaderMMU *mmu;
-        ShaderTLB *tlb;
-        BaseTLB::Translation *translation;
-        RequestPtr req;
-        BaseTLB::Mode mode;
-        ThreadContext *tc;
-    public:
-        TLBMissEvent(ShaderMMU *_mmu, ShaderTLB *_tlb,
-                     BaseTLB::Translation *_translation, RequestPtr _req,
-                     BaseTLB::Mode _mode, ThreadContext *_tc) :
-            mmu(_mmu), tlb(_tlb), translation(_translation), req(_req),
-            mode(_mode), tc(_tc)
-        {
-            setFlags(Event::AutoDelete);
-        }
-        void process() {
-            mmu->handleTLBMiss(tlb, translation, req, mode, tc);
-        }
-    };
-
-    TLBMemory *tlb;
-
     class TranslationRequest : public BaseTLB::Translation
     {
     public:
@@ -94,13 +67,15 @@ private:
         Addr vpn;
         Cycles beginFault;
         Cycles beginWalk;
+        Tick startTick;
         bool prefetch;
 
     public:
         TranslationRequest(ShaderMMU *_mmu, ShaderTLB *_tlb,
                            BaseTLB::Translation *translation, RequestPtr _req,
                            BaseTLB::Mode _mode, ThreadContext *_tc,
-                           bool prefetch=false);
+                           Tick start_tick, bool prefetch = false);
+        Tick getStartTick() { return startTick; }
         void markDelayed() { wrappedTranslation->markDelayed(); }
         void finish(const Fault &fault, RequestPtr _req, ThreadContext *_tc,
                     BaseTLB::Mode _mode)
@@ -118,6 +93,24 @@ private:
             pageWalker->translateTiming(req, tc, this, mode);
         }
     };
+
+    // Latency for requests to reach the MMU from the L1 TLBs
+    Cycles latency;
+
+    class TLBMissEvent : public Event
+    {
+        ShaderMMU *mmu;
+    public:
+        TLBMissEvent(ShaderMMU *_mmu) : mmu(_mmu) {}
+        void process() {
+            mmu->handleTLBMiss();
+        }
+    };
+
+    TLBMissEvent startMissEvent;
+    std::queue<TranslationRequest*> startMisses;
+
+    TLBMemory *tlb;
 
     enum FaultStatus {
         None, // No outstanding faults
@@ -162,8 +155,7 @@ public:
 
     /// Called from TLBMissEvent after latency cycles has passed since
     /// beginTLBMiss
-    void handleTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
-                       RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc);
+    void handleTLBMiss();
 
     /// Called when a shader tlb has a miss
     void beginTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
