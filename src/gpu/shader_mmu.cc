@@ -187,10 +187,8 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
             // HACK! Setting CPU registers is a convenient way to communicate
             // page fault information to the CPU rather than implementing full
             // memory-mapped device registers. However, setting registers can
-            // cause pipeline flushes that upset the proper execution of thread
-            // control instructions such as suspend operations. gem5-gpu
-            // gem5-patches contain a fix for this bug in the O3CPU, but beware
-            // of other thread control problems when handling GPU page faults.
+            // cause erratic CPU behavior, such as pipeline flushes. Use extreme
+            // care/testing when changing these.
             tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, faultReg);
             if (!pendingFaults.empty()) {
                 TranslationRequest *pending = pendingFaults.front();
@@ -319,11 +317,9 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 
     // HACK! Setting CPU registers is a convenient way to communicate page
     // fault information to the CPU rather than implementing full memory-mapped
-    // device registers. However, setting registers can cause pipeline flushes
-    // that upset the proper execution of thread control instructions such as
-    // suspend operations. gem5-gpu gem5-patches contain a fix for this bug in
-    // the O3CPU, but beware of other thread control problems when handling
-    // GPU page faults.
+    // device registers. However, setting registers can cause erratic CPU
+    // behavior, such as pipeline flushes. Use extreme care/testing when
+    // changing these.
     tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, faultReg);
     tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTADDR, translation->req->getVaddr());
     tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTCODE, code);
