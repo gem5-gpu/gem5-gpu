@@ -49,6 +49,7 @@ class ShaderMMU : public ClockedObject
 {
 private:
     std::vector<TheISA::TLB*> pagewalkers;
+    std::map<TheISA::TLB*, unsigned> pagewalkerIndices;
     std::vector<bool> activeWalkers;
 #if THE_ISA == ARM_ISA
     TheISA::Stage2MMU *stage2MMU;
@@ -85,13 +86,6 @@ private:
             assert(_tc == tc);
             mmu->finishWalk(this, fault);
         }
-        void walk(TheISA::TLB *walker) {
-            beginWalk = mmu->curCycle();
-            assert(walker != NULL);
-            pageWalker = walker;
-            mmu->numPagewalks++;
-            pageWalker->translateTiming(req, tc, this, mode);
-        }
     };
 
     // Latency for requests to reach the MMU from the L1 TLBs
@@ -109,6 +103,28 @@ private:
 
     TLBMissEvent startMissEvent;
     std::queue<TranslationRequest*> startMisses;
+
+    class StartPagewalkEvent : public Event
+    {
+        ShaderMMU *mmu;
+        TheISA::TLB *walker;
+        TranslationRequest *translation;
+    public:
+        StartPagewalkEvent(ShaderMMU *_mmu, TheISA::TLB *_walker) :
+            mmu(_mmu), walker(_walker), translation(NULL) {}
+        void setTranslation(TranslationRequest *_translation) {
+            assert(!translation);
+            translation = _translation;
+        }
+        void process() {
+            assert(translation);
+            TranslationRequest *starting_translation = translation;
+            translation = NULL;
+            mmu->walk(walker, starting_translation);
+        }
+    };
+
+    std::vector<StartPagewalkEvent*> pagewalkEvents;
 
     TLBMemory *tlb;
 
@@ -139,6 +155,15 @@ private:
 
     void setWalkerFree(TheISA::TLB *walker);
     TheISA::TLB *getFreeWalker();
+    void schedulePagewalk(TheISA::TLB *walker, TranslationRequest *translation)
+    {
+        // Start the page walk in the next cycle
+        unsigned pw_id = pagewalkerIndices[walker];
+        assert(activeWalkers[pw_id]);
+        StartPagewalkEvent *spe = pagewalkEvents[pw_id];
+        spe->setTranslation(translation);
+        schedule(spe, nextCycle());
+    }
 
     // Log the vp base address of the access. If we detect a pattern issue the
     // prefetch. This is currently just a simple 1-ahead prefetcher
@@ -160,6 +185,17 @@ public:
     /// Called when a shader tlb has a miss
     void beginTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
                       RequestPtr req, BaseTLB::Mode mode, ThreadContext *tc);
+
+    /// Called from a start pagewalk event
+    void walk(TheISA::TLB *walker, TranslationRequest *translation) {
+        assert(translation->pageWalker == NULL);
+        assert(walker != NULL);
+        translation->beginWalk = curCycle();
+        translation->pageWalker = walker;
+        numPagewalks++;
+        walker->translateTiming(translation->req, translation->tc, translation,
+                                translation->mode);
+    }
 
     // Called after the pagetable walk from TranslationRequest
     void finishWalk(TranslationRequest *translation, Fault fault);

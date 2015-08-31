@@ -64,20 +64,25 @@ ShaderMMU::ShaderMMU(const Params *p) :
     } else {
         tlb = NULL;
     }
+
+    pagewalkEvents.resize(pagewalkers.size());
+    for (unsigned pw_id = 0; pw_id < pagewalkers.size(); pw_id++) {
+        TheISA::TLB* pw = pagewalkers[pw_id];
+        pagewalkerIndices[pw] = pw_id;
+        pagewalkEvents[pw_id] = new StartPagewalkEvent(this, pw);
 #if THE_ISA == ARM_ISA
-    vector<TheISA::TLB*>::iterator iter = pagewalkers.begin();
-    MasterID curr_walker_id = 0;
-    for (; iter != pagewalkers.end(); iter++) {
-        (*iter)->setMMU(stage2MMU, curr_walker_id);
-        curr_walker_id++;
-    }
+        pw->setMMU(stage2MMU, pw_id);
 #endif
+    }
 }
 
 ShaderMMU::~ShaderMMU()
 {
     if (tlb) {
         delete tlb;
+    }
+    for (unsigned pw_id = 0; pw_id < pagewalkers.size(); pw_id++) {
+        delete pagewalkEvents[pw_id];
     }
 }
 
@@ -159,7 +164,7 @@ ShaderMMU::handleTLBMiss()
         if (walker == NULL) {
             pendingWalks.push(translation_request);
         } else {
-            translation_request->walk(walker);
+            schedulePagewalk(walker, translation_request);
             // Try to prefetch on demand misses (but wait until the demand
             // walk has started.)
             tryPrefetch(vp_base, tc);
@@ -172,11 +177,12 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
 {
     pagewalkLatency.sample(curCycle() - translation->beginWalk);
     setWalkerFree(translation->pageWalker);
+    translation->pageWalker = NULL;
 
     if (!pendingWalks.empty()) {
         TLB *walker = getFreeWalker();
         TranslationRequest *t = pendingWalks.front();
-        t->walk(walker);
+        schedulePagewalk(walker, t);
         pendingWalks.pop();
     }
 
@@ -444,7 +450,7 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
         // May want to push this to the front in the future to decrease latency
         pendingWalks.push(outstandingFaultInfo);
     } else {
-        outstandingFaultInfo->walk(walker);
+        schedulePagewalk(walker, outstandingFaultInfo);
     }
 }
 
@@ -458,18 +464,11 @@ ShaderMMU::isFaultInFlight(ThreadContext *tc)
 void
 ShaderMMU::setWalkerFree(TLB *walker)
 {
-    int i;
-    for (i=0; i<pagewalkers.size(); i++) {
-        if (pagewalkers[i] == walker) {
-            DPRINTF(ShaderMMU, "Setting walker %d free\n", i);
-            assert(activeWalkers[i] == true);
-            activeWalkers[i] = false;
-            break;
-        }
-    }
-    if (i == pagewalkers.size()) {
-        panic("Could not find walker!");
-    }
+    unsigned pw_id = pagewalkerIndices[walker];
+    assert(pagewalkers[pw_id] == walker);
+    assert(activeWalkers[pw_id] == true);
+    activeWalkers[pw_id] = false;
+
     curOutstandingWalks--;
 }
 
@@ -534,7 +533,7 @@ ShaderMMU::tryPrefetch(Addr vp_base, ThreadContext *tc)
     assert(walker != NULL); // Should never try to issue a prefetch in this case
 
     DPRINTF(ShaderMMU, "Prefetching translation for %#x.\n", next_vp_base);
-    translation->walk(walker);
+    schedulePagewalk(walker, translation);
 }
 
 void
@@ -619,7 +618,7 @@ ShaderMMU::TranslationRequest::TranslationRequest(ShaderMMU *_mmu,
     ShaderTLB *_tlb, BaseTLB::Translation *translation,
     RequestPtr _req, BaseTLB::Mode _mode, ThreadContext *_tc, Tick start_tick,
     bool prefetch)
-            : mmu(_mmu), origTLB(_tlb),
+            : mmu(_mmu), origTLB(_tlb), pageWalker(NULL),
               wrappedTranslation(translation), req(_req), mode(_mode), tc(_tc),
               beginFault(0), startTick(start_tick), prefetch(prefetch)
 {
