@@ -10,4 +10,4 @@ include "VI_hammer-GPUL2cache.sm";
 include "VI-ce.sm";
 
 include "VI_hammer-dir.sm";
-include "VI_hammer-dma.sm";
+include "MOESI_hammer-dma.sm";
