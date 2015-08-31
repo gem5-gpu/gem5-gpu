@@ -92,9 +92,9 @@ if buildEnv['TARGET_ISA'] != "x86":
 #
 # CPU type configuration
 #
-if options.cpu_type != "timing" and options.cpu_type != "detailed":
-    print "Warning: gem5-gpu only works with timing and detailed CPUs. Defaulting to timing"
-    options.cpu_type = "timing"
+if options.cpu_type != "timing" and options.cpu_type != "TimingSimpleCPU" \
+    and options.cpu_type != "detailed" and options.cpu_type != "DerivO3CPU":
+    print "Warning: gem5-gpu only known to work with timing and detailed CPUs: Proceed at your own risk!"
 (CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
 
 #
