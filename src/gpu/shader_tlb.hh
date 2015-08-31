@@ -41,19 +41,19 @@ class CudaGPU;
 
 class GPUTlbEntry {
 public:
-    Addr vpn;
-    Addr ppn;
+    Addr vpBase;
+    Addr ppBase;
     bool free;
     Tick mruTick;
     uint32_t hits;
-    GPUTlbEntry() : vpn(0), ppn(0), free(true), mruTick(0), hits(0) {}
+    GPUTlbEntry() : vpBase(0), ppBase(0), free(true), mruTick(0), hits(0) {}
     void setMRU() { mruTick = curTick(); }
 };
 
 class BaseTLBMemory {
 public:
-    virtual bool lookup(Addr vpn, Addr& ppn, bool set_mru=true) = 0;
-    virtual void insert(Addr vpn, Addr ppn) = 0;
+    virtual bool lookup(Addr vp_base, Addr& pp_base, bool set_mru=true) = 0;
+    virtual void insert(Addr vp_base, Addr pp_base) = 0;
 };
 
 class TLBMemory : public BaseTLBMemory {
@@ -88,8 +88,8 @@ public:
         delete[] entries;
     }
 
-    virtual bool lookup(Addr vpn, Addr& ppn, bool set_mru=true);
-    virtual void insert(Addr vpn, Addr ppn);
+    virtual bool lookup(Addr vp_base, Addr& pp_base, bool set_mru=true);
+    virtual void insert(Addr vp_base, Addr pp_base);
 };
 
 class InfiniteTLBMemory : public BaseTLBMemory {
@@ -98,20 +98,20 @@ public:
     InfiniteTLBMemory() {}
     ~InfiniteTLBMemory() {}
 
-    bool lookup(Addr vpn, Addr& ppn, bool set_mru=true)
+    bool lookup(Addr vp_base, Addr& pp_base, bool set_mru=true)
     {
-        auto it = entries.find(vpn);
+        auto it = entries.find(vp_base);
         if (it != entries.end()) {
-            ppn = it->second;
+            pp_base = it->second;
             return true;
         } else {
-            ppn = Addr(0);
+            pp_base = Addr(0);
             return false;
         }
     }
-    void insert(Addr vpn, Addr ppn)
+    void insert(Addr vp_base, Addr pp_base)
     {
-        entries[vpn] = ppn;
+        entries[vp_base] = pp_base;
     }
 };
 
@@ -151,7 +151,7 @@ public:
 
     void takeOverFrom(BaseTLB *_tlb) {}
 
-    void insert(Addr vpn, Addr ppn);
+    void insert(Addr vp_base, Addr pp_base);
 
     void regStats();
 

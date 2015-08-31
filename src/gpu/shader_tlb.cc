@@ -133,13 +133,13 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
     Addr vaddr = req->getVaddr();
     DPRINTF(ShaderTLB, "Translating vaddr %#x.\n", vaddr);
     Addr offset = vaddr % TheISA::PageBytes;
-    Addr vpn = vaddr - offset;
-    Addr ppn;
+    Addr vp_base = vaddr - offset;
+    Addr pp_base;
 
-    if (tlbMemory->lookup(vpn, ppn)) {
-        DPRINTF(ShaderTLB, "TLB hit. Phys addr %#x.\n", ppn + offset);
+    if (tlbMemory->lookup(vp_base, pp_base)) {
+        DPRINTF(ShaderTLB, "TLB hit. Phys addr %#x.\n", pp_base + offset);
         hits++;
-        req->setPaddr(ppn + offset);
+        req->setPaddr(pp_base + offset);
         translation->finish(NoFault, req, tc, mode);
     } else {
         // TLB miss! Let the TLB handle the walk, etc
@@ -152,9 +152,9 @@ ShaderTLB::translateTiming(RequestPtr req, ThreadContext *tc,
 }
 
 void
-ShaderTLB::insert(Addr vpn, Addr ppn)
+ShaderTLB::insert(Addr vp_base, Addr pp_base)
 {
-    tlbMemory->insert(vpn, ppn);
+    tlbMemory->insert(vp_base, pp_base);
 }
 
 void
@@ -171,12 +171,12 @@ ShaderTLB::flushAll()
 }
 
 bool
-TLBMemory::lookup(Addr vpn, Addr& ppn, bool set_mru)
+TLBMemory::lookup(Addr vp_base, Addr& pp_base, bool set_mru)
 {
-    int way = (vpn / TheISA::PageBytes) % ways;
+    int way = (vp_base / TheISA::PageBytes) % ways;
     for (int i=0; i < sets; i++) {
-        if (entries[way][i].vpn == vpn && !entries[way][i].free) {
-            ppn = entries[way][i].ppn;
+        if (entries[way][i].vpBase == vp_base && !entries[way][i].free) {
+            pp_base = entries[way][i].ppBase;
             assert(entries[way][i].mruTick > 0);
             if (set_mru) {
                 entries[way][i].setMRU();
@@ -185,18 +185,18 @@ TLBMemory::lookup(Addr vpn, Addr& ppn, bool set_mru)
             return true;
         }
     }
-    ppn = Addr(0);
+    pp_base = Addr(0);
     return false;
 }
 
 void
-TLBMemory::insert(Addr vpn, Addr ppn)
+TLBMemory::insert(Addr vp_base, Addr pp_base)
 {
     Addr a;
-    if (lookup(vpn, a)) {
+    if (lookup(vp_base, a)) {
         return;
     }
-    int way = (vpn / TheISA::PageBytes) % ways;
+    int way = (vp_base / TheISA::PageBytes) % ways;
     GPUTlbEntry* entry = NULL;
     Tick minTick = curTick();
     for (int i=0; i < sets; i++) {
@@ -210,11 +210,11 @@ TLBMemory::insert(Addr vpn, Addr ppn)
     }
     assert(entry);
     if (!entry->free) {
-        DPRINTF(ShaderTLB, "Evicting entry for vpn %#x\n", entry->vpn);
+        DPRINTF(ShaderTLB, "Evicting entry for vp %#x\n", entry->vpBase);
     }
 
-    entry->vpn = vpn;
-    entry->ppn = ppn;
+    entry->vpBase = vp_base;
+    entry->ppBase = pp_base;
     entry->free = false;
     entry->setMRU();
 }

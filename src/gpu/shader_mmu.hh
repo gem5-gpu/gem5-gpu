@@ -64,7 +64,7 @@ private:
         RequestPtr req;
         BaseTLB::Mode mode;
         ThreadContext *tc;
-        Addr vpn;
+        Addr vpBase;
         Cycles beginFault;
         Cycles beginWalk;
         Tick startTick;
@@ -140,12 +140,12 @@ private:
     void setWalkerFree(TheISA::TLB *walker);
     TheISA::TLB *getFreeWalker();
 
-    // Log the vpn of the access. If we detect a pattern issue the prefetch
-    // This is currently just a simple 1-ahead prefetcher
-    void tryPrefetch(Addr vpn, ThreadContext *tc);
+    // Log the vp base address of the access. If we detect a pattern issue the
+    // prefetch. This is currently just a simple 1-ahead prefetcher
+    void tryPrefetch(Addr vp_base, ThreadContext *tc);
 
     // Insert prefetch into prefetch buffer
-    void insertPrefetch(Addr vpn, Addr ppn);
+    void insertPrefetch(Addr vp_base, Addr pp_base);
 
 public:
     /// Constructor

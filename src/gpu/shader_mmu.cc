@@ -112,48 +112,48 @@ ShaderMMU::handleTLBMiss()
     BaseTLB::Mode mode = translation_request->mode;
     ThreadContext *tc = translation_request->tc;
 
-    Addr ppn;
+    Addr pp_base;
     Addr offset = req->getVaddr() % TheISA::PageBytes;
-    Addr vpn = req->getVaddr() - offset;
+    Addr vp_base = req->getVaddr() - offset;
 
     // Check the L2 TLB
-    if (tlb && tlb->lookup(vpn, ppn, req_tlb)) {
+    if (tlb && tlb->lookup(vp_base, pp_base, req_tlb)) {
         // Found in the L2 TLB
         l2hits++;
-        req->setPaddr(ppn + offset);
-        req_tlb->insert(vpn, ppn);
+        req->setPaddr(pp_base + offset);
+        req_tlb->insert(vp_base, pp_base);
         translation->finish(NoFault, req, tc, mode);
         delete translation_request;
         return;
     }
 
     // Check for a hit in the prefetch buffers
-    auto it = prefetchBuffer.find(vpn);
+    auto it = prefetchBuffer.find(vp_base);
     if (it != prefetchBuffer.end()) {
         // Hit in the prefetch buffer
         prefetchHits++;
-        ppn = it->second.ppn;
+        pp_base = it->second.ppBase;
         if (tlb) {
-            tlb->insert(vpn, ppn);
+            tlb->insert(vp_base, pp_base);
         }
-        req->setPaddr(ppn + offset);
-        req_tlb->insert(vpn, ppn);
+        req->setPaddr(pp_base + offset);
+        req_tlb->insert(vp_base, pp_base);
         translation->finish(NoFault, req, tc, mode);
         // Remove from prefetchBuffer
         prefetchBuffer.erase(it);
         // This was a hit in the prefetch buffer, so we must have done the
         // right thing, Let's see if we get lucky again.
-        tryPrefetch(vpn, tc);
+        tryPrefetch(vp_base, tc);
         delete translation_request;
         return;
     }
 
-    DPRINTF(ShaderMMU, "Inserting request for vpn %#x. %d outstanding\n", vpn,
-            outstandingWalks[vpn].size());
-    outstandingWalks[vpn].push_back(translation_request);
+    DPRINTF(ShaderMMU, "Inserting request for vp base %#x. %d outstanding\n",
+            vp_base, outstandingWalks[vp_base].size());
+    outstandingWalks[vp_base].push_back(translation_request);
     totalRequests++;
 
-    if (outstandingWalks[vpn].size() == 1) {
+    if (outstandingWalks[vp_base].size() == 1) {
         DPRINTF(ShaderMMU, "Walking for %#x\n", req->getVaddr());
         TLB *walker = getFreeWalker();
         if (walker == NULL) {
@@ -162,7 +162,7 @@ ShaderMMU::handleTLBMiss()
             translation_request->walk(walker);
             // Try to prefetch on demand misses (but wait until the demand
             // walk has started.)
-            tryPrefetch(vpn, tc);
+            tryPrefetch(vp_base, tc);
         }
     }
 }
@@ -235,13 +235,13 @@ void
 ShaderMMU::finalizeTranslation(TranslationRequest *translation)
 {
     RequestPtr req = translation->req;
-    Addr vpn = translation->vpn;
-    Addr ppn = req->getPaddr() - req->getPaddr() % TheISA::PageBytes;
+    Addr vp_base = translation->vpBase;
+    Addr pp_base = req->getPaddr() - req->getPaddr() % TheISA::PageBytes;
 
-    DPRINTF(ShaderMMU, "Walk complete for VPN %#x to PPN %#x\n", vpn, ppn);
+    DPRINTF(ShaderMMU, "Walk complete for VP %#x to PP %#x\n", vp_base, pp_base);
 
     list<TranslationRequest*>::iterator it;
-    list<TranslationRequest*> &walks = outstandingWalks[vpn];
+    list<TranslationRequest*> &walks = outstandingWalks[vp_base];
     DPRINTF(ShaderMMU, "Walk satifies %d outstanding reqs\n", walks.size());
     for (it = walks.begin(); it != walks.end(); it++) {
         TranslationRequest *t = (*it);
@@ -249,30 +249,30 @@ ShaderMMU::finalizeTranslation(TranslationRequest *translation)
         RequestPtr match_req = t->req;
         if (match_req != translation->req) {
             Addr offset = match_req->getVaddr() % TheISA::PageBytes;
-            match_req->setPaddr(ppn + offset);
+            match_req->setPaddr(pp_base + offset);
         }
 
         if (t->prefetch && match_req == translation->req) {
             // Only insert into pf buffer if no other requests were made to this
-            // vpn before the prefetch completed
+            // vp before the prefetch completed
             if (walks.size() == 1) {
-                insertPrefetch(vpn, ppn);
+                insertPrefetch(vp_base, pp_base);
             }
             delete t->req;
         } else {
             // insert the mapping into the TLB
             if (tlb) {
-                tlb->insert(vpn, ppn);
+                tlb->insert(vp_base, pp_base);
             }
             // Insert into L1 TLB
-            t->origTLB->insert(vpn, ppn);
+            t->origTLB->insert(vp_base, pp_base);
             // Forward the translation on
             t->wrappedTranslation->finish(NoFault, match_req, t->tc,
                                           t->mode);
         }
         delete t;
     }
-    outstandingWalks.erase(vpn);
+    outstandingWalks.erase(vp_base);
 }
 
 void
@@ -280,14 +280,14 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 {
     if (!FullSystem) {
         panic("Page fault handling (addr: %#x, pc: %#x) not available in SE "
-              "mode: No interrupt handler!\n", translation->vpn,
+              "mode: No interrupt handler!\n", translation->vpBase,
               translation->req->getPC());
     }
     if (translation->prefetch) {
         DPRINTF(ShaderMMU, "Ignoring since fault on prefetch\n");
         prefetchFaults++;
         TranslationRequest *new_translation = NULL;
-        list<TranslationRequest*> &walks = outstandingWalks[translation->vpn];
+        list<TranslationRequest*> &walks = outstandingWalks[translation->vpBase];
         if (walks.size() != 1) {
             DPRINTF(ShaderMMU, "Well this is complicated. Prefetch fault for"
                                 "real request.\n");
@@ -296,7 +296,7 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
             delete translation->req;
             delete translation;
         } else {
-            outstandingWalks.erase(translation->vpn);
+            outstandingWalks.erase(translation->vpBase);
             delete translation->req;
             delete translation;
             return;
@@ -459,7 +459,7 @@ ShaderMMU::getFreeWalker()
 }
 
 void
-ShaderMMU::tryPrefetch(Addr vpn, ThreadContext *tc)
+ShaderMMU::tryPrefetch(Addr vp_base, ThreadContext *tc)
 {
     // If not using a prefetcher, skip this function.
     if (prefetchBufferSize == 0) {
@@ -467,7 +467,7 @@ ShaderMMU::tryPrefetch(Addr vpn, ThreadContext *tc)
     }
 
     // If this address has already been prefetched, skip
-    auto it = prefetchBuffer.find(vpn);
+    auto it = prefetchBuffer.find(vp_base);
     if (it != prefetchBuffer.end()) {
         return;
     }
@@ -476,15 +476,15 @@ ShaderMMU::tryPrefetch(Addr vpn, ThreadContext *tc)
         return;
     }
 
-    Addr next_vpn = vpn + TheISA::PageBytes;
-    Addr ppn;
-    if (tlb && tlb->lookup(next_vpn, ppn, false)) {
-        // This vpn already in the TLB, no need to prefetch
+    Addr next_vp_base = vp_base + TheISA::PageBytes;
+    Addr pp_base;
+    if (tlb && tlb->lookup(next_vp_base, pp_base, false)) {
+        // This vp already in the TLB, no need to prefetch
         return;
     }
 
-    if (outstandingWalks.find(next_vpn) != outstandingWalks.end()) {
-        // Already walking for this vpn, no need to prefetch
+    if (outstandingWalks.find(next_vp_base) != outstandingWalks.end()) {
+        // Already walking for this vp, no need to prefetch
         return;
     }
 
@@ -492,22 +492,22 @@ ShaderMMU::tryPrefetch(Addr vpn, ThreadContext *tc)
 
     // Prefetch the next PTE into the TLB.
     Request::Flags flags;
-    RequestPtr req = new Request(0, next_vpn, 4, flags, 0, 0, 0, 0);
+    RequestPtr req = new Request(0, next_vp_base, 4, flags, 0, 0, 0, 0);
     TranslationRequest *translation = new TranslationRequest(this, NULL, NULL,
                                         req, BaseTLB::Read, tc, true);
-    outstandingWalks[next_vpn].push_back(translation);
+    outstandingWalks[next_vp_base].push_back(translation);
     TLB *walker = getFreeWalker();
     assert(walker != NULL); // Should never try to issue a prefetch in this case
 
-    DPRINTF(ShaderMMU, "Prefetching translation for %#x.\n", next_vpn);
+    DPRINTF(ShaderMMU, "Prefetching translation for %#x.\n", next_vp_base);
     translation->walk(walker);
 }
 
 void
-ShaderMMU::insertPrefetch(Addr vpn, Addr ppn)
+ShaderMMU::insertPrefetch(Addr vp_base, Addr pp_base)
 {
-    DPRINTF(ShaderMMU, "Inserting %#x->%#x into pf buffer\n", vpn, ppn);
-    assert(vpn % TheISA::PageBytes == 0);
+    DPRINTF(ShaderMMU, "Inserting %#x->%#x into pf buffer\n", vp_base, pp_base);
+    assert(vp_base % TheISA::PageBytes == 0);
     // Insert into prefetch buffer
     if (prefetchBuffer.size() >= prefetchBufferSize) {
         // evict unused entry from prefetch buffer
@@ -522,9 +522,9 @@ ShaderMMU::insertPrefetch(Addr vpn, Addr ppn)
         assert(minTick != curTick() && min != prefetchBuffer.end());
         prefetchBuffer.erase(min);
     }
-    GPUTlbEntry &e = prefetchBuffer[vpn];
-    e.vpn = vpn;
-    e.ppn = ppn;
+    GPUTlbEntry &e = prefetchBuffer[vp_base];
+    e.vpBase = vp_base;
+    e.ppBase = pp_base;
     e.setMRU();
     assert(prefetchBuffer.size() <= prefetchBufferSize);
 }
@@ -593,7 +593,7 @@ ShaderMMU::TranslationRequest::TranslationRequest(ShaderMMU *_mmu,
               wrappedTranslation(translation), req(_req), mode(_mode), tc(_tc),
               beginFault(0), startTick(start_tick), prefetch(prefetch)
 {
-    vpn = req->getVaddr() - req->getVaddr() % TheISA::PageBytes;
+    vpBase = req->getVaddr() - req->getVaddr() % TheISA::PageBytes;
 }
 
 ShaderMMU *ShaderMMUParams::create() {
