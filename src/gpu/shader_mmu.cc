@@ -236,38 +236,51 @@ ShaderMMU::finalizeTranslation(TranslationRequest *translation)
 
     DPRINTF(ShaderMMU, "Walk complete for VP %#x to PP %#x\n", vp_base, pp_base);
 
-    list<TranslationRequest*>::iterator it;
     list<TranslationRequest*> &walks = outstandingWalks[vp_base];
-    DPRINTF(ShaderMMU, "Walk satifies %d outstanding reqs\n", walks.size());
+    assert(walks.front() == translation);
+    walks.pop_front();
+
+    // First, complete the walked translation
+    if (translation->prefetch) {
+        // Only insert into pf buffer if no other requests were made to this
+        // virtual page before the prefetch completed
+        if (walks.size() == 0) {
+            insertPrefetch(vp_base, pp_base);
+        }
+        delete translation->req;
+    } else {
+        // Insert the mapping into the TLB. This only needs to happen once
+        if (tlb) {
+            tlb->insert(vp_base, pp_base);
+        }
+        // Insert into L1 TLB
+        translation->origTLB->insert(vp_base, pp_base);
+        // Forward the translation on
+        translation->wrappedTranslation->finish(NoFault, translation->req,
+                                           translation->tc, translation->mode);
+    }
+
+    // Next, complete any queued translations for this same page
+    DPRINTF(ShaderMMU, "Walk satisfies %d other requests\n", walks.size());
+    list<TranslationRequest*>::iterator it;
     for (it = walks.begin(); it != walks.end(); it++) {
         TranslationRequest *t = (*it);
+        // Prefetches should not have been queued
+        assert(!t->prefetch);
+        assert(t != translation);
 
-        RequestPtr match_req = t->req;
-        if (match_req != translation->req) {
-            Addr offset = match_req->getVaddr() % TheISA::PageBytes;
-            match_req->setPaddr(pp_base + offset);
-        }
+        // Set the physical address to complete the translation
+        Addr offset = t->req->getVaddr() % TheISA::PageBytes;
+        t->req->setPaddr(pp_base + offset);
 
-        if (t->prefetch && match_req == translation->req) {
-            // Only insert into pf buffer if no other requests were made to this
-            // vp before the prefetch completed
-            if (walks.size() == 1) {
-                insertPrefetch(vp_base, pp_base);
-            }
-            delete t->req;
-        } else {
-            // insert the mapping into the TLB
-            if (tlb) {
-                tlb->insert(vp_base, pp_base);
-            }
-            // Insert into L1 TLB
-            t->origTLB->insert(vp_base, pp_base);
-            // Forward the translation on
-            t->wrappedTranslation->finish(NoFault, match_req, t->tc,
-                                          t->mode);
-        }
+        // Insert into L1 TLB
+        t->origTLB->insert(vp_base, pp_base);
+        // Forward the translation on
+        t->wrappedTranslation->finish(NoFault, t->req, t->tc, t->mode);
+
         delete t;
     }
+    delete translation;
     outstandingWalks.erase(vp_base);
 }
 
