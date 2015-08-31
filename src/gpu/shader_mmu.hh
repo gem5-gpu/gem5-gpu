@@ -176,7 +176,6 @@ public:
     Stats::Scalar numPagefaults;
     Stats::Scalar numPagewalks;
     Stats::Scalar totalRequests;
-    Stats::Scalar retryFailures;
     Stats::Scalar l2hits;
     Stats::Scalar prefetchHits;
     Stats::Scalar numPrefetches;

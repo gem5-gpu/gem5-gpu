@@ -187,25 +187,21 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
         req->getVaddr() == outstandingFaultInfo->req->getVaddr()) {
         DPRINTF(ShaderMMU, "Walk finished for retry of %#x\n", req->getVaddr());
         if (fault != NoFault) {
-            DPRINTF(ShaderMMU, "Got another fault!\n");
-            outstandingFaultStatus = InKernel;
-            // No need to invoke another page fault if this wasn't satisfied
-            // We could have been notified at the end of some other interrrupt
-            // Or the kernel could be in the middle of segfault, etc.
-            retryFailures++;
-            return;
+            panic("GPU encountered another fault for faulted address.\n"
+                  "      Likely a GPU-triggered segfault for: %#x, pc: %#x",
+                  req->getVaddr(), req->getPC());
         } else {
             DPRINTF(ShaderMMU, "Retry successful\n");
             outstandingFaultStatus = None;
             ThreadContext *tc = translation->tc;
-            GPUFaultReg faultReg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
-            faultReg.inFault = 0;
+            GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
+            fault_reg.inFault = 0;
             // HACK! Setting CPU registers is a convenient way to communicate
             // page fault information to the CPU rather than implementing full
             // memory-mapped device registers. However, setting registers can
             // cause erratic CPU behavior, such as pipeline flushes. Use extreme
             // care/testing when changing these.
-            tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, faultReg);
+            tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, fault_reg);
             if (!pendingFaults.empty()) {
                 TranslationRequest *pending = pendingFaults.front();
                 DPRINTF(ShaderMMU, "Invoking pending fault %#x\n",
@@ -323,22 +319,26 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 
     outstandingFaultInfo->beginFault = curCycle();
 
-    GPUFaultReg faultReg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
-    assert(faultReg.inFault == 0);
+    GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
+    assert(fault_reg.inFault == 0);
+    fault_reg.inFault = 1;
 
     GPUFaultCode code = 0;
     code.write = (translation->mode == BaseTLB::Write);
     code.user = 1;
-    faultReg.inFault = 1;
+
+    GPUFaultRSPReg fault_rsp = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP);
+    fault_rsp = 0;
 
     // HACK! Setting CPU registers is a convenient way to communicate page
     // fault information to the CPU rather than implementing full memory-mapped
     // device registers. However, setting registers can cause erratic CPU
     // behavior, such as pipeline flushes. Use extreme care/testing when
     // changing these.
-    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, faultReg);
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, fault_reg);
     tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTADDR, translation->req->getVaddr());
     tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTCODE, code);
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT_RSP, fault_rsp);
 
 #if THE_ISA == ARM_ISA
     panic("You must be executing in FullSystem mode with ARM:\n"
@@ -362,12 +362,20 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 void
 ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 {
-    assert(((GPUFaultReg)tc->readMiscRegNoEffect(MISCREG_GPU_FAULT)).inFault == 1);
+    assert(outstandingFaultStatus != None && outstandingFaultStatus != Pending);
 
-    DPRINTF(ShaderMMU, "Handling a finish page fault event\n");
+    // The CPU sets inFault = 2 when it begins the page fault handler. If this
+    // register is not set to 2, the CPU has triggered this handler incorrectly
+    // somehow. Fail and print the incorrect value.
+    GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
+    if (fault_reg.inFault != 2) {
+        panic("GPU page fault register status incorrect (%u)!\n",
+              fault_reg.inFault);
+    }
 
-    assert(outstandingFaultStatus != None);
+    Addr returning_rsp = 0;
 
+    // Do ISA-specific register reads and sanity checks
 #if THE_ISA == ARM_ISA
     panic("You must be executing in FullSystem mode with ARM ISA:\n"
           "ShaderMMU cannot yet handle ARM page faults");
@@ -389,14 +397,27 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
         warn("Handle finish page fault with wrong CR2\n");
         return;
     }
+
+    returning_rsp = tc->readIntReg(INTREG_RSP);
 #endif
 
+    // TODO: This test may be ISA-specific to x86. Test this when we get to
+    // that point.
+    Addr faulting_rsp = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP);
+    if (returning_rsp != faulting_rsp) {
+        warn("RSPs do not match... probably segfault! Returning RSP: %x, "
+             "Fault RSP: %x", returning_rsp, faulting_rsp);
+    }
+
+    DPRINTF(ShaderMMU,
+            "Handling a finish page fault event. SP: %x\n", returning_rsp);
+
     if (outstandingFaultStatus == Retrying) {
-        DPRINTF(ShaderMMU, "Already retrying. Maybe queue another?'\n");
+        DPRINTF(ShaderMMU, "Already retrying. Maybe queue another?\n");
         return;
     }
 
-    DPRINTF(ShaderMMU, "Retying pagetable walk for %#x\n",
+    DPRINTF(ShaderMMU, "Retrying pagetable walk for %#x\n",
                         outstandingFaultInfo->req->getVaddr());
     outstandingFaultStatus = Retrying;
 
@@ -543,10 +564,6 @@ ShaderMMU::regStats()
     totalRequests
         .name(name()+".totalRequests")
         .desc("Total number of requests")
-        ;
-    retryFailures
-        .name(name()+".retryFailures")
-        .desc("Times the retry walk after a pagefault failed")
         ;
     l2hits
         .name(name()+".l2hits")
