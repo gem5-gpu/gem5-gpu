@@ -554,6 +554,7 @@ class CudaGPU : public ClockedObject
     void registerDeviceMemory(ThreadContext *tc, Addr vaddr, size_t size);
     void registerDeviceInstText(ThreadContext *tc, Addr vaddr, size_t size);
     bool isManagingGPUMemory() { return manageGPUMemory; }
+    bool isAccessingHostPagetable() { return accessHostPageTable; }
     Addr allocateGPUMemory(size_t size);
 
     /// Statistics for this GPU
