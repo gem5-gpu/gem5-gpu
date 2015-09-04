@@ -571,6 +571,13 @@ void CudaGPU::unblockThread(ThreadContext *tc)
     if (tc->status() != ThreadContext::Suspended) return;
     assert(unblockNeeded);
 
+    if (!streamManager->empty()) {
+        // There must be more in the queue of work to complete. Need to
+        // continue blocking
+        DPRINTF(CudaGPU, "Still something in the queue, continuing block\n");
+        return;
+    }
+
     DPRINTF(CudaGPU, "Unblocking thread %p for GPU syscall\n", tc);
     std::map<ThreadContext*, Addr>::iterator tc_iter = blockedThreads.find(tc);
     if (tc_iter == blockedThreads.end()) {

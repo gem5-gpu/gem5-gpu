@@ -621,6 +621,9 @@ cudaMemset(ThreadContext *tc, gpusyscall_t *call_params)
         g_stream_manager->push(mem_op);
         g_last_cudaError = cudaSuccess;
         helper.setReturn((uint8_t*)&g_last_cudaError, sizeof(cudaError_t));
+
+        bool suspend = cudaGPU->needsToBlock();
+        assert(suspend);
     }
 }
 
