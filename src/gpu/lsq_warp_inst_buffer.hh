@@ -301,6 +301,7 @@ class WarpInstBuffer {
         warpId = -1;
         state = EMPTY;
         instructionType = INVALID;
+        startTick = firstCycleTick = completeCycleTick = 0;
         bypassL1 = false;
     }
 };
