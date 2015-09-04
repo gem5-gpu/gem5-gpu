@@ -4,11 +4,11 @@ sim_seconds                                  0.000029                       # Nu
 sim_ticks                                    28762000                       # Number of ticks simulated
 final_tick                                   28762000                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  83528                       # Simulator instruction rate (inst/s)
-host_op_rate                                   150083                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                              383485587                       # Simulator tick rate (ticks/s)
-host_mem_usage                                4469704                       # Number of bytes of host memory used
-host_seconds                                     0.08                       # Real time elapsed on the host
+host_inst_rate                                  43243                       # Simulator instruction rate (inst/s)
+host_op_rate                                    77704                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                              198556421                       # Simulator tick rate (ticks/s)
+host_mem_usage                                4469740                       # Number of bytes of host memory used
+host_seconds                                     0.14                       # Real time elapsed on the host
 sim_insts                                        6263                       # Number of instructions simulated
 sim_ops                                         11255                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -161,7 +161,6 @@ system.ruby.miss_latency_hist::total              231
 system.gpu.shader_mmu.numPagefaults                 0                       # Number of Pagefaults
 system.gpu.shader_mmu.numPagewalks                  0                       # Number of Pagewalks
 system.gpu.shader_mmu.totalRequests                 0                       # Total number of requests
-system.gpu.shader_mmu.retryFailures                 0                       # Times the retry walk after a pagefault failed
 system.gpu.shader_mmu.l2hits                        0                       # Hits in the shared L2
 system.gpu.shader_mmu.prefetchHits                  0                       # Number of prefetch hits
 system.gpu.shader_mmu.numPrefetches                 0                       # Number of prefetchs

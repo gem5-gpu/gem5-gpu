@@ -1,8 +1,8 @@
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Aug 22 2015 20:24:04
-gem5 started Aug 22 2015 20:46:27
+gem5 compiled Aug 30 2015 18:11:53
+gem5 started Aug 30 2015 18:47:15
 gem5 executing on artery
 command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-updating/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer
 
@@ -184,10 +184,10 @@ gem5 + GPGPU-Sim CUDA RT: elf: ELF3
 gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 9
 gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
 GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_bCQKtI"
-Running: cat _ptx_bCQKtI | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_Eqhbnh
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_Eqhbnh --output-file  /dev/null 2> _ptx_bCQKtIinfo"
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_bCQKtI _ptx2_Eqhbnh _ptx_bCQKtIinfo"
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_tBMCns"
+Running: cat _ptx_tBMCns | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_eeARyL
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_eeARyL --output-file  /dev/null 2> _ptx_tBMCnsinfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_tBMCns _ptx2_eeARyL _ptx_tBMCnsinfo"
 Touch pages proof hash: 0
 Testing copy host-to-device:
 Size:	Malloc (s):	Copy (s):	Copy (GB/s):
@@ -224,17 +224,17 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
-16384	0.000009	0.000013	4.613390
-24576	0.000007	0.000015	6.012131
-32768	0.000008	0.000018	6.756909
-49152	0.000009	0.000024	7.701597
-65536	0.000010	0.000029	8.326193
-98304	0.000013	0.000041	9.001129
-131072	0.000015	0.000052	9.388219
-196608	0.000020	0.000074	9.838826
-262144	0.000025	0.000097	10.069939
-393216	0.000036	0.000143	10.262321
-524288	0.000046	0.000187	10.450666
+16384	0.000009	0.000013	4.615135
+24576	0.000007	0.000015	6.000310
+32768	0.000008	0.000018	6.761400
+49152	0.000009	0.000024	7.699006
+65536	0.000010	0.000029	8.321936
+98304	0.000013	0.000041	8.990522
+131072	0.000015	0.000052	9.416281
+196608	0.000020	0.000075	9.801826
+262144	0.000025	0.000097	10.043839
+393216	0.000036	0.000142	10.284441
+524288	0.000046	0.000187	10.429850
 
 
 Testing copy device-to-host:
@@ -272,16 +272,16 @@ GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
-16384	0.000007	0.000013	4.866461
-24576	0.000007	0.000015	5.996773
-32768	0.000008	0.000018	6.776037
-49152	0.000009	0.000024	7.722059
-65536	0.000010	0.000029	8.355258
-98304	0.000013	0.000041	9.024864
-131072	0.000015	0.000052	9.444146
-196608	0.000020	0.000074	9.871314
-262144	0.000025	0.000097	10.051593
-393216	0.000036	0.000143	10.265558
-524288	0.000046	0.000187	10.450946
+16384	0.000007	0.000013	4.853690
+24576	0.000007	0.000015	6.009369
+32768	0.000008	0.000018	6.766647
+49152	0.000009	0.000024	7.743940
+65536	0.000010	0.000029	8.297612
+98304	0.000013	0.000041	9.015089
+131072	0.000015	0.000052	9.420459
+196608	0.000020	0.000074	9.854712
+262144	0.000025	0.000097	10.035582
+393216	0.000036	0.000142	10.336912
+524288	0.000046	0.000187	10.428903
 
-Exiting @ tick 2163650000 because target called exit()
+Exiting @ tick 2164207500 because target called exit()
