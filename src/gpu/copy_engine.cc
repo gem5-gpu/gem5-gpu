@@ -362,6 +362,7 @@ int GPUCopyEngine::memset(Addr dst, int value, size_t length)
 
     DPRINTF(GPUCopyEngine, "Initiating memset of %d bytes at 0x%x to %d\n", length, dst, value);
     memCpyStartTime = curTick();
+    memCpyLength = length;
 
     needToRead = false;
     needToWrite = true;
