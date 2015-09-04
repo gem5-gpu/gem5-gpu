@@ -676,7 +676,7 @@ ShaderLSQ::commitWarpInst()
     } else if (warp_inst->isAtomic()) {
         warpLatencyAtomic.sample(ticksToCycles(warp_inst->getLatency()));
     } else {
-        assert(warp_inst->isFence());
+        panic("Don't know how to record latency for this instruction\n");
     }
 
     warp_inst->resetState();
