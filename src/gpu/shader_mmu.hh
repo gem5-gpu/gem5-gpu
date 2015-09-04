@@ -126,11 +126,46 @@ private:
 
     std::vector<StartPagewalkEvent*> pagewalkEvents;
 
+    /**
+     * A timeout event for raising page faults to the CPU. Currently, this is
+     * used as a deadlock detection mechanism in the event that a page fault
+     * is raised but never serviced (e.g. CPU thread has swapped or been
+     * suspended, or a simulator bug drops the PF).
+     *
+     * Schedule this fault timeout for faultTimeoutCycles after raising
+     * a page fault. faultTimeoutCycles defaults to 1,000,000 cycles to be
+     * consistent with the ShaderLSQ deadlock: More LSQ activity can occur
+     * while a page fault is in flight, so the page fault timeout should
+     * trigger before the LSQ deadlock in the event that it is dropped.
+     *
+     * NOTE: GPU-triggered segmentation faults often print CPU output which is
+     * often helpful for debugging benchmark memory bugs. Two methods are
+     * useful for fixing these: Run in SE mode, which catches segfaults but not
+     * page faults, or in FS mode, increase timeouts and deadlock checks to at
+     * least 30M GPU cycles to allow the CPU thread to print segfault
+     * information.
+     */
+    class FaultTimeoutEvent : public Event
+    {
+        ShaderMMU *mmu;
+        ThreadContext *tc;
+    public:
+        FaultTimeoutEvent(ShaderMMU *_mmu) : mmu(_mmu), tc(NULL) {}
+        void setTC(ThreadContext *_tc) {
+            tc = _tc;
+        }
+        void process() {
+            mmu->faultTimeout(tc);
+        }
+    };
+
+    FaultTimeoutEvent faultTimeoutEvent;
+    Cycles faultTimeoutCycles;
+
     TLBMemory *tlb;
 
     enum FaultStatus {
         None, // No outstanding faults
-        Pending, // Waiting until CPU is not in kernel mode anymore.
         InKernel, // Waiting for the kernel to handle the pf
         Retrying // Retrying the pagetable walk. May not be complete yet.
     };
@@ -203,6 +238,12 @@ public:
     // Return whether there is a pending GPU fault for decisions about CPU
     // thread handling
     bool isFaultInFlight(ThreadContext *tc);
+
+    // Raise the page fault to the CPU if everything is ready
+    void raisePageFaultInterrupt(ThreadContext *tc);
+
+    // Page fault timed out, so crash and/or cleanup
+    void faultTimeout(ThreadContext *tc);
 
     /// Handle a page fault once it's done (called from CUDA API via CudaGPU)
     void handleFinishPageFault(ThreadContext *tc);

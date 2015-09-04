@@ -55,7 +55,8 @@ ShaderMMU::ShaderMMU(const Params *p) :
 #if THE_ISA == ARM_ISA
     stage2MMU(p->stage2_mmu),
 #endif
-    latency(p->latency), startMissEvent(this), outstandingFaultStatus(None),
+    latency(p->latency), startMissEvent(this), faultTimeoutEvent(this),
+    faultTimeoutCycles(1000000), outstandingFaultStatus(None),
     curOutstandingWalks(0), prefetchBufferSize(p->prefetch_buffer_size)
 {
     activeWalkers.resize(pagewalkers.size());
@@ -291,6 +292,79 @@ ShaderMMU::finalizeTranslation(TranslationRequest *translation)
 }
 
 void
+ShaderMMU::raisePageFaultInterrupt(ThreadContext *tc)
+{
+    // NOTE: This function must run through to completion. Otherwise, the
+    // outstanding fault may never get raised, and thus, the waiting GPU
+    // may deadlock.
+    assert(outstandingFaultInfo);
+    assert(outstandingFaultStatus == InKernel);
+
+    DPRINTF(ShaderMMU, "Raising interrupt for page fault at addr: %#x\n",
+            outstandingFaultInfo->req->getVaddr());
+
+    outstandingFaultStatus = InKernel;
+
+    GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
+    assert(fault_reg.inFault == 0);
+    fault_reg.inFault = 1;
+
+    GPUFaultCode code = 0;
+    code.write = (outstandingFaultInfo->mode == BaseTLB::Write);
+    code.user = 1;
+
+    GPUFaultRSPReg fault_rsp = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP);
+    fault_rsp = 0;
+
+    // HACK! Setting CPU registers is a convenient way to communicate page
+    // fault information to the CPU rather than implementing full memory-mapped
+    // device registers. However, setting registers can cause erratic CPU
+    // behavior, such as pipeline flushes. Use extreme care/testing when
+    // changing these.
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, fault_reg);
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTADDR,
+                                   outstandingFaultInfo->req->getVaddr());
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTCODE, code);
+    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT_RSP, fault_rsp);
+
+#if THE_ISA == ARM_ISA
+    panic("You must be executing in FullSystem mode with ARM:\n"
+          "ShaderMMU cannot yet handle ARM page faults");
+    // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
+    // interrupts device
+#elif THE_ISA == X86_ISA
+    Interrupts *interrupts = tc->getCpuPtr()->getInterruptController();
+    interrupts->triggerGPUInterrupt();
+#endif
+
+    // Schedule a timeout event to ensure that it does not get randomly
+    // dropped. Currently, this is for debugging purposes only (e.g. CPU thread
+    // gets swapped or descheduled, or a simulator bug drops the fault).
+    assert(!faultTimeoutEvent.scheduled());
+    faultTimeoutEvent.setTC(tc);
+    schedule(faultTimeoutEvent, clockEdge(faultTimeoutCycles));
+}
+
+void
+ShaderMMU::faultTimeout(ThreadContext *tc)
+{
+    warn("Fault is timing out!");
+    if (outstandingFaultStatus == InKernel) {
+        warn("Fault status: InKernel");
+    } else if (outstandingFaultStatus == Retrying) {
+        warn("Fault status: Retrying");
+    } else {
+        warn("Fault status: None");
+    }
+    panic("Fault outstanding for %d cycles!\n"
+          "TC: tc: %p, fault reg: %x, fault addr: %x, fault code: %x, fault RSP: %x\n",
+          faultTimeoutCycles, tc, tc->readMiscRegNoEffect(MISCREG_GPU_FAULT),
+          tc->readMiscRegNoEffect(MISCREG_GPU_FAULTADDR),
+          tc->readMiscRegNoEffect(MISCREG_GPU_FAULTCODE),
+          tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP));
+}
+
+void
 ShaderMMU::handlePageFault(TranslationRequest *translation)
 {
     if (!FullSystem) {
@@ -338,50 +412,18 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
 
     outstandingFaultInfo->beginFault = curCycle();
 
-    GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
-    assert(fault_reg.inFault == 0);
-    fault_reg.inFault = 1;
-
-    GPUFaultCode code = 0;
-    code.write = (translation->mode == BaseTLB::Write);
-    code.user = 1;
-
-    GPUFaultRSPReg fault_rsp = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP);
-    fault_rsp = 0;
-
-    // HACK! Setting CPU registers is a convenient way to communicate page
-    // fault information to the CPU rather than implementing full memory-mapped
-    // device registers. However, setting registers can cause erratic CPU
-    // behavior, such as pipeline flushes. Use extreme care/testing when
-    // changing these.
-    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT, fault_reg);
-    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTADDR, translation->req->getVaddr());
-    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULTCODE, code);
-    tc->setMiscRegActuallyNoEffect(MISCREG_GPU_FAULT_RSP, fault_rsp);
-
-#if THE_ISA == ARM_ISA
-    panic("You must be executing in FullSystem mode with ARM:\n"
-          "ShaderMMU cannot yet handle ARM page faults");
-    // TODO: Add interrupt called "triggerGPUInterrupt()" to the ARM
-    // interrupts device
-#elif THE_ISA == X86_ISA
-    // Delay the fault if the thread is in kernel mode
-    HandyM5Reg m5reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);
-    if (m5reg.cpl != 3) {
-        DPRINTF(ShaderMMU, "Not invoking fault in kernel mode. Waiting.\n");
-        outstandingFaultStatus = Pending;
-        return;
-    }
-
-    Interrupts *interrupts = tc->getCpuPtr()->getInterruptController();
-    interrupts->triggerGPUInterrupt();
-#endif
+    raisePageFaultInterrupt(tc);
 }
 
 void
 ShaderMMU::handleFinishPageFault(ThreadContext *tc)
 {
-    assert(outstandingFaultStatus != None && outstandingFaultStatus != Pending);
+    if (!faultTimeoutEvent.scheduled()) {
+        panic("faultTimeoutEvent not scheduled!\n");
+    }
+    deschedule(faultTimeoutEvent);
+
+    assert(outstandingFaultStatus != None);
 
     // The CPU sets inFault = 2 when it begins the page fault handler. If this
     // register is not set to 2, the CPU has triggered this handler incorrectly
@@ -402,14 +444,6 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
     // interrupts device
     // TODO: Add sanity check for correct page table
 #elif THE_ISA == X86_ISA
-    if (outstandingFaultStatus == Pending) {
-        DPRINTF(ShaderMMU, "Invoking the pending fault\n");
-        outstandingFaultStatus = InKernel;
-        Interrupts *interrupts = tc->getCpuPtr()->getInterruptController();
-        interrupts->triggerGPUInterrupt();
-        return;
-    }
-
     // Sanity check the CR2 register
     Addr cr2 = tc->readMiscRegNoEffect(MISCREG_CR2);
     if (cr2 != outstandingFaultInfo->req->getVaddr()) {
@@ -458,7 +492,7 @@ bool
 ShaderMMU::isFaultInFlight(ThreadContext *tc)
 {
     GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
-    return (fault_reg.inFault != 0) && (outstandingFaultStatus == InKernel || outstandingFaultStatus == Pending);
+    return (fault_reg.inFault != 0) && (outstandingFaultStatus == InKernel);
 }
 
 void
