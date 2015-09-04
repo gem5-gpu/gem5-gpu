@@ -77,9 +77,10 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
 
         l1_cntrl = L1Cache_Controller(version = options.num_cpus + i,
-                                cacheMemory = cache,
-                                send_evictions = (options.cpu_type == "detailed"),
-                                ruby_system = ruby_system)
+                                      cacheMemory = cache,
+                                      send_evictions = False,
+                                      transitions_per_cycle = options.ports,
+                                      ruby_system = ruby_system)
 
         #
         # Only one unified L1 cache exists.  Can cache instructions and data.
@@ -126,8 +127,9 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  send_evictions = False,
                                   cacheMemory = pw_cache,
+                                  send_evictions = False,
+                                  transitions_per_cycle = options.ports,
                                   ruby_system = ruby_system)
 
     cpu_seq = RubySequencer(version = options.num_cpus + options.num_sc,
@@ -163,9 +165,9 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
     l1_cntrl = L1Cache_Controller(version = \
                                       options.num_cpus + options.num_sc + 1,
-                                  send_evictions = (
-                                      options.cpu_type == "detailed"),
                                   cacheMemory = cache,
+                                  send_evictions = False,
+                                  transitions_per_cycle = options.ports,
                                   ruby_system = ruby_system)
 
     #

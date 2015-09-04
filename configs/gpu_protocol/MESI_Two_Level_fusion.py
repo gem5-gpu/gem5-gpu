@@ -89,9 +89,9 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                       L1Icache = l1i_cache,
                                       L1Dcache = l1d_cache,
                                       l2_select_num_bits = l2_bits,
-                                      send_evictions = (
-                                          options.cpu_type == "detailed"),
                                       prefetcher = prefetcher,
+                                      send_evictions = False,
+                                      transitions_per_cycle = options.ports,
                                       ruby_system = ruby_system,
                                       enable_prefetch = False)
 
@@ -151,11 +151,12 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc,
-                                  send_evictions = False,
                                   L1Icache = pwi_cache,
                                   L1Dcache = pwd_cache,
                                   l2_select_num_bits = l2_bits,
                                   prefetcher = prefetcher,
+                                  send_evictions = False,
+                                  transitions_per_cycle = options.ports,
                                   ruby_system = ruby_system,
                                   enable_prefetch = False)
 
@@ -201,12 +202,12 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     prefetcher = RubyPrefetcher.Prefetcher()
 
     l1_cntrl = L1Cache_Controller(version = options.num_cpus + options.num_sc+1,
-                                  send_evictions = (
-                                      options.cpu_type == "detailed"),
                                   L1Icache = l1i_cache,
                                   L1Dcache = l1d_cache,
                                   l2_select_num_bits = l2_bits,
                                   prefetcher = prefetcher,
+                                  send_evictions = False,
+                                  transitions_per_cycle = options.ports,
                                   ruby_system = ruby_system,
                                   enable_prefetch = False)
 

@@ -32,6 +32,7 @@ import m5
 from m5.objects import *
 from m5.defines import buildEnv
 from Cluster import Cluster
+from Ruby import send_evicts
 
 class L1Cache(RubyCache): pass
 class L2Cache(RubyCache): pass
@@ -87,8 +88,8 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                       L2cache = l2_cache,
                                       no_mig_atomic = not \
                                         options.allow_atomic_migration,
-                                      send_evictions = (
-                                         options.cpu_type == "detailed"),
+                                      send_evictions = send_evicts(options),
+                                      transitions_per_cycle = options.ports,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = i,
@@ -174,6 +175,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                          probeFilter = pf,
                                          probe_filter_enabled = options.pf_on,
                                          full_bit_dir_enabled = options.dir_on,
+                                         transitions_per_cycle = options.ports,
                                          ruby_system = ruby_system)
 
         if options.recycle_latency:
@@ -212,6 +214,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
         dma_cntrl = DMA_Controller(version = i,
                                    dma_sequencer = dma_seq,
+                                   transitions_per_cycle = options.ports,
                                    ruby_system = ruby_system)
 
         exec("ruby_system.dma_cntrl%d = dma_cntrl" % i)
@@ -235,6 +238,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
         ruby_system._io_port = io_seq
         io_controller = DMA_Controller(version = len(dma_ports),
                                        dma_sequencer = io_seq,
+                                       transitions_per_cycle = options.ports,
                                        ruby_system = ruby_system)
         ruby_system.io_controller = io_controller
 

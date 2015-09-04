@@ -115,6 +115,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                  probeFilter = pf,
                                  probe_filter_enabled = options.pf_on,
                                  full_bit_dir_enabled = options.dir_on,
+                                 transitions_per_cycle = options.ports,
                                  ruby_system = ruby_system)
 
             if options.recycle_latency:
@@ -171,8 +172,8 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                       L2cache = l2_cache,
                                       no_mig_atomic = not \
                                           options.allow_atomic_migration,
-                                      send_evictions = (
-                                          options.cpu_type == "detailed"),
+                                      send_evictions = False,
+                                      transitions_per_cycle = options.ports,
                                       ruby_system = ruby_system)
 
     gpu_ce_seq = RubySequencer(version = options.num_cpus + options.num_sc,

@@ -74,6 +74,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     cpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
                                          sequencer = cpu_ce_seq,
                                          number_of_TBEs = 256,
+                                         transitions_per_cycle = options.ports,
                                          ruby_system = ruby_system)
 
     cpu_ce_cntrl.responseFromDir = MessageBuffer(ordered = True)
@@ -124,6 +125,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                   cache = cache,
                                   l2_select_num_bits = l2_bits,
                                   num_l2 = options.num_l2caches,
+                                  transitions_per_cycle = options.ports,
                                   issue_latency = l1_to_l2_noc_latency,
                                   number_of_TBEs = options.gpu_l1_buf_depth,
                                   ruby_system = ruby_system)
@@ -178,6 +180,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
                                 L2cache = l2_cache,
+                                transitions_per_cycle = options.ports,
                                 l2_response_latency = l2_cache_access_latency +
                                                       l2_to_l1_noc_latency,
                                 l2_request_latency = l2_to_mem_noc_latency,
@@ -264,6 +267,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                  probeFilter = pf,
                                  probe_filter_enabled = options.pf_on,
                                  full_bit_dir_enabled = options.dir_on,
+                                 transitions_per_cycle = options.ports,
                                  ruby_system = ruby_system)
 
             if options.recycle_latency:
@@ -326,6 +330,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     gpu_ce_cntrl = GPUCopyDMA_Controller(version = 1,
                                   sequencer = gpu_ce_seq,
                                   number_of_TBEs = 256,
+                                  transitions_per_cycle = options.ports,
                                   ruby_system = ruby_system)
 
     ruby_system.dev_ce_cntrl = gpu_ce_cntrl

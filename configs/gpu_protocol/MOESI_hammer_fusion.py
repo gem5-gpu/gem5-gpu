@@ -86,8 +86,8 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                       L2cache = l2_cache,
                                       no_mig_atomic = not \
                                         options.allow_atomic_migration,
-                                      send_evictions = (
-                                          options.cpu_type == "detailed"),
+                                      send_evictions = False,
+                                      transitions_per_cycle = options.ports,
                                       ruby_system = ruby_system)
 
         cpu_seq = RubySequencer(version = options.num_cpus + i,
@@ -159,6 +159,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                       L1Dcache = pwd_cache,
                                       L2cache = l2_cache,
                                       send_evictions = False,
+                                      transitions_per_cycle = options.ports,
                                       cache_response_latency = 1,
                                       l2_cache_hit_latency = 1,
                                       number_of_TBEs = options.gpu_l1_buf_depth,
@@ -215,8 +216,8 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
                                       L2cache = l2_cache,
                                       no_mig_atomic = not \
                                         options.allow_atomic_migration,
-                                      send_evictions = (
-                                          options.cpu_type == "detailed"),
+                                      send_evictions = False,
+                                      transitions_per_cycle = options.ports,
                                       ruby_system = ruby_system)
 
     #

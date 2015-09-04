@@ -93,6 +93,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                   cache = cache,
                                   l2_select_num_bits = l2_bits,
                                   num_l2 = options.num_l2caches,
+                                  transitions_per_cycle = options.ports,
                                   issue_latency = l1_to_l2_noc_latency,
                                   number_of_TBEs = options.gpu_l1_buf_depth,
                                   ruby_system = ruby_system)
@@ -151,6 +152,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
         l2_cntrl = GPUL2Cache_Controller(version = i,
                                 L2cache = l2_cache,
+                                transitions_per_cycle = options.ports,
                                 l2_response_latency = l2_cache_access_latency +
                                                       l2_to_l1_noc_latency,
                                 l2_request_latency = l2_to_mem_noc_latency,
@@ -211,6 +213,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                   L1Dcache = pwd_cache,
                                   L2cache = l2_cache,
                                   send_evictions = False,
+                                  transitions_per_cycle = options.ports,
                                   issue_latency = l1_to_l2_noc_latency,
                                   cache_response_latency = 1,
                                   l2_cache_hit_latency = 1,
@@ -279,6 +282,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
 
     gpu_ce_cntrl = GPUCopyDMA_Controller(version = 0,
                                   sequencer = gpu_ce_seq,
+                                  transitions_per_cycle = options.ports,
                                   number_of_TBEs = max_out_reqs,
                                   ruby_system = ruby_system)
 
