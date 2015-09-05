@@ -1,5 +1,5 @@
 TARGET_ISA = 'arm'
-CPU_MODELS = 'TimingSimpleCPU,O3CPU,AtomicSimpleCPU,MinorCPU
+CPU_MODELS = 'TimingSimpleCPU,O3CPU,AtomicSimpleCPU,MinorCPU'
 PROTOCOL = 'VI_hammer'
 EXTRAS = '../gem5-gpu/src:../gpgpu-sim/'
 GPGPU_SIM = True
