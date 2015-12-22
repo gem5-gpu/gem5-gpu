@@ -43,25 +43,27 @@ machine(Directory, "AMD Hammer-like protocol")
 
       MessageBuffer * forwardFromDir, network="To", virtual_network="3",
             vnet_type="forward";
+
       MessageBuffer * responseFromDir, network="To", virtual_network="4",
             vnet_type="response";
-      //
+
       // For a finite buffered network, note that the DMA response network only
       // works at this relatively lower numbered (lower priority) virtual network
       // because the trigger queue decouples cache responses from DMA responses.
-      //
       MessageBuffer * dmaResponseFromDir, network="To", virtual_network="1",
             vnet_type="response";
 
       MessageBuffer * unblockToDir, network="From", virtual_network="5",
             vnet_type="unblock";
+
       MessageBuffer * responseToDir, network="From", virtual_network="4",
             vnet_type="response";
+
       MessageBuffer * requestToDir, network="From", virtual_network="2",
             vnet_type="request";
+
       MessageBuffer * dmaRequestToDir, network="From", virtual_network="0",
             vnet_type="request";
-
 {
   // STATES
   state_declaration(State, desc="Directory states", default="Directory_State_E") {
@@ -150,14 +152,12 @@ machine(Directory, "AMD Hammer-like protocol")
   // DirectoryEntry
   structure(Entry, desc="...", interface="AbstractEntry") {
     State DirectoryState,          desc="Directory state";
-    DataBlock DataBlk,             desc="data for the block";
   }
 
   // ProbeFilterEntry
   structure(PfEntry, desc="...", interface="AbstractCacheEntry") {
     State PfState,                 desc="Directory state";
     MachineID Owner,               desc="Owner node";
-    DataBlock DataBlk,             desc="data for the block";
     NetDest Sharers,               desc="sharing vector for full bit directory";
   }
 
@@ -217,16 +217,6 @@ machine(Directory, "AMD Hammer-like protocol")
       return pfEntry;
     }
     return OOD;
-  }
-
-  NodeID getSharerId(MachineID mach) {
-    // NOTE: Sharers are arranged first by CPU then GPU
-    // hence, L1Caches then L2 caches
-    NodeID loc := machineIDToNodeID(mach);
-    if (machineIDToMachineType(mach) == MachineType:GPUL2Cache) {
-      loc := intToID(IDToInt(loc) + machineCount(MachineType:L1Cache));
-    }
-    return loc;
   }
 
   State getState(TBE tbe, PfEntry pf_entry, Addr addr) {
@@ -613,7 +603,6 @@ machine(Directory, "AMD Hammer-like protocol")
     peek(dmaRequestQueue_in, DMARequestMsg) {
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
-      tbe.DataBlk := getDirectoryEntry(address).DataBlk;
       tbe.DmaDataBlk := in_msg.DataBlk;
       tbe.PhysicalAddress := in_msg.PhysicalAddress;
       tbe.Len := in_msg.Len;
@@ -1208,38 +1197,6 @@ machine(Directory, "AMD Hammer-like protocol")
     }
   }
 
-  action(wr_writeResponseDataToMemory, "wr", desc="Write response data to memory") {
-    peek(responseToDir_in, ResponseMsg) {
-      getDirectoryEntry(address).DataBlk := in_msg.DataBlk;
-      DPRINTF(RubySlicc, "Address: %s, Data Block: %s\n",
-              in_msg.addr, in_msg.DataBlk);
-    }
-  }
-
-  action(l_writeDataToMemory, "l", desc="Write PUTX/PUTO data to memory") {
-    peek(memQueue_in, MemoryMsg) {
-      getDirectoryEntry(address).DataBlk := in_msg.DataBlk;
-      DPRINTF(RubySlicc, "Address: %s, Data Block: %s\n",
-              in_msg.addr, in_msg.DataBlk);
-    }
-  }
-
-  action(dwt_writeDmaDataFromTBE, "dwt", desc="DMA Write data to memory from TBE") {
-    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
-    assert(is_valid(tbe));
-    getDirectoryEntry(address).DataBlk := tbe.DataBlk;
-    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
-    getDirectoryEntry(address).DataBlk.copyPartial(tbe.DmaDataBlk, getOffset(tbe.PhysicalAddress), tbe.Len);
-    DPRINTF(RubySlicc, "%s %s\n", address, getDirectoryEntry(address).DataBlk);
-  }
-
-  action(wdt_writeDataFromTBE, "wdt", desc="DMA Write data to memory from TBE") {
-    assert(is_valid(tbe));
-    DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
-    getDirectoryEntry(address).DataBlk := tbe.DataBlk;
-    DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
-  }
-
   action(a_assertCacheData, "ac", desc="Assert that a cache provided the data") {
     assert(is_valid(tbe));
     assert(tbe.CacheDirty);
@@ -1298,12 +1255,17 @@ machine(Directory, "AMD Hammer-like protocol")
                             tbe.Len);
   }
 
+  action(ly_queueMemoryWriteFromTBE, "ly", desc="Write data to memory from TBE") {
+    assert(is_valid(tbe));
+    queueMemoryWrite(machineID, address, to_memory_controller_latency,
+                     tbe.DataBlk);
+  }
+
   action(ll_checkIncomingWriteback, "\l", desc="Check PUTX/PUTO response message") {
     peek(unblockNetwork_in, ResponseMsg) {
       assert(in_msg.Dirty == false);
       assert(in_msg.MessageSize == MessageSizeType:Writeback_Control);
       DPRINTF(RubySlicc, "%s\n", in_msg.DataBlk);
-      DPRINTF(RubySlicc, "%s\n", getDirectoryEntry(address).DataBlk);
     }
   }
 
@@ -1666,20 +1628,26 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   transition(S_R, Data) {
-    wr_writeResponseDataToMemory;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
 
   transition(NO_R, {Data, Exclusive_Data}) {
-    wr_writeResponseDataToMemory;
+    r_recordCacheData;
     m_decrementNumberOfMessages;
     o_checkForCompletion;
     n_popResponseQueue;
   }
 
-  transition({O_R, S_R, NO_R}, All_acks_and_data_no_sharers, E) {
+  transition({O_R, S_R}, All_acks_and_data_no_sharers, E) {
+    w_deallocateTBE;
+    k_wakeUpDependents;
+    g_popTriggerQueue;
+  }
+
+  transition(NO_R, All_acks_and_data_no_sharers, WB_E_W) {
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
@@ -1745,14 +1713,14 @@ machine(Directory, "AMD Hammer-like protocol")
     n_popResponseQueue;
   }
 
-  transition(NO_DR_B, All_acks_and_owner_data, O) {
+  transition(NO_DR_B, All_acks_and_owner_data, WB_O_W) {
     //
     // Note that the DMA consistency model allows us to send the DMA device
     // a response as soon as we receive valid data and prior to receiving
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
@@ -1765,20 +1733,19 @@ machine(Directory, "AMD Hammer-like protocol")
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
   }
 
-  transition(NO_DR_B_D, All_acks_and_owner_data, O) {
+  transition(NO_DR_B_D, All_acks_and_owner_data, WB_O_W) {
     //
     // Note that the DMA consistency model allows us to send the DMA device
     // a response as soon as we receive valid data and prior to receiving
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
@@ -1791,42 +1758,41 @@ machine(Directory, "AMD Hammer-like protocol")
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
   }
 
-  transition(O_DR_B, All_acks_and_owner_data, O) {
-    wdt_writeDataFromTBE;
+  transition(O_DR_B, All_acks_and_owner_data, WB_O_W) {
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     k_wakeUpDependents;
     g_popTriggerQueue;
   }
 
-  transition(O_DR_B, All_acks_and_data_no_sharers, E) {PfWrite} {
-    wdt_writeDataFromTBE;
+  transition(O_DR_B, All_acks_and_data_no_sharers, WB_E_W) {PfWrite} {
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     pfd_probeFilterDeallocate;
     k_wakeUpDependents;
     g_popTriggerQueue;
   }
 
-  transition(NO_DR_B, All_acks_and_data_no_sharers, E) {PfWrite} {
+  transition(NO_DR_B, All_acks_and_data_no_sharers, WB_E_W) {PfWrite} {
     //
     // Note that the DMA consistency model allows us to send the DMA device
     // a response as soon as we receive valid data and prior to receiving
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     ppfd_possibleProbeFilterDeallocate;
     k_wakeUpDependents;
     g_popTriggerQueue;
   }
 
-  transition(NO_DR_B_D, All_acks_and_data_no_sharers, E) {PfWrite} {
+  transition(NO_DR_B_D, All_acks_and_data_no_sharers, WB_E_W) {PfWrite} {
     a_assertCacheData;
     //
     // Note that the DMA consistency model allows us to send the DMA device
@@ -1834,7 +1800,7 @@ machine(Directory, "AMD Hammer-like protocol")
     // all acks.  However, to simplify the protocol we wait for all acks.
     //
     dt_sendDmaDataFromTbe;
-    wdt_writeDataFromTBE;
+    ly_queueMemoryWriteFromTBE;
     w_deallocateTBE;
     ppfd_possibleProbeFilterDeallocate;
     k_wakeUpDependents;
@@ -1842,7 +1808,6 @@ machine(Directory, "AMD Hammer-like protocol")
   }
 
   transition(NO_DW_B_W, All_acks_and_data_no_sharers, NO_DW_W) {
-    dwt_writeDmaDataFromTBE;
     ld_queueMemoryDmaWrite;
     g_popTriggerQueue;
   }
@@ -1895,21 +1860,19 @@ machine(Directory, "AMD Hammer-like protocol")
     j_popIncomingUnblockQueue;
   }
 
-  transition(WB, Writeback_Exclusive_Dirty, WB_E_W) {
+  transition(WB, Writeback_Exclusive_Dirty, WB_E_W) {PfWrite} {
     rs_removeSharer;
     l_queueMemoryWBRequest;
+    pfd_probeFilterDeallocate;
     j_popIncomingUnblockQueue;
   }
 
-  transition(WB_E_W, Memory_Ack, E) {PfWrite} {
-    l_writeDataToMemory;
-    pfd_probeFilterDeallocate;
+  transition(WB_E_W, Memory_Ack, E) {
     k_wakeUpDependents;
     l_popMemQueue;
   }
 
   transition(WB_O_W, Memory_Ack, O) {
-    l_writeDataToMemory;
     k_wakeUpDependents;
     l_popMemQueue;
   }
