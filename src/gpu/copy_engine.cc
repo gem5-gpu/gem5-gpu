@@ -105,6 +105,8 @@ void GPUCopyEngine::finishMemcpy()
     readPort = writePort = NULL;
     readDTB = writeDTB = NULL;
     Tick total_time = curTick() - memCpyStartTime;
+    numOperations++;
+    operationTimeTicks += total_time;
     DPRINTF(GPUCopyEngine, "Total time was: %llu\n", total_time);
     memCpyStats.push_back(MemCpyStats(total_time, memCpyLength));
     cudaGPU->finishCopyOperation();
@@ -115,6 +117,7 @@ void GPUCopyEngine::recvPacket(PacketPtr pkt)
     if (pkt->isRead()) {
         DPRINTF(GPUCopyEngine, "done with a read addr: 0x%x, size: %d\n", pkt->req->getVaddr(), pkt->getSize());
         pkt->writeData(curData + (pkt->req->getVaddr() - beginAddr));
+        bytesRead += pkt->getSize();
 
         // set the addresses we just got as done
         for (int i = pkt->req->getVaddr() - beginAddr;
@@ -143,6 +146,7 @@ void GPUCopyEngine::recvPacket(PacketPtr pkt)
     } else {
         DPRINTF(GPUCopyEngine, "done with a write addr: 0x%x\n", pkt->req->getVaddr());
         writeDone += pkt->getSize();
+        bytesWritten += pkt->getSize();
         if (!(writeDone < totalLength)) {
             // we are done!
             DPRINTF(GPUCopyEngine, "done writing, completely done!!!!\n");
@@ -422,6 +426,25 @@ GPUCopyEngine::getMasterPort(const std::string &if_name, PortID idx)
         return devicePort;
     else
         return MemObject::getMasterPort(if_name, idx);
+}
+
+void GPUCopyEngine::regStats() {
+    numOperations
+        .name(name() + ".numOperations")
+        .desc("Number of copy/memset operations")
+        ;
+    bytesRead
+        .name(name() + ".opBytesRead")
+        .desc("Number of copy bytes read")
+        ;
+    bytesWritten
+        .name(name() + ".opBytesWritten")
+        .desc("Number of copy/memset bytes written")
+        ;
+    operationTimeTicks
+        .name(name() + ".opTimeTicks")
+        .desc("Total time spent in copy/memset operations")
+        ;
 }
 
 GPUCopyEngine *GPUCopyEngineParams::create() {

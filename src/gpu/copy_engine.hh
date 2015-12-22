@@ -182,6 +182,12 @@ public:
     bool isSquashed() const { return false; }
 
     void cePrintStats(std::ostream& out);
+
+    Stats::Scalar numOperations;
+    Stats::Scalar bytesRead;
+    Stats::Scalar bytesWritten;
+    Stats::Scalar operationTimeTicks;
+    void regStats();
 };
 
 #endif
