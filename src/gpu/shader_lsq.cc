@@ -255,6 +255,10 @@ ShaderLSQ::addLaneRequest(int lane_id, PacketPtr pkt)
         // TODO: Consider putting in a per-warp limitation on number of
         // concurrent warp instructions in the LSQ
         if (availableWarpInstBufs.empty()) {
+            // Simple deadlock detection
+            if (ticksToCycles(curTick() - lastWarpInstBufferChange) > Cycles(1000000)) {
+                panic("LSQ deadlocked by running out of buffers!");
+            }
             return false;
         }
 
