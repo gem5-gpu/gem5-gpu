@@ -203,7 +203,7 @@ TLBMemory::insert(Addr vp_base, Addr pp_base)
         if (entries[way][i].free) {
             entry = &entries[way][i];
             break;
-        } else if (entries[way][i].mruTick < minTick) {
+        } else if (entries[way][i].mruTick <= minTick) {
             minTick = entries[way][i].mruTick;
             entry = &entries[way][i];
         }
