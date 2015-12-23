@@ -1,10 +1,12 @@
+Redirecting stdout to build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer/simout
+Redirecting stderr to build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer/simerr
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Aug 30 2015 18:11:53
-gem5 started Aug 30 2015 18:47:15
+gem5 compiled Dec 22 2015 11:52:47
+gem5 started Dec 22 2015 17:39:55
 gem5 executing on artery
-command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-updating/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer
+command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer
 
 Warning: Only block size currently supported is 128B. Defaulting to 128.
 Using template and command line options for gpgpusim.config
@@ -50,6 +52,7 @@ GPGPU-Sim: Configuration options:
 -gpgpu_shmem_size                   49152 # Size of shared memory per shader core (default 16kB)
 -gpgpu_shmem_size_PrefL1                16384 # Size of shared memory per shader core (default 16kB)
 -gpgpu_shmem_size_PrefShared                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_access_latency                   13 # Shared load buffer depth (default 13: Fermi, Maxwell = 21)
 -gpgpu_shmem_num_banks                   32 # Number of banks in the shared memory in each shader core (default 16)
 -gpgpu_shmem_limited_broadcast                    0 # Limit shared memory to do one broadcast per cycle (default on)
 -gpgpu_shmem_warp_parts                    1 # Number of portions a warp is divided into for shared memory bank conflict check 
@@ -71,6 +74,7 @@ GPGPU-Sim: Configuration options:
 -gpgpu_operand_collector_num_out_ports_mem                    1 # number of collector unit in ports (default = 1)
 -gpgpu_operand_collector_num_out_ports_gen                    0 # number of collector unit in ports (default = 0)
 -gpgpu_coalesce_arch                   13 # Coalescing arch (default = 13, anything else is off for now)
+-gpgpu_cycle_sched_prio                    0 # Whether to cycle the priority of warp schedulers (default=false)
 -gpgpu_num_sched_per_core                    2 # Number of warp schedulers per core
 -gpgpu_max_insn_issue_per_warp                    1 # Max number of instructions that can be issued per warp in one cycle by scheduler
 -gpgpu_simt_core_sim_order                    1 # Select the simulation order of cores in a cluster (0=Fix, 1=Round-Robin)
@@ -79,6 +83,7 @@ GPGPU-Sim: Configuration options:
 -gpgpu_num_sfu_units                    1 # Number of SF units (default=1)
 -gpgpu_num_mem_units                    1 # Number if ldst units (default=1) WARNING: not hooked up to anything
 -gpgpu_scheduler                      gto # Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
+-gpgpu_fetch_decode_width                    2 # Number of instructions to fetch per cycle (default=2)
 -gpgpu_dram_scheduler                    1 # 0 = fifo, 1 = FR-FCFS (defaul)
 -gpgpu_dram_partition_queues              8:8:8:8 # i2$:$2d:d2$:$2i
 -l2_ideal                               0 # Use a ideal L2 cache that always hit
@@ -183,14 +188,14 @@ gem5 + GPGPU-Sim CUDA RT: ident: memcpy_load.cu
 gem5 + GPGPU-Sim CUDA RT: elf: ELF3
 gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 9
 gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
-GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_tBMCns"
-Running: cat _ptx_tBMCns | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_eeARyL
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_eeARyL --output-file  /dev/null 2> _ptx_tBMCnsinfo"
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_tBMCns _ptx2_eeARyL _ptx_tBMCnsinfo"
 Touch pages proof hash: 0
 Testing copy host-to-device:
 Size:	Malloc (s):	Copy (s):	Copy (GB/s):
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_Rkaav0"
+Running: cat _ptx_Rkaav0 | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_xhJCB0
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_xhJCB0 --output-file  /dev/null 2> _ptx_Rkaav0info"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_Rkaav0 _ptx2_xhJCB0 _ptx_Rkaav0info"
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
@@ -224,17 +229,17 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
-16384	0.000009	0.000013	4.615135
-24576	0.000007	0.000015	6.000310
-32768	0.000008	0.000018	6.761400
-49152	0.000009	0.000024	7.699006
-65536	0.000010	0.000029	8.321936
-98304	0.000013	0.000041	8.990522
-131072	0.000015	0.000052	9.416281
-196608	0.000020	0.000075	9.801826
-262144	0.000025	0.000097	10.043839
-393216	0.000036	0.000142	10.284441
-524288	0.000046	0.000187	10.429850
+16384	0.000009	0.000016	3.750240
+24576	0.000007	0.000019	4.703696
+32768	0.000008	0.000024	5.159790
+49152	0.000009	0.000032	5.734770
+65536	0.000010	0.000040	6.069526
+98304	0.000012	0.000057	6.457494
+131072	0.000015	0.000073	6.657866
+196608	0.000020	0.000106	6.888714
+262144	0.000025	0.000140	6.999645
+393216	0.000036	0.000206	7.115417
+524288	0.000046	0.000273	7.144124
 
 
 Testing copy device-to-host:
@@ -272,16 +277,16 @@ GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
-16384	0.000007	0.000013	4.853690
-24576	0.000007	0.000015	6.009369
-32768	0.000008	0.000018	6.766647
-49152	0.000009	0.000024	7.743940
-65536	0.000010	0.000029	8.297612
-98304	0.000013	0.000041	9.015089
-131072	0.000015	0.000052	9.420459
-196608	0.000020	0.000074	9.854712
-262144	0.000025	0.000097	10.035582
-393216	0.000036	0.000142	10.336912
-524288	0.000046	0.000187	10.428903
+16384	0.000007	0.000015	3.941312
+24576	0.000007	0.000020	4.683963
+32768	0.000008	0.000024	5.149342
+49152	0.000009	0.000032	5.741603
+65536	0.000010	0.000040	6.076778
+98304	0.000012	0.000057	6.451465
+131072	0.000015	0.000074	6.631193
+196608	0.000020	0.000107	6.860645
+262144	0.000025	0.000139	7.006274
+393216	0.000036	0.000206	7.094293
+524288	0.000046	0.000274	7.140024
 
-Exiting @ tick 2164207500 because target called exit()
+Exiting @ tick 2733977500 because target called exit()
