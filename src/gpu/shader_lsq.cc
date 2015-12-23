@@ -43,8 +43,9 @@ ShaderLSQ::ShaderLSQ(Params *p)
       perWarpInstructionQueues(p->warp_contexts),
       perWarpOutstandingAccesses(p->warp_contexts),
       overallLatencyCycles(p->latency), l1TagAccessCycles(p->l1_tag_cycles),
-      tlb(p->data_tlb), injectWidth(p->inject_width), mshrsFull(false),
-      ejectWidth(p->eject_width), cacheLineAddrMaskBits(-1),
+      tlb(p->data_tlb), sublineBytes(p->subline_bytes),
+      nextAllowedInject(Cycles(0)), injectWidth(p->inject_width),
+      mshrsFull(false), ejectWidth(p->eject_width), cacheLineAddrMaskBits(-1),
       lastWarpInstBufferChange(0), numActiveWarpInstBuffers(0),
       dispatchInstEvent(this), injectAccessesEvent(this),
       ejectAccessesEvent(this), commitInstEvent(this)
@@ -429,6 +430,7 @@ ShaderLSQ::injectCacheAccesses()
     unsigned num_injected = 0;
     WarpInstBuffer::CoalescedAccess *mem_access = injectBuffer.front();
     while (!injectBuffer.empty() && num_injected < injectWidth &&
+           curCycle() >= nextAllowedInject &&
            curCycle() >= mem_access->getInjectCycle()) {
 
         Addr line_addr = addrToLine(mem_access->req->getPaddr());
@@ -463,6 +465,12 @@ ShaderLSQ::injectCacheAccesses()
                         mem_access->getWarpBuffer()->getInstTypeString(),
                         mem_access->req->getPaddr());
                 blockedLineAddrs[line_addr] = true;
+                if (mem_access->isWrite()) {
+                    // Block issue while the store data is being serialized
+                    // through the port to the cache (1 cyc/subline)
+                    unsigned num_sublines = mem_access->getSize() / sublineBytes;
+                    nextAllowedInject = Cycles(curCycle() + num_sublines);
+                }
                 injectBuffer.pop_front();
                 num_injected++;
                 perWarpOutstandingAccesses[mem_access->getWarpId()]++;

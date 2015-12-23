@@ -201,6 +201,10 @@ class ShaderLSQ : public MemObject
     // Data TLB to translate coalesced virtual to physical addresses
     ShaderTLB *tlb;
 
+    // Use this cycle specifier to block inject for variable issue latency
+    // e.g. Fermi and Maxwell store issue is 1 cycle per cache subline
+    unsigned sublineBytes;
+    Cycles nextAllowedInject;
     // Number of accesses that can be injected into L1 cache per cycle
     unsigned injectWidth;
     // Buffer to hold accesses to be sent to the cache

@@ -48,6 +48,7 @@ class ShaderLSQ(MemObject):
 
     warp_size = Param.Int(32, "Size of the warp")
     cache_line_size = Param.Int("Cache line size in bytes")
+    subline_bytes = Param.Int(32, "Bytes per cache subline (e.g. Fermi = 32")
     warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
     num_warp_inst_buffers = Param.Int(64, "Maximum number of in-flight warp instructions")
 
