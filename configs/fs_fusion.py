@@ -97,6 +97,13 @@ if options.cpu_type != "timing" and options.cpu_type != "TimingSimpleCPU" \
     print "Warning: gem5-gpu only known to work with timing and detailed CPUs: Proceed at your own risk!"
 (CPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
 
+# If fast-forwarding, set the fast-forward CPU and mem mode for
+# timing rather than atomic
+if options.fast_forward:
+    assert(CPUClass == AtomicSimpleCPU)
+    assert(test_mem_mode == "atomic")
+    CPUClass, test_mem_mode = Simulation.getCPUClass("TimingSimpleCPU")
+
 #
 # Memory space configuration
 #
