@@ -55,7 +55,17 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     #
     # Build GPU cluster
     #
-    gpu_cluster = Cluster(intBW = 32, extBW = 32)
+    # Empirically, Fermi per-core bandwidth peaks at roughly 23GB/s
+    # (32B/cycle @ 772MHz). Use ~16B per Ruby cycle to match this. Maxwell
+    # per-core bandwidth peaks at 40GB/s (42B/cycle @ 1029MHz). Use ~24B per
+    # Ruby cycle to match this.
+    if options.gpu_core_config == 'Fermi':
+        l1_cluster_bw = 16
+    elif options.gpu_core_config == 'Maxwell':
+        l1_cluster_bw = 24
+    else:
+        m5.util.fatal("Unknown GPU core config: %s" % options.gpu_core_config)
+    gpu_cluster = Cluster(intBW = l1_cluster_bw, extBW = l1_cluster_bw)
     gpu_cluster.disableConnectToParent()
 
     l2_bits = int(math.log(options.num_l2caches, 2))
@@ -134,6 +144,16 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
     l2_cache_access_latency = 30 # ~10 GPU cycles
     l2_to_l1_noc_latency = per_hop_interconnect_latency * num_dance_hall_hops
     l2_to_mem_noc_latency = 125 # ~40 GPU cycles
+    # Empirically, Fermi per-L2 bank bandwidth peaks at roughly 66GB/s
+    # (92B/cycle @ 772MHz). Use ~34B per Ruby cycle to match this. Maxwell
+    # per-L2 bank bandwidth peaks at 123GB/s (128B/cycle @ 1029MHz). Use ~64B
+    # per Ruby cycle to match this.
+    if options.gpu_core_config == 'Fermi':
+        l2_cluster_bw = 34
+    elif options.gpu_core_config == 'Maxwell':
+        l2_cluster_bw = 68
+    else:
+        m5.util.fatal("Unknown GPU core config: %s" % options.gpu_core_config)
 
     l2_clusters = []
     for i in xrange(options.num_l2caches):
@@ -160,7 +180,7 @@ def create_system(options, full_system, system, dma_devices, ruby_system):
                                 ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
-        l2_cluster = Cluster(intBW = 32, extBW = 32)
+        l2_cluster = Cluster(intBW = l2_cluster_bw, extBW = l2_cluster_bw)
         l2_cluster.add(l2_cntrl)
         gpu_cluster.add(l2_cluster)
         l2_clusters.append(l2_cluster)

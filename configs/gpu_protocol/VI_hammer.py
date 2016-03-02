@@ -55,7 +55,7 @@ def create_system(options, full_system, system, dma_ports, ruby_system):
 
     cpu_sequencers = []
 
-    topology = Cluster(intBW = 32, extBW = 32)
+    topology = Cluster(intBW = 68, extBW = 68)
 
     #
     # Must create the individual controllers before the network to ensure the
