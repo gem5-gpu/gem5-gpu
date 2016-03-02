@@ -34,8 +34,6 @@
 #include "debug/CudaCore.hh"
 #include "debug/CudaCoreAccess.hh"
 #include "debug/CudaCoreFetch.hh"
-#include "debug/CudaCoreMemTrace.hh"
-#include "debug/CudaCoreTick.hh"
 #include "gpu/gpgpu-sim/cuda_core.hh"
 #include "gpu/gpgpu-sim/cuda_gpu.hh"
 #include "mem/page_table.hh"
