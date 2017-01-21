@@ -446,6 +446,11 @@ void CudaGPU::gpuPrintStats(std::ostream& out) {
     if (clearTick) {
         out << "Stats cleared at tick " << clearTick << "\n";
     }
+
+    // Print GPU PTX file line stats
+    // TODO: If running multiple benchmarks in the same simulation, this will
+    // need to be updated to print as appropriate
+    printPTXFileLineStats();
 }
 
 extern char *ptx_line_stats_filename;

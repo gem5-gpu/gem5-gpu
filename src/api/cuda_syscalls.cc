@@ -1427,11 +1427,8 @@ __cudaSetLocalAllocation(ThreadContext *tc, gpusyscall_t *call_params) {
 void
 __cudaUnregisterFatBinary(ThreadContext *tc, gpusyscall_t *call_params)
 {
-    // TODO: If running multiple benchmarks in the same simulation, this will
-    // need to be updated to print as appropriate
     CudaGPU *cudaGPU = CudaGPU::getCudaGPU(g_active_device);
     CudaGPU::getCudaGPU(g_active_device)->checkUpdateThreadContext(tc);
-    cudaGPU->printPTXFileLineStats();
     DPRINTF(GPUSyscalls, "gem5 GPU Syscall: __cudaUnregisterFatBinary() Faked\n");
 
     registering_local_alloc_ptr = 0;
