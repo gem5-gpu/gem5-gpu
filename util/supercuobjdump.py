@@ -116,7 +116,7 @@ for line in output.split('\n'):
     if during_function:
         if ('{' in line and '{%' not in line and '{%' not in line) or line == '':
             print line.lstrip()
-        elif ':' in line or '.reg' in line or '.loc ' in line or '.local ' in line or '.shared ' in line or '.param ' in line:
+        elif ':' in line or '.reg' in line or '.loc ' in line or '.local ' in line or '.shared ' in line or '.param ' in line or '.pragma' in line:
             print '        %s' % line.lstrip()
         else:
             if line[-1] != ';':
