@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "base/callback.hh"
+#include "debug/CudaGPU.hh"
 #include "debug/CudaGPUPageTable.hh"
 #include "gpgpu-sim/gpu-sim.h"
 #include "gpu/gpgpu-sim/cuda_core.hh"
@@ -308,19 +309,35 @@ class CudaGPU : public ClockedObject
     ThreadContext *runningTC;
     struct CUstream_st *runningStream;
     int runningTID;
+    Addr runningPTBase;
     void beginStreamOperation(struct CUstream_st *_stream) {
         // We currently do not support multiple concurrent streams
         if (runningStream || runningTC) {
             panic("Already a stream operation running (only support one at a time)!");
         }
+        // NOTE: This may cause a race: The runningTC may have changed (i.e.
+        // the thread was migrated) between when the thread queued the stream
+        // operation and when that operation starts executing here. By reading
+        // CR3 here, we could use this to double check that the correct thread
+        // is running. On the other hand, we could move the CR3 read into the
+        // operation queuing code to avoid the race, but we would not be able
+        // to detect of the thread had migrated since it queued the operation.
         runningStream = _stream;
         runningTC = runningStream->getThreadContext();
         runningTID = runningTC->threadId();
+#if THE_ISA == X86_ISA
+        runningPTBase = runningTC->readMiscRegNoEffect(X86ISA::MISCREG_CR3);
+#else
+        // TODO: ARM ISA should use the TTBCR for user space (which appears
+        // to be called the TTBR1 register). Further investigation required.
+        warn_once("ISA's pagetable base register handling needs to be set up");
+#endif
     }
     void endStreamOperation() {
         runningStream = NULL;
         runningTC = NULL;
         runningTID = -1;
+        runningPTBase = 0;
     }
 
     /// For statistics
@@ -502,6 +519,38 @@ class CudaGPU : public ClockedObject
     /// Called from shader TLB to be used for TLB lookups
     /// TODO: Move the thread context handling to GPU context when we get there
     ThreadContext *getThreadContext() { return runningTC; }
+    Addr getRunningPTBase() { return runningPTBase; }
+    void checkUpdateThreadContext(ThreadContext *tc) {
+        if (!runningTC) {
+            // The GPU isn't running anything, so it won't try to access the
+            // thread context for anything (e.g. address translations). Hence,
+            // it is safe to ignore this check/update process
+            return;
+        }
+        if (tc != runningTC) {
+#if THE_ISA == X86_ISA
+            Addr pagetable_base = tc->readMiscRegNoEffect(X86ISA::MISCREG_CR3);
+#else
+            warn_once("ISA's pagetable base needs to be read and checked!");
+            Addr pagetable_base = 0;
+#endif
+            warn("Thread migrated! Old tc: %p, PT: %p, New tc: %p, PT: %p\n",
+                 runningTC, runningPTBase, tc, pagetable_base);
+            if (pagetable_base == runningPTBase) {
+                // No problem, just change migrate the runningTC
+                DPRINTF(CudaGPU, "Updating the thread context\n");
+                runningTC = tc;
+                runningTID = runningTC->threadId();
+            } else {
+                panic("New pagetable address doesn't match old!\n");
+            }
+        }
+        // NOTE: If we can get away with live updating the thread context
+        // pointer while the GPU is executing, we need to make sure that the
+        // ShaderMMU and ShaderTLBs use the latest runningTC (i.e. we may need
+        // to dynamically update the tc of in-flight translations, and squash
+        // those that are in page-walks). This possibility seems unlikely.
+    }
 
     /// Used when blocking and signaling threads
     std::map<ThreadContext*, Addr> blockedThreads;

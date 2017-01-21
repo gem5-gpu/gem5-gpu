@@ -57,7 +57,8 @@ ShaderMMU::ShaderMMU(const Params *p) :
 #endif
     latency(p->latency), startMissEvent(this), faultTimeoutEvent(this),
     faultTimeoutCycles(1000000), outstandingFaultStatus(None),
-    curOutstandingWalks(0), prefetchBufferSize(p->prefetch_buffer_size)
+    outstandingFaultInfo(NULL), curOutstandingWalks(0),
+    prefetchBufferSize(p->prefetch_buffer_size)
 {
     activeWalkers.resize(pagewalkers.size());
     if (p->l2_tlb_entries > 0) {
@@ -68,6 +69,7 @@ ShaderMMU::ShaderMMU(const Params *p) :
 
     pagewalkEvents.resize(pagewalkers.size());
     for (unsigned pw_id = 0; pw_id < pagewalkers.size(); pw_id++) {
+        activeWalkers[pw_id] = false;
         TheISA::TLB* pw = pagewalkers[pw_id];
         pagewalkerIndices[pw] = pw_id;
         pagewalkEvents[pw_id] = new StartPagewalkEvent(this, pw);
@@ -104,6 +106,8 @@ ShaderMMU::beginTLBMiss(ShaderTLB *req_tlb, BaseTLB::Translation *translation,
 void
 ShaderMMU::handleTLBMiss()
 {
+    assert(!startMisses.empty());
+
     TranslationRequest *translation_request = startMisses.front();
     startMisses.pop();
 
@@ -200,6 +204,7 @@ ShaderMMU::finishWalk(TranslationRequest *translation, Fault fault)
         } else {
             DPRINTF(ShaderMMU, "Retry successful\n");
             outstandingFaultStatus = None;
+            outstandingFaultInfo = NULL;
             ThreadContext *tc = translation->tc;
             GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
             fault_reg.inFault = 0;
@@ -300,10 +305,30 @@ ShaderMMU::raisePageFaultInterrupt(ThreadContext *tc)
     assert(outstandingFaultInfo);
     assert(outstandingFaultStatus == InKernel);
 
+    if (tc != CudaGPU::getCudaGPU(0)->getThreadContext()) {
+        warn("Host TC changed! Updating outstanding fault: Old: %p, New: %p\n",
+             tc, CudaGPU::getCudaGPU(0)->getThreadContext());
+        tc = CudaGPU::getCudaGPU(0)->getThreadContext();
+        outstandingFaultInfo->tc = tc;
+    }
+
+    // Do ISA-specific checks
+#if THE_ISA == X86_ISA
+    Addr running_pt_base = CudaGPU::getCudaGPU(0)->getRunningPTBase();
+    Addr current_pt_base = tc->readMiscRegNoEffect(MISCREG_CR3);
+    if (current_pt_base != running_pt_base) {
+        // NOTE: This is an indicator that the CPU thread is either in kernel
+        // mode or the thread context has been swapped. In the former case,
+        // the interrupts device should make sure that the PF is raised as
+        // appropriate. In the latter, the PF may fail, since the CPU thread
+        // has been moved.
+        warn("Raising GPU PF with incorrect CR3! (running: %p, current: %p)\n",
+             running_pt_base, current_pt_base);
+    }
+#endif
+
     DPRINTF(ShaderMMU, "Raising interrupt for page fault at addr: %#x\n",
             outstandingFaultInfo->req->getVaddr());
-
-    outstandingFaultStatus = InKernel;
 
     GPUFaultReg fault_reg = tc->readMiscRegNoEffect(MISCREG_GPU_FAULT);
     assert(fault_reg.inFault == 0);
@@ -357,8 +382,9 @@ ShaderMMU::faultTimeout(ThreadContext *tc)
         warn("Fault status: None");
     }
     panic("Fault outstanding for %d cycles!\n"
-          "TC: tc: %p, fault reg: %x, fault addr: %x, fault code: %x, fault RSP: %x\n",
-          faultTimeoutCycles, tc, tc->readMiscRegNoEffect(MISCREG_GPU_FAULT),
+          "TC: tc: %p, runningTC: %p, fault reg: %x, fault addr: %x, fault code: %x, fault RSP: %x\n",
+          faultTimeoutCycles, tc, CudaGPU::getCudaGPU(0)->getThreadContext(),
+          tc->readMiscRegNoEffect(MISCREG_GPU_FAULT),
           tc->readMiscRegNoEffect(MISCREG_GPU_FAULTADDR),
           tc->readMiscRegNoEffect(MISCREG_GPU_FAULTCODE),
           tc->readMiscRegNoEffect(MISCREG_GPU_FAULT_RSP));
@@ -395,7 +421,12 @@ ShaderMMU::handlePageFault(TranslationRequest *translation)
     }
 
     ThreadContext *tc = translation->tc;
-    assert(tc == CudaGPU::getCudaGPU(0)->getThreadContext());
+    if (tc != CudaGPU::getCudaGPU(0)->getThreadContext()) {
+        warn("Host TC changed! Old: %p, New: %p. Changing translation\n",
+             tc, CudaGPU::getCudaGPU(0)->getThreadContext());
+        tc = CudaGPU::getCudaGPU(0)->getThreadContext();
+        translation->tc = tc;
+    }
 
     if (outstandingFaultStatus != None) {
         pendingFaults.push(translation);
@@ -424,6 +455,12 @@ ShaderMMU::handleFinishPageFault(ThreadContext *tc)
     deschedule(faultTimeoutEvent);
 
     assert(outstandingFaultStatus != None);
+
+    if (tc != CudaGPU::getCudaGPU(0)->getThreadContext()) {
+        warn("Finishing: Host TC changed! Old: %p, New: %p. Changing...\n",
+             tc, CudaGPU::getCudaGPU(0)->getThreadContext());
+        tc = CudaGPU::getCudaGPU(0)->getThreadContext();
+    }
 
     // The CPU sets inFault = 2 when it begins the page fault handler. If this
     // register is not set to 2, the CPU has triggered this handler incorrectly
@@ -654,7 +691,8 @@ ShaderMMU::TranslationRequest::TranslationRequest(ShaderMMU *_mmu,
     bool prefetch)
             : mmu(_mmu), origTLB(_tlb), pageWalker(NULL),
               wrappedTranslation(translation), req(_req), mode(_mode), tc(_tc),
-              beginFault(0), startTick(start_tick), prefetch(prefetch)
+              beginFault(0), beginWalk(0), startTick(start_tick),
+              prefetch(prefetch)
 {
     vpBase = req->getVaddr() - req->getVaddr() % TheISA::PageBytes;
 }
