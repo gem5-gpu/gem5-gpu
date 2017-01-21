@@ -152,6 +152,9 @@ class ShaderLSQ : public MemObject
     // Maximum number of warps that can be executing on GPU core
     unsigned maxNumWarpsPerCore;
 
+    // Maximum number of atomic operations to send per subline per access
+    unsigned atomsPerSubline;
+
     // TODO: When adding support for membars, this should be updated to track
     // flushing status on a per-warp basis
     // For SM-wide flush handling

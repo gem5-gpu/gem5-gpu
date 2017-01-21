@@ -70,6 +70,7 @@ class WarpInstBuffer {
     int warpId;
     const unsigned laneCount;
     const unsigned warpParts;
+    const unsigned atomsPerSubline;
     BufferState state;
     // Track the type of this warp instruction
     InstructionType instructionType;
@@ -180,9 +181,11 @@ class WarpInstBuffer {
     }
 
   public:
-    WarpInstBuffer(unsigned lane_count, unsigned warp_parts = 1)
+    WarpInstBuffer(unsigned lane_count, unsigned atoms_per_subline,
+                   unsigned warp_parts = 1)
         : warpId(-1), laneCount(lane_count), warpParts(warp_parts),
-          state(EMPTY), instructionType(INVALID)
+          atomsPerSubline(atoms_per_subline), state(EMPTY),
+          instructionType(INVALID)
     {
         laneRequestPkts = new PacketPtr[laneCount];
         for (int i = 0; i < laneCount; i++) {

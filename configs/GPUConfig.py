@@ -60,6 +60,7 @@ def addGPUOptions(parser):
     parser.add_option("--gpu_membus_busy_cycles", type="int", default=-1, help="GPU memory bus busy cycles per data transfer")
     parser.add_option("--gpu_membank_busy_time", type="string", default=None, help="GPU memory bank busy time in ns (CL+tRP+tRCD+CAS)")
     parser.add_option("--gpu_warp_size", type="int", default=32, help="Number of threads per warp, also functional units per shader core/SM")
+    parser.add_option("--gpu_atoms_per_subline", type="int", default=None, help="Maximum atomic ops to send per subline per access")
     parser.add_option("--gpu_threads_per_core", type="int", default=1536, help="Maximum number of threads per GPU core (SM)")
     parser.add_option("--gpgpusim-config", type="string", default=None, help="Path to the gpgpusim.config to use. This overrides the gpgpusim.config template")
     parser.add_option("--gpu-l2-resource-stalls", action="store_true", default=False)
@@ -218,6 +219,18 @@ def createGPU(options, gpu_mem_range):
     gpu.ce = GPUCopyEngine(driver_delay = 5000000,
                            buffering = options.ce_buffering)
 
+    # The default setting for atoms_per_cache_subline is 3, consistent with
+    # the Fermi microarchitecture. If the user wishes to set it differently,
+    # note it and set the value for each shader core below.
+    atoms_per_cache_subline = None
+    if options.gpu_atoms_per_subline is not None:
+        atoms_per_cache_subline = options.gpu_atoms_per_subline
+    else:
+        # If the user doesn't specify gpu_atoms_per_subline explicitly, then
+        # use the number defined for the gpu_core_config
+        if options.gpu_core_config == 'Maxwell':
+            atoms_per_cache_subline = 32
+
     for sc in gpu.shader_cores:
         sc.lsq = ShaderLSQ()
         sc.lsq.data_tlb.entries = options.gpu_tlb_entries
@@ -225,6 +238,8 @@ def createGPU(options, gpu_mem_range):
                                 and options.flush_kernel_end)
         sc.lsq.warp_size = options.gpu_warp_size
         sc.lsq.cache_line_size = options.cacheline_size
+        if atoms_per_cache_subline is not None:
+            sc.lsq.atoms_per_subline = atoms_per_cache_subline
         if options.gpu_threads_per_core % options.gpu_warp_size:
             fatal("gpu_warp_size must divide gpu_threads_per_core evenly.")
         sc.lsq.warp_contexts = warps_per_core

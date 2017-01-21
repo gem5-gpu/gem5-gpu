@@ -51,6 +51,7 @@ class ShaderLSQ(MemObject):
     subline_bytes = Param.Int(32, "Bytes per cache subline (e.g. Fermi = 32")
     warp_contexts = Param.Int(48, "Number of warps possible per GPU core")
     num_warp_inst_buffers = Param.Int(64, "Maximum number of in-flight warp instructions")
+    atoms_per_subline = Param.Int(3, "Maximum atomic ops to send per cache subline in a single access (Fermi = 3)")
 
     # Notes: Fermi back-to-back dependent warp load L1 hits are 19 SM cycles
     # GPGPU-Sim models 5 cycles between LSQ completion and next issued load

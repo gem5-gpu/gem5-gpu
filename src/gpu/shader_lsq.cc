@@ -38,6 +38,7 @@ ShaderLSQ::ShaderLSQ(Params *p)
     : MemObject(p), controlPort(name() + ".ctrl_port", this),
       writebackBlocked(false), cachePort(name() + ".cache_port", this),
       warpSize(p->warp_size), maxNumWarpsPerCore(p->warp_contexts),
+      atomsPerSubline(p->atoms_per_subline),
       flushing(false), flushingPkt(NULL), forwardFlush(p->forward_flush),
       warpInstBufPoolSize(p->num_warp_inst_buffers), dispatchWarpInstBuf(NULL),
       perWarpInstructionQueues(p->warp_contexts),
@@ -62,7 +63,7 @@ ShaderLSQ::ShaderLSQ(Params *p)
 
     warpInstBufPool = new WarpInstBuffer*[warpInstBufPoolSize];
     for (int i = 0; i < warpInstBufPoolSize; i++) {
-        warpInstBufPool[i] = new WarpInstBuffer(warpSize);
+        warpInstBufPool[i] = new WarpInstBuffer(warpSize, atomsPerSubline);
         availableWarpInstBufs.push(warpInstBufPool[i]);
     }
 

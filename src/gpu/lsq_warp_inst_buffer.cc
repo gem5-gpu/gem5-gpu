@@ -297,9 +297,7 @@ WarpInstBuffer::generateCoalescedAccesses(Addr addr, size_t size,
 
         // The maximum number of atomic operations that can be sent to each
         // cache subblock (i.e. (1) above)
-        // TODO: If desired, this can be parameterized to test performance of
-        // various different in-cache atomics architectures
-        unsigned max_atom_per_subblock_per_pkt = 3;
+        unsigned max_atom_per_subblock_per_pkt = atomsPerSubline;
         unsigned bytes_per_subblock = 32;
 
         // Calculate the number of cache subblocks that this set of coalesced
