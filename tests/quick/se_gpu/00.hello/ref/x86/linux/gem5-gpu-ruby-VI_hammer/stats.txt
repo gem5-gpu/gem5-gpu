@@ -4,11 +4,11 @@ sim_seconds                                  0.000026                       # Nu
 sim_ticks                                    26380000                       # Number of ticks simulated
 final_tick                                   26380000                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  15263                       # Simulator instruction rate (inst/s)
-host_op_rate                                    27441                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                               65055327                       # Simulator tick rate (ticks/s)
-host_mem_usage                                4454344                       # Number of bytes of host memory used
-host_seconds                                     0.41                       # Real time elapsed on the host
+host_inst_rate                                  44495                       # Simulator instruction rate (inst/s)
+host_op_rate                                    79990                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                              189630247                       # Simulator tick rate (ticks/s)
+host_mem_usage                                4456064                       # Number of bytes of host memory used
+host_seconds                                     0.14                       # Real time elapsed on the host
 sim_insts                                        6189                       # Number of instructions simulated
 sim_ops                                         11127                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -1324,7 +1324,7 @@ system.ruby.l2_cntrl0.L2cache.demand_misses            0                       #
 system.ruby.l2_cntrl0.L2cache.demand_accesses            0                       # Number of cache demand accesses
 system.ruby.l2_cntrl0.L2cache.num_tag_array_reads          228                       # number of tag array reads
 system.ruby.network.ext_links0.int_node.percent_links_utilized            0                      
-system.ruby.network.ext_links1.int_node.percent_links_utilized     1.134382                      
+system.ruby.network.ext_links1.int_node.percent_links_utilized     0.533827                      
 system.ruby.network.ext_links1.int_node.msg_count.Request_Control::2          228                      
 system.ruby.network.ext_links1.int_node.msg_count.Response_Data::4          228                      
 system.ruby.network.ext_links1.int_node.msg_count.Response_Control::4          456                      
@@ -1333,17 +1333,17 @@ system.ruby.network.ext_links1.int_node.msg_bytes.Request_Control::2         182
 system.ruby.network.ext_links1.int_node.msg_bytes.Response_Data::4        31008                      
 system.ruby.network.ext_links1.int_node.msg_bytes.Response_Control::4         3648                      
 system.ruby.network.ext_links1.int_node.msg_bytes.Unblock_Control::5         1824                      
-system.ruby.network.ext_links2.int_node.percent_links_utilized     0.036012                      
+system.ruby.network.ext_links2.int_node.percent_links_utilized     0.052959                      
 system.ruby.network.ext_links2.int_node.msg_count.Response_Control::4          228                      
 system.ruby.network.ext_links2.int_node.msg_count.Broadcast_Control::3          228                      
 system.ruby.network.ext_links2.int_node.msg_bytes.Response_Control::4         1824                      
 system.ruby.network.ext_links2.int_node.msg_bytes.Broadcast_Control::3         1824                      
-system.ruby.network.ext_links6.int_node.percent_links_utilized     0.144049                      
+system.ruby.network.ext_links6.int_node.percent_links_utilized     0.135575                      
 system.ruby.network.ext_links6.int_node.msg_count.Response_Control::4          456                      
 system.ruby.network.ext_links6.int_node.msg_count.Broadcast_Control::3          456                      
 system.ruby.network.ext_links6.int_node.msg_bytes.Response_Control::4         3648                      
 system.ruby.network.ext_links6.int_node.msg_bytes.Broadcast_Control::3         3648                      
-system.ruby.network.int_links0.node_a.percent_links_utilized     0.594200                      
+system.ruby.network.int_links0.node_a.percent_links_utilized     0.320932                      
 system.ruby.network.int_links0.node_a.msg_count.Request_Control::2          228                      
 system.ruby.network.int_links0.node_a.msg_count.Response_Data::4          228                      
 system.ruby.network.int_links0.node_a.msg_count.Response_Control::4          456                      
@@ -1370,43 +1370,43 @@ system.ruby.network.int_links0.node_a.throttle0.msg_count.Unblock_Control::5    
 system.ruby.network.int_links0.node_a.throttle0.msg_bytes.Request_Control::2         1824                      
 system.ruby.network.int_links0.node_a.throttle0.msg_bytes.Unblock_Control::5         1824                      
 system.ruby.network.int_links0.node_a.throttle1.link_utilization            0                      
-system.ruby.network.int_links0.node_a.throttle2.link_utilization     2.052691                      
+system.ruby.network.int_links0.node_a.throttle2.link_utilization     0.965972                      
 system.ruby.network.int_links0.node_a.throttle2.msg_count.Response_Data::4          228                      
 system.ruby.network.int_links0.node_a.throttle2.msg_count.Response_Control::4          456                      
 system.ruby.network.int_links0.node_a.throttle2.msg_bytes.Response_Data::4        31008                      
 system.ruby.network.int_links0.node_a.throttle2.msg_bytes.Response_Control::4         3648                      
-system.ruby.network.int_links0.node_a.throttle3.link_utilization     0.108036                      
+system.ruby.network.int_links0.node_a.throttle3.link_utilization     0.101681                      
 system.ruby.network.int_links0.node_a.throttle3.msg_count.Broadcast_Control::3          228                      
 system.ruby.network.int_links0.node_a.throttle3.msg_bytes.Broadcast_Control::3         1824                      
 system.ruby.network.ext_links0.int_node.throttle0.link_utilization            0                      
 system.ruby.network.ext_links0.int_node.throttle1.link_utilization            0                      
-system.ruby.network.ext_links1.int_node.throttle0.link_utilization     2.052691                      
+system.ruby.network.ext_links1.int_node.throttle0.link_utilization     0.965972                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_count.Response_Data::4          228                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_count.Response_Control::4          456                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_bytes.Response_Data::4        31008                      
 system.ruby.network.ext_links1.int_node.throttle0.msg_bytes.Response_Control::4         3648                      
-system.ruby.network.ext_links1.int_node.throttle1.link_utilization     0.216073                      
+system.ruby.network.ext_links1.int_node.throttle1.link_utilization     0.101681                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_count.Request_Control::2          228                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_count.Unblock_Control::5          228                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_bytes.Request_Control::2         1824                      
 system.ruby.network.ext_links1.int_node.throttle1.msg_bytes.Unblock_Control::5         1824                      
-system.ruby.network.ext_links2.int_node.throttle0.link_utilization     0.108036                      
+system.ruby.network.ext_links2.int_node.throttle0.link_utilization     0.216073                      
 system.ruby.network.ext_links2.int_node.throttle0.msg_count.Broadcast_Control::3          228                      
 system.ruby.network.ext_links2.int_node.throttle0.msg_bytes.Broadcast_Control::3         1824                      
 system.ruby.network.ext_links2.int_node.throttle1.link_utilization            0                      
 system.ruby.network.ext_links2.int_node.throttle2.link_utilization            0                      
 system.ruby.network.ext_links2.int_node.throttle3.link_utilization            0                      
 system.ruby.network.ext_links2.int_node.throttle4.link_utilization            0                      
-system.ruby.network.ext_links2.int_node.throttle5.link_utilization     0.108036                      
+system.ruby.network.ext_links2.int_node.throttle5.link_utilization     0.101681                      
 system.ruby.network.ext_links2.int_node.throttle5.msg_count.Response_Control::4          228                      
 system.ruby.network.ext_links2.int_node.throttle5.msg_bytes.Response_Control::4         1824                      
-system.ruby.network.ext_links6.int_node.throttle0.link_utilization     0.108036                      
+system.ruby.network.ext_links6.int_node.throttle0.link_utilization     0.101681                      
 system.ruby.network.ext_links6.int_node.throttle0.msg_count.Broadcast_Control::3          228                      
 system.ruby.network.ext_links6.int_node.throttle0.msg_bytes.Broadcast_Control::3         1824                      
-system.ruby.network.ext_links6.int_node.throttle1.link_utilization     0.216073                      
+system.ruby.network.ext_links6.int_node.throttle1.link_utilization     0.203363                      
 system.ruby.network.ext_links6.int_node.throttle1.msg_count.Response_Control::4          456                      
 system.ruby.network.ext_links6.int_node.throttle1.msg_bytes.Response_Control::4         3648                      
-system.ruby.network.ext_links6.int_node.throttle2.link_utilization     0.108036                      
+system.ruby.network.ext_links6.int_node.throttle2.link_utilization     0.101681                      
 system.ruby.network.ext_links6.int_node.throttle2.msg_count.Broadcast_Control::3          228                      
 system.ruby.network.ext_links6.int_node.throttle2.msg_bytes.Broadcast_Control::3         1824                      
 system.ruby.LD.latency_hist::bucket_size           16                      

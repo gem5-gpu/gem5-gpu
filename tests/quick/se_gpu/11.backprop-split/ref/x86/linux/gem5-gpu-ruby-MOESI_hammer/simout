@@ -1,10 +1,8 @@
-Redirecting stdout to build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/11.backprop-split/x86/linux/gem5-gpu-ruby-MOESI_hammer/simout
-Redirecting stderr to build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/11.backprop-split/x86/linux/gem5-gpu-ruby-MOESI_hammer/simerr
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Dec 22 2015 16:21:33
-gem5 started Dec 22 2015 17:46:58
+gem5 compiled Jan 21 2017 14:51:07
+gem5 started Jan 21 2017 14:51:19
 gem5 executing on artery
 command line: build/X86_MOESI_hammer_GPU/gem5.opt -d build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/11.backprop-split/x86/linux/gem5-gpu-ruby-MOESI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_MOESI_hammer_GPU/tests/opt/quick/se_gpu/11.backprop-split/x86/linux/gem5-gpu-ruby-MOESI_hammer
 
@@ -225,17 +223,17 @@ GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x530 (_1.ptx:275) @%p1 br
 GPGPU-Sim PTX:    immediate post dominator      @  PC=0x600 (_1.ptx:305) exit;
 GPGPU-Sim PTX: ... end of reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
 GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'.
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_KJLXnk"
+Running: cat _ptx_KJLXnk | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_H3M1KH
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_H3M1KH --output-file  /dev/null 2> _ptx_KJLXnkinfo"
+GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
+GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_KJLXnk _ptx2_H3M1KH _ptx_KJLXnkinfo"
 Random number generator seed: 7
 Input layer size : 256
 Starting training kernel
 Performing GPU computation
-GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_w83A9N"
-Running: cat _ptx_w83A9N | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_yQWKoo
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_yQWKoo --output-file  /dev/null 2> _ptx_w83A9Ninfo"
-GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=84
-GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=13, lmem=0, smem=1088, cmem=72
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_w83A9N _ptx2_yQWKoo _ptx_w83A9Ninfo"
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device

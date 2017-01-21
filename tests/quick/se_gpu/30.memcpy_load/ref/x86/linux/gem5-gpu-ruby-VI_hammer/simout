@@ -1,10 +1,8 @@
-Redirecting stdout to build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer/simout
-Redirecting stderr to build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer/simerr
 gem5 Simulator System.  http://gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
-gem5 compiled Dec 22 2015 11:52:47
-gem5 started Dec 22 2015 17:39:55
+gem5 compiled Jan 21 2017 14:09:22
+gem5 started Jan 21 2017 14:09:33
 gem5 executing on artery
 command line: build/X86_VI_hammer_GPU/gem5.opt -d build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer -re /home/joel/research/gem5/gem5-gpu-latest/gem5/tests/run.py build/X86_VI_hammer_GPU/tests/opt/quick/se_gpu/30.memcpy_load/x86/linux/gem5-gpu-ruby-VI_hammer
 
@@ -188,14 +186,14 @@ gem5 + GPGPU-Sim CUDA RT: ident: memcpy_load.cu
 gem5 + GPGPU-Sim CUDA RT: elf: ELF3
 gem5 + GPGPU-Sim CUDA RT: ptx[0] code hash = 9
 gem5 + GPGPU-Sim CUDA RT: ptx[0]->gpuProfileName: compute_20
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_rpcKyE"
+Running: cat _ptx_rpcKyE | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_fUT5s0
+GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_fUT5s0 --output-file  /dev/null 2> _ptx_rpcKyEinfo"
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_rpcKyE _ptx2_fUT5s0 _ptx_rpcKyEinfo"
 Touch pages proof hash: 0
 Testing copy host-to-device:
 Size:	Malloc (s):	Copy (s):	Copy (GB/s):
-GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
-GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_Rkaav0"
-Running: cat _ptx_Rkaav0 | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_xhJCB0
-GPGPU-Sim PTX: generating ptxinfo using "ptxas --gpu-name=sm_20 -v _ptx2_xhJCB0 --output-file  /dev/null 2> _ptx_Rkaav0info"
-GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_Rkaav0 _ptx2_xhJCB0 _ptx_Rkaav0info"
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
@@ -229,17 +227,17 @@ GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy host-to-device
-16384	0.000009	0.000016	3.750240
-24576	0.000007	0.000019	4.703696
-32768	0.000008	0.000024	5.159790
-49152	0.000009	0.000032	5.734770
-65536	0.000010	0.000040	6.069526
-98304	0.000012	0.000057	6.457494
-131072	0.000015	0.000073	6.657866
-196608	0.000020	0.000106	6.888714
-262144	0.000025	0.000140	6.999645
-393216	0.000036	0.000206	7.115417
-524288	0.000046	0.000273	7.144124
+16384	0.000009	0.000016	3.733722
+24576	0.000007	0.000020	4.688520
+32768	0.000008	0.000024	5.167654
+49152	0.000009	0.000032	5.724014
+65536	0.000010	0.000040	6.091941
+98304	0.000012	0.000057	6.435027
+131072	0.000015	0.000073	6.654690
+196608	0.000020	0.000106	6.885670
+262144	0.000025	0.000140	6.989475
+393216	0.000036	0.000206	7.098693
+524288	0.000046	0.000273	7.165748
 
 
 Testing copy device-to-host:
@@ -277,16 +275,16 @@ GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
 GPGPU-Sim API: Stream Manager State
 GPGPU-Sim API:    stream 0 has 1 operations
 GPGPU-Sim API:       0 :  stream operation memcpy device-to-host
-16384	0.000007	0.000015	3.941312
-24576	0.000007	0.000020	4.683963
-32768	0.000008	0.000024	5.149342
-49152	0.000009	0.000032	5.741603
-65536	0.000010	0.000040	6.076778
-98304	0.000012	0.000057	6.451465
-131072	0.000015	0.000074	6.631193
-196608	0.000020	0.000107	6.860645
-262144	0.000025	0.000139	7.006274
-393216	0.000036	0.000206	7.094293
-524288	0.000046	0.000274	7.140024
+16384	0.000007	0.000015	3.947430
+24576	0.000007	0.000020	4.678457
+32768	0.000008	0.000024	5.147605
+49152	0.000009	0.000032	5.729387
+65536	0.000010	0.000040	6.088750
+98304	0.000012	0.000057	6.439553
+131072	0.000015	0.000073	6.663318
+196608	0.000020	0.000107	6.847496
+262144	0.000025	0.000140	6.978986
+393216	0.000036	0.000207	7.079994
+524288	0.000046	0.000272	7.193327
 
-Exiting @ tick 2733977500 because target called exit()
+Exiting @ tick 2733170000 because target called exit()
