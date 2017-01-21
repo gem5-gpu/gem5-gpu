@@ -329,7 +329,6 @@ machine(Directory, "AMD Hammer-like protocol")
   MessageBuffer responseFromMemory;
 
   // ** OUT_PORTS **
-  out_port(requestQueue_out, ResponseMsg, requestToDir); // For recycling requests
   out_port(forwardNetwork_out, RequestMsg, forwardFromDir);
   out_port(responseNetwork_out, ResponseMsg, responseFromDir);
   out_port(dmaResponseNetwork_out, DMAResponseMsg, dmaResponseFromDir);
